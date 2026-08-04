@@ -3,14 +3,14 @@
  */
 
 import * as http from 'http';
-import * as https from 'https';
+import * as url from 'url';
 import { URL } from 'url';
 
 export interface ProxyOptions {
   /**
    * Target URL
    */
-  target: string;
+  target?: string;
 
   /**
    * Path rewrite
@@ -115,29 +115,27 @@ export function createProxy(
         host: targetObj.host,
         port: targetObj.port,
         path: pathname + queryString,
-        headers: { ...req.headers },
+        headers: { ...(req.headers as http.OutgoingHttpHeaders) },
         timeout,
       };
 
       // Change origin header
       if (options.changeOrigin) {
-        if (requestOptions.headers) {
-          requestOptions.headers.host = `${targetObj.host}:${targetObj.port}`;
-        }
+        const headers = requestOptions.headers as http.OutgoingHttpHeaders;
+        headers.host = `${targetObj.host}:${targetObj.port}`;
       }
 
       // Add custom headers
       if (options.headers) {
+        const headers = requestOptions.headers as http.OutgoingHttpHeaders;
         for (const [key, value] of Object.entries(options.headers)) {
-          if (requestOptions.headers) {
-            requestOptions.headers[key] = value;
-          }
+          headers[key] = value;
         }
       }
 
       // Forward selected headers
       if (options.forwardHeaders && requestOptions.headers) {
-        const headers = requestOptions.headers;
+        const headers = requestOptions.headers as http.OutgoingHttpHeaders;
         const allHeaders = Object.keys(headers);
         for (const header of allHeaders) {
           if (!options.forwardHeaders.includes(header)) {

@@ -6,6 +6,12 @@
  * and hands off each section to the appropriate compiler.
  */
 
+import { parseSFC } from './parser';
+import { compileScript } from './script';
+import { compileStyle } from './style';
+import { compileTemplate } from './template';
+import { compile } from './compile';
+
 // Export parser
 export { parseSFC, type SFCResult, type SFCParserOptions } from './parser';
 

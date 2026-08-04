@@ -5,7 +5,7 @@
  * and signal-like objects.
  */
 
-import { createSignal, createComputed, type Signal, type Computed } from './reactive';
+import { createSignal, createEffect, type Signal, type Computed } from './reactive';
 
 /**
  * Check if a value is a computed signal
@@ -30,34 +30,30 @@ export type SignalLike<T> = Signal<T> | Computed<T> | (() => T);
  * Convert a signal-like value to a signal
  */
 export function toSignal<T>(value: SignalLike<T>): Signal<T> {
-  // If it's already a signal, return it
-  if (isSignal(value)) {
+  if (isSignal<T>(value)) {
     return value;
   }
 
-  // If it's a computed, wrap it in a signal
-  if (isComputed(value)) {
-    const [get, set] = createSignal(value());
+  if (isComputed<T>(value)) {
+    const signal = createSignal<T>(value());
     createEffect(() => {
-      set(value());
+      signal.set(value());
     });
-    return get as Signal<T>;
+    return signal;
   }
 
-  // If it's a function, wrap it
   if (typeof value === 'function') {
-    const [get, set] = createSignal(value());
+    const signal = createSignal<T>(value());
     createEffect(() => {
-      const newVal = value();
-      if (get() !== newVal) {
-        set(newVal);
+      const next = value();
+      if (signal.peek() !== next) {
+        signal.set(next);
       }
     });
-    return get as Signal<T>;
+    return signal;
   }
 
-  // It's a raw value - create a signal from it
-  return createSignal(value);
+  return createSignal<T>(value);
 }
 
 /**

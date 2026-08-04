@@ -102,14 +102,14 @@ function validateFor(
 function validateIf(
   node: any,
   errors: string[],
-  warnings: string[]
+  _warnings: string[]
 ): void {
   if (!node.condition) {
     errors.push(`If statement missing 'condition' attribute at line ${node.line}`);
   }
 
   for (const child of node.children) {
-    validateNode(child, errors, warnings);
+    validateNode(child, errors, _warnings);
   }
 }
 
@@ -119,7 +119,7 @@ function validateIf(
 function validateInterpolation(
   node: any,
   errors: string[],
-  warnings: string[]
+  _warnings: string[]
 ): void {
   if (!node.value || node.value.trim() === '') {
     errors.push(`Empty interpolation at line ${node.line}`);

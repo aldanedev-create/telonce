@@ -132,12 +132,12 @@ export function compileStyle(
  * Scope CSS with component-specific selectors
  */
 function scopeCSS(css: string, scope: CSSScope): string {
-  const { attribute, className } = scope;
+  const { attribute } = scope;
 
   // Add scope attribute to selectors
   return css.replace(
     /([^{]+)(\{[^}]*\})/g,
-    (match, selector, rules) => {
+    (_match, selector, rules) => {
       // Split selectors
       const scopedSelectors = selector.split(',').map((sel: string) => {
         const trimmed = sel.trim();

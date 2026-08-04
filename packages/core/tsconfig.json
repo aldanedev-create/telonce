@@ -1,20 +1,20 @@
-// Export all core functionality
-export { createApp } from './app';
-export { defineComponent, type Component, type ComponentOptions } from './component';
-export { createConfig, type TeloceConfig } from './config';
-export { createTeloce } from './create';
-export { mount } from './mount';
-export { createPlugin, type Plugin, type PluginInstall } from './plugin';
-
-// Re-export reactivity types for convenience
-export { createSignal, createEffect, createComputed, createMemo, batch, untracked } from '@teloce/reactivity';
-
-// Default export
-export default {
-  createApp,
-  defineComponent,
-  createConfig,
-  createTeloce,
-  mount,
-  createPlugin,
-};
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "declaration": true,
+    "emitDeclarationOnly": false,
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["ES2020", "DOM"],
+    "baseUrl": ".",
+    "paths": {
+      "@teloce/reactivity": ["../reactivity/src"],
+      "@teloce/runtime-dom": ["../runtime-dom/src"],
+      "@teloce/std": ["../std/src"]
+    }
+  },
+  "include": ["src"]
+}

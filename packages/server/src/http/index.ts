@@ -29,7 +29,7 @@ export interface ServerOptions {
   /**
    * Request handler
    */
-  handler?: (req: http.IncomingMessage, res: http.ServerResponse) => void;
+  handler?: (req: http.IncomingMessage, res: http.ServerResponse) => void | Promise<void>;
 
   /**
    * Middleware stack
@@ -92,7 +92,7 @@ export function createServer(options: ServerOptions = {}): ServerInstance {
     server = http.createServer(options.handler || defaultHandler);
   }
 
-  function defaultHandler(req: http.IncomingMessage, res: http.ServerResponse) {
+  function defaultHandler(_req: http.IncomingMessage, res: http.ServerResponse) {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end('Teloce Dev Server');
   }

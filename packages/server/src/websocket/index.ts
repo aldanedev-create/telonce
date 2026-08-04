@@ -6,7 +6,7 @@
 
 import { EventEmitter } from 'events';
 import * as http from 'http';
-import { WebSocketServer as WSServer, WebSocket, ServerOptions } from 'ws';
+import { WebSocketServer as WSServer, WebSocket, type ServerOptions } from 'ws';
 import * as crypto from 'crypto';
 
 export interface WebSocketServerOptions {

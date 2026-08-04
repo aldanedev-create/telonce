@@ -30,7 +30,7 @@ const effectCleanups: Map<Effect, () => void> = new Map();
 /**
  * Track dependencies for the current effect
  */
-export function track(target: object, key: symbol | string): void {
+export function track(_target: object, key: symbol | string): void {
   const effect = getCurrentEffect();
   if (!effect) return;
 
@@ -52,7 +52,7 @@ export function track(target: object, key: symbol | string): void {
 /**
  * Trigger effects for a tracked dependency
  */
-export function trigger(target: object, key: symbol | string): void {
+export function trigger(_target: object, key: symbol | string): void {
   const effects = new Set<Effect>();
 
   for (const [effect, deps] of depsMap) {

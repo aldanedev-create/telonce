@@ -2,9 +2,9 @@
  * Dev server - complete development server with HMR, middleware, and proxy
  */
 
-import { createServer, type ServerInstance, type ServerOptions } from './http';
+import { createServer, type ServerInstance } from './http';
 import { createWebSocketServer, type WebSocketServer } from './websocket';
-import { combineMiddleware, staticMiddleware, loggerMiddleware, corsMiddleware } from './middleware';
+import { combineMiddleware, staticMiddleware, loggerMiddleware, corsMiddleware, type MiddlewareHandler, type MiddlewareContext } from './middleware';
 import { createProxy } from './proxy';
 
 export interface DevServerOptions {
@@ -97,12 +97,11 @@ export interface DevServer {
 export function createDevServer(options: DevServerOptions = {}): DevServer {
   const port = options.port || 5173;
   const host = options.host || 'localhost';
-  const root = options.root || process.cwd();
   const staticDir = options.staticDir || 'static';
   const proxyTarget = options.proxyTarget;
 
   // Build middleware stack
-  const middleware = [];
+  const middleware: Array<{ name: string; handler: MiddlewareHandler; priority?: number }> = [];
 
   // Logger
   if (options.logging !== false) {
@@ -127,7 +126,10 @@ export function createDevServer(options: DevServerOptions = {}): DevServer {
     });
     middleware.push({
       name: 'proxy',
-      handler: proxy.proxy,
+      handler: async (ctx: MiddlewareContext, next: () => Promise<void>) => {
+        await proxy.proxy(ctx.req as any, ctx.res as any);
+        await next();
+      },
       priority: 0,
     });
   }
@@ -141,7 +143,19 @@ export function createDevServer(options: DevServerOptions = {}): DevServer {
   const httpServer = createServer({
     port,
     host,
-    handler: combineMiddleware(middleware),
+    handler: (req: any, res: any) => {
+      const ctx = {
+        req,
+        res,
+        params: {},
+        query: {},
+      };
+
+      return combineMiddleware(middleware)(ctx as any, async () => {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not found');
+      });
+    },
   });
 
   // Create WebSocket server for HMR

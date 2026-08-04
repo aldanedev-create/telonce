@@ -7,12 +7,12 @@ import { registerComponent, getComponent, type Component } from './component';
  */
 export interface TeloceApp {
   config: TeloceConfig;
-  reactive: <T extends Record<string, any>>(obj: T) => T;
-  effect: (fn: () => void) => void;
+  reactive: <T extends Record<string, any>>(obj: T) => Record<string, any>;
+  effect: (fn: () => void) => unknown;
   computed: <T>(fn: () => T) => () => T;
   component: (name: string, component: Component) => void;
   use: (plugin: any) => void;
-  mount: (root: Element, state: Record<string, any>) => void;
+  mount: (root: Element, state: Record<string, any>) => TeloceApp;
   unmount: () => void;
 }
 
@@ -23,7 +23,7 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
   const fullConfig = createConfig(config);
   let root: Element | null = null;
   let state: Record<string, any> = {};
-  let effects: (() => void)[] = [];
+  let effects: unknown[] = [];
   let isMounted = false;
 
   const app: TeloceApp = {
@@ -31,37 +31,32 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
 
     reactive(obj) {
       // Wrap each property as a signal
-      const signals: Record<string, any> = {};
+      const signals: Record<string, unknown> = {};
       for (const key in obj) {
-        const [get, set] = createSignal(obj[key]);
+        const signal = createSignal(obj[key]);
         signals[key] = {
-          get,
-          set,
+          get: () => signal(),
+          set: (value: any) => signal.set(value),
           // For direct access (state.key)
-          value: get(),
+          value: signal(),
         };
       }
       // Create proxy for reactive access
-      return new Proxy(signals, {
-        get(target, prop: string) {
-          if (prop in target) {
-            const signal = target[prop];
-            if (signal && typeof signal === 'object' && 'get' in signal) {
-              return signal.get();
-            }
-            return signal;
+      return new Proxy({}, {
+        get(_target, prop: string) {
+          const signal = (signals as Record<string, any>)[prop];
+          if (signal && typeof signal === 'object' && 'get' in signal) {
+            return (signal as any).get();
           }
-          return undefined;
+          return signal;
         },
-        set(target, prop: string, value) {
-          if (prop in target) {
-            const signal = target[prop];
-            if (signal && typeof signal === 'object' && 'set' in signal) {
-              signal.set(value);
-              return true;
-            }
+        set(_target, prop: string, value) {
+          const signal = (signals as Record<string, any>)[prop];
+          if (signal && typeof signal === 'object' && 'set' in signal) {
+            (signal as any).set(value);
+            return true;
           }
-          target[prop] = value;
+          (signals as Record<string, any>)[prop] = value;
           return true;
         },
       });
@@ -69,7 +64,7 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
 
     effect(fn) {
       const effect = createEffect(fn);
-      effects.push(effect);
+      effects.push(effect as unknown);
       return effect;
     },
 

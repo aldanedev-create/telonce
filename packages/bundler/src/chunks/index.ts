@@ -155,10 +155,7 @@ export function analyzeChunks(
 /**
  * Split code into chunks
  */
-export function splitChunks(
-  modules: string[],
-  options: ChunkOptions = {}
-): Chunk[] {
+export function splitChunks(modules: string[]): Chunk[] {
   const chunks: Chunk[] = [];
   const targetSize = options.targetSize || 100000; // 100KB default
   let currentChunk: Chunk | null = null;
@@ -185,10 +182,7 @@ export function splitChunks(
 /**
  * Optimize chunks
  */
-export function optimizeChunks(
-  chunks: Chunk[],
-  options: ChunkOptions = {}
-): ChunkOptimization {
+export function optimizeChunks(chunks: Chunk[]): ChunkOptimization {
   // Group by similarity
   const grouped = new Map<string, Chunk[]>();
   
@@ -231,10 +225,7 @@ export function optimizeChunks(
 /**
  * Create chunks from entry files
  */
-export function createChunks(
-  entries: string[],
-  options: ChunkOptions = {}
-): ChunkResult {
+export function createChunks(entries: string[]): ChunkResult {
   const chunks: Chunk[] = [];
 
   // Create entry chunks

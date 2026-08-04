@@ -42,7 +42,7 @@ export function parseSingleExpression(value: string): {
     return { type: 'literal', value: trimmed.slice(1, -1) };
   }
   if (/^\d+$/.test(trimmed)) {
-    return { type: 'literal', value: Number(trimmed) };
+    return { type: 'literal', value: trimmed };
   }
 
   // Check for member access (foo.bar)

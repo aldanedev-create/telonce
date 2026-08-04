@@ -6,42 +6,36 @@
  * into JavaScript code that can be executed in the browser.
  */
 
-// Export lexer
-export { tokenize, type Token, type TokenType } from './lexer';
+import { tokenize } from './lexer';
+import { parse } from './parser';
+import { validate } from './validator';
+import { analyzeScope } from './scope-analysis';
+import { transform } from './transformer';
+import { optimize } from './optimizer';
+import { generate } from './generator';
+import { compile } from './compile';
+import { parseHTML } from './parser/html';
+import { parseTemplate } from './parser/template';
+import { parseExpression } from './parser/expressions';
+import { PatchFlag } from './types';
+
+export { tokenize } from './lexer';
+export type { Token, TokenType } from './lexer';
 export { TokenType as TokenTypes } from './lexer/tokens';
-
-// Export parser
-export { parse, type ASTNode, type ElementNode, type TextNode, type InterpolationNode, type ForNode, type IfNode, type DirectiveNode } from './parser';
+export { parse } from './parser';
+export type { ASTNode, ElementNode, TextNode, InterpolationNode, ForNode, IfNode, DirectiveNode } from './parser';
 export { ASTNodeType } from './parser/ast';
-
-// Export HTML parser
 export { parseHTML } from './parser/html';
-
-// Export template parser
 export { parseTemplate } from './parser/template';
-
-// Export expression parser
 export { parseExpression } from './parser/expressions';
-
-// Export validator
-export { validate, type ValidationResult, type ValidationError } from './validator';
-
-// Export scope analysis
+export { validate, type ValidationResult } from './validator';
 export { analyzeScope, type Scope, type ScopeAnalysis } from './scope-analysis';
-
-// Export transformer
 export { transform, type TransformOptions, type TransformResult } from './transformer';
-
-// Export optimizer
 export { optimize, type OptimizeOptions, type OptimizeResult } from './optimizer';
-
-// Export code generator
 export { generate, type GenerateOptions, type GenerateResult } from './generator';
-
-// Export main compile function
 export { compile, type CompileOptions, type CompileResult } from './compile';
+export { PatchFlag } from './types';
 
-// Default export
 export default {
   tokenize,
   parse,
@@ -54,4 +48,5 @@ export default {
   optimize,
   generate,
   compile,
+  PatchFlag,
 };

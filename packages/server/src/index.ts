@@ -5,7 +5,36 @@
  * It includes HTTP server, WebSocket for HMR, middleware, and proxy support.
  */
 
-// Export HTTP server
+import {
+  createServer,
+  startServer,
+  stopServer,
+} from './http';
+
+import {
+  createWebSocketServer,
+  sendMessage,
+  broadcastMessage,
+} from './websocket';
+
+import {
+  createMiddleware,
+  combineMiddleware,
+  loggerMiddleware,
+  corsMiddleware,
+  staticMiddleware,
+  compressMiddleware,
+} from './middleware';
+
+import {
+  createProxy,
+  proxyRequest,
+} from './proxy';
+
+import {
+  createDevServer,
+} from './dev-server';
+
 export {
   createServer,
   startServer,
@@ -15,7 +44,6 @@ export {
   type ServerConfig,
 } from './http';
 
-// Export WebSocket
 export {
   createWebSocketServer,
   sendMessage,
@@ -26,7 +54,6 @@ export {
   type WebSocketClient,
 } from './websocket';
 
-// Export middleware
 export {
   createMiddleware,
   combineMiddleware,
@@ -39,7 +66,6 @@ export {
   type MiddlewareContext,
 } from './middleware';
 
-// Export proxy
 export {
   createProxy,
   proxyRequest,
@@ -48,15 +74,12 @@ export {
   type ProxyTarget,
 } from './proxy';
 
-// Export main server
 export {
   createDevServer,
   type DevServerOptions,
   type DevServer,
-  type DevServerConfig,
 } from './dev-server';
 
-// Default export
 export default {
   createServer,
   startServer,

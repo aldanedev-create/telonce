@@ -6,40 +6,56 @@
  * for fine-grained reactive updates.
  */
 
-// Export all reactivity functionality
-export { 
-  createSignal, 
-  createEffect, 
-  createComputed, 
-  createMemo, 
-  batch, 
+import {
+  createSignal,
+  createEffect,
+  createComputed,
+  createMemo,
+  batch,
   untracked,
   currentEffect,
   type Signal,
   type Effect,
   type Computed,
-  type Memo
+  type Memo,
 } from './reactive';
 
-// Export effect tracking utilities
-export { 
-  track, 
-  trigger, 
-  getDependencies, 
+import {
+  track,
+  trigger,
+  getDependencies,
   clearDependencies,
   type Dep,
-  type Deps
+  type Deps,
 } from './effect';
 
-// Export computed utilities
-export { 
-  isComputed,
-  isSignal,
-  toSignal,
-  type SignalLike
-} from './computed';
+import { isComputed, isSignal, toSignal, type SignalLike } from './computed';
 
-// Default export
+export {
+  createSignal,
+  createEffect,
+  createComputed,
+  createMemo,
+  batch,
+  untracked,
+  currentEffect,
+  type Signal,
+  type Effect,
+  type Computed,
+  type Memo,
+};
+
+export {
+  track,
+  trigger,
+  getDependencies,
+  clearDependencies,
+  type Dep,
+  type Deps,
+};
+
+export { isComputed, isSignal, toSignal, type SignalLike };
+
 export default {
   createSignal,
   createEffect,
@@ -47,6 +63,7 @@ export default {
   createMemo,
   batch,
   untracked,
+  currentEffect,
   track,
   trigger,
   getDependencies,

@@ -97,7 +97,7 @@ export function compile(
     const validation = validate(ast);
 
     // 4. Scope analysis
-    const scope = analyzeScope(ast);
+    analyzeScope(ast);
 
     // 5. Transformer - optimize and transform
     const transformed = transform(ast, {
@@ -105,13 +105,15 @@ export function compile(
       foldConstants: true,
     });
 
+    const transformedAst = transformed.ast;
+
     // 6. Optimizer - generate patch flags
-    const optimized = options.optimize !== false
-      ? optimize(transformed, { staticHoisting: true })
-      : transformed;
+    const optimizedAst = options.optimize !== false
+      ? optimize(transformedAst, { staticHoisting: true }).ast
+      : transformedAst;
 
     // 7. Generator - emit JavaScript
-    const code = generate(optimized, {
+    const code = generate(optimizedAst, {
       minify: options.minify ?? false,
       target: options.target ?? 'browser',
       dev: options.dev ?? false,
@@ -121,7 +123,7 @@ export function compile(
 
     return {
       code: code.code,
-      ast: optimized,
+      ast: optimizedAst,
       diagnostics: {
         warnings: validation.warnings,
         errors: validation.errors,

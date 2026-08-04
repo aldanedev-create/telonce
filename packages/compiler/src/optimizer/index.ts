@@ -4,6 +4,8 @@
 
 import { ASTNodeType, type ASTNode, type ElementNode } from '../parser';
 
+export { PatchFlag } from '../types';
+
 export interface OptimizeOptions {
   staticHoisting?: boolean;
   patchFlags?: boolean;

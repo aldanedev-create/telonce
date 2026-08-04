@@ -133,13 +133,13 @@ export interface Suggestion {
 const errorPatterns: Array<{
   pattern: RegExp;
   category: ErrorCategory;
-  translate: (match: RegExpMatchArray, parsed: ParsedError) => ErrorTranslation;
+  translate: (match: RegExpMatchArray) => ErrorTranslation;
 }> = [
   // TypeScript Type Errors
   {
     pattern: /Type '(.+)' is not assignable to type '(.+)'/,
     category: 'type_error',
-    translate: (match, parsed) => ({
+    translate: (match) => ({
       title: 'Type Mismatch',
       description: `You're using a value of type "${match[1]}" where "${match[2]}" is expected.`,
       fix: `Change the value to match type "${match[2]}"`,
@@ -151,7 +151,7 @@ const errorPatterns: Array<{
   {
     pattern: /Cannot find name '(.+)'/,
     category: 'reference_error',
-    translate: (match, parsed) => ({
+    translate: (match) => ({
       title: 'Undefined Variable',
       description: `The variable "${match[1]}" is not defined.`,
       fix: `Define "${match[1]}" before using it, or check for typos.`,
@@ -163,7 +163,7 @@ const errorPatterns: Array<{
   {
     pattern: /Cannot read property '(.+)' of (undefined|null)/,
     category: 'property_error',
-    translate: (match, parsed) => ({
+    translate: (match) => ({
       title: 'Property Access on Empty Value',
       description: `Tried to read property "${match[1]}" from ${match[2]}.`,
       fix: `Make sure the object exists before accessing "${match[1]}".`,

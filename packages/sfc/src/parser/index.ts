@@ -52,10 +52,7 @@ export interface SFCParserOptions {
 /**
  * Parse a .vel Single File Component
  */
-export function parseSFC(
-  source: string,
-  options: SFCParserOptions = {}
-): SFCResult {
+export function parseSFC(source: string): SFCResult {
   const diagnostics = {
     errors: [] as string[],
     warnings: [] as string[],

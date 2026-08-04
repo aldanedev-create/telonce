@@ -2,7 +2,23 @@
  * Hover - Provides hover information for Teloce templates
  */
 
-import { ASTNodeType, type ASTNode, type ElementNode } from '@teloce/compiler';
+export interface Diagnostic {
+  message: string;
+  severity: 'error' | 'warning' | 'info' | 'hint';
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+  code?: string;
+  source?: string;
+  fix?: string;
+}
+
+export type DiagnosticSeverity = Diagnostic['severity'];
+
+export interface DiagnosticProvider {
+  getDiagnostics: (content: string, uri?: string) => Diagnostic[];
+}
 
 export interface HoverInfo {
   /**
@@ -299,6 +315,55 @@ function isComponentName(
   // Check for component registration
   const componentRegex = new RegExp(`component\\(['"]${word}['"]`);
   return componentRegex.test(content);
+}
+
+export function getDiagnostics(content: string, uri = 'inline.teloce'): Diagnostic[] {
+  const unmatched = countUnmatchedDelimiters(content);
+  if (unmatched > 0) {
+    return [
+      {
+        message: 'Unmatched template expression delimiters.',
+        severity: 'error',
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: Math.min(content.length, 1) },
+        },
+        code: 'teloce-template-error',
+        source: 'teloce-language-service',
+        fix: 'Close the expression with }}.',
+      },
+    ];
+  }
+
+  return [];
+}
+
+export function validateTemplate(content: string, uri = 'inline.teloce'): Diagnostic[] {
+  return getDiagnostics(content, uri);
+}
+
+function countUnmatchedDelimiters(content: string): number {
+  let opens = 0;
+  let inExpression = false;
+
+  for (let i = 0; i < content.length; i += 1) {
+    const char = content[i];
+    if (char === '{' && content[i + 1] === '{') {
+      opens += 1;
+      inExpression = true;
+      i += 1;
+      continue;
+    }
+
+    if (char === '}' && content[i + 1] === '}' && inExpression) {
+      opens = Math.max(0, opens - 1);
+      inExpression = false;
+      i += 1;
+      continue;
+    }
+  }
+
+  return opens;
 }
 
 /**

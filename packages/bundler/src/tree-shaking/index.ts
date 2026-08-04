@@ -115,10 +115,7 @@ export interface ExportInfo {
 /**
  * Analyze imports in a module
  */
-export function analyzeImports(
-  code: string,
-  filePath?: string
-): ImportInfo[] {
+export function analyzeImports(code: string): ImportInfo[] {
   const imports: ImportInfo[] = [];
   
   // Match import statements
@@ -159,10 +156,7 @@ export function analyzeImports(
 /**
  * Analyze exports in a module
  */
-export function analyzeExports(
-  code: string,
-  filePath?: string
-): ExportInfo[] {
+export function analyzeExports(code: string): ExportInfo[] {
   const exports: ExportInfo[] = [];
 
   // Match named exports
@@ -235,10 +229,7 @@ export function removeUnused(
 /**
  * Perform tree-shaking on modules
  */
-export function treeShake(
-  entries: string | string[],
-  options: TreeShakeOptions = {}
-): TreeShakeResult {
+export function treeShake(entries: string | string[]): TreeShakeResult {
   const entryList = Array.isArray(entries) ? entries : [entries];
   const modules: ModuleInfo[] = [];
   const removed: string[] = [];

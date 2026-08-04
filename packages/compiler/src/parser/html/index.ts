@@ -42,7 +42,7 @@ function parseHTMLElement(
   const tagToken = tokens[index];
   const tagName = tagToken.value;
   const attributes: Record<string, string> = {};
-  const children: ElementNode[] = [];
+  const children: Array<ElementNode | TextNode> = [];
 
   index++;
 

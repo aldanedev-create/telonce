@@ -8,6 +8,30 @@
  * (VS Code, Neovim, etc.) but can also be used programmatically.
  */
 
+import {
+  getCompletions,
+  getCompletionItems,
+} from './capabilities/completion';
+
+import {
+  getDiagnostics,
+  validateTemplate,
+} from './capabilities/diagnostics';
+
+import {
+  getHoverInfo,
+} from './capabilities/hover';
+
+import {
+  formatTemplate,
+} from './capabilities/formatter';
+
+import {
+  parseJSDoc,
+  validateJSDoc,
+  generateTypes,
+} from './jsdoc';
+
 // Export capabilities
 export {
   getCompletions,

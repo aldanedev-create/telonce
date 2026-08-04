@@ -6,6 +6,43 @@
  * and provides a local dashboard for debugging.
  */
 
+import {
+  parseError,
+  translateError,
+  getSuggestion,
+} from './error-parser';
+
+import {
+  generateSuggestions,
+  getFixSuggestions,
+} from './suggestions';
+
+import {
+  analyzePerformance,
+  analyzeMemory,
+  analyzeCompileTime,
+  analyzeBundleSize,
+} from './analyzer';
+
+import {
+  createDebugWebSocket,
+  sendError,
+  sendState,
+  sendPerformance,
+} from './websocket';
+
+import {
+  inspectNode,
+  trackNodes,
+  getNodeTree,
+  findNode,
+} from './inspector';
+
+import {
+  serveDashboard,
+  createDashboardServer,
+} from './dashboard';
+
 // Export error parser
 export {
   parseError,

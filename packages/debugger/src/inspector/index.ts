@@ -79,6 +79,10 @@ export interface NodeInspection {
   updatedAt: number;
 }
 
+export interface NodeState {
+  [key: string]: unknown;
+}
+
 export interface NodeTree {
   /**
    * Root nodes

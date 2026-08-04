@@ -2,6 +2,7 @@ import { createTeloce } from './create';
 import { createConfig, type TeloceConfig } from './config';
 import type { Component } from './component';
 
+
 /**
  * Creates a new Teloce application
  */
@@ -39,3 +40,7 @@ export function createApp(
     component: (name: string, component: Component) => app.component(name, component),
   };
 }
+
+export { createConfig, type TeloceConfig } from './config';
+export { mount } from './mount';
+export { createPlugin } from './plugin';

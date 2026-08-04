@@ -6,14 +6,52 @@
  * props handling, slots, and directive registration.
  */
 
+import {
+  createComponent,
+  defineComponent,
+} from './component';
+
+import {
+  onBeforeMount,
+  onMounted,
+  onBeforeUpdate,
+  onUpdated,
+  onBeforeUnmount,
+  onUnmounted,
+  onErrorCaptured,
+  onActivated,
+  onDeactivated,
+  runLifecycle,
+} from './component/lifecycle';
+
+import {
+  defineProps,
+  validateProps,
+  mergeProps,
+} from './component/props';
+
+import {
+  createSlots,
+  renderSlot,
+  renderSlots,
+} from './component/slots';
+
+import {
+  registerDirective,
+  getDirective,
+  hasDirective,
+  createDirective,
+} from './directives/register';
+
+import {
+  resolveDirective,
+  resolveDirectives,
+} from './directives/resolver';
+
 // Export component system
 export {
   createComponent,
   defineComponent,
-  type Component,
-  type ComponentOptions,
-  type ComponentInstance,
-  type ComponentContext
 } from './component';
 
 // Export lifecycle
@@ -28,8 +66,6 @@ export {
   onActivated,
   onDeactivated,
   runLifecycle,
-  type LifecycleHook,
-  type LifecycleManager
 } from './component/lifecycle';
 
 // Export props
@@ -37,9 +73,6 @@ export {
   defineProps,
   validateProps,
   mergeProps,
-  type PropDefinition,
-  type PropValidator,
-  type PropsOptions
 } from './component/props';
 
 // Export slots
@@ -47,9 +80,6 @@ export {
   createSlots,
   renderSlot,
   renderSlots,
-  type Slot,
-  type SlotContext,
-  type SlotsManager
 } from './component/slots';
 
 // Export directives
@@ -58,16 +88,11 @@ export {
   getDirective,
   hasDirective,
   createDirective,
-  type Directive,
-  type DirectiveOptions,
-  type DirectiveRegistry
 } from './directives/register';
 
 export {
   resolveDirective,
   resolveDirectives,
-  type DirectiveResolver,
-  type DirectiveResolution
 } from './directives/resolver';
 
 // Default export

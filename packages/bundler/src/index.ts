@@ -5,6 +5,32 @@
  * It includes tree-shaking, minification, and chunk splitting.
  */
 
+import {
+  treeShake,
+  analyzeImports,
+  analyzeExports,
+  removeUnused,
+} from './tree-shaking';
+
+import {
+  minify,
+  minifyJavaScript,
+  minifyCSS,
+  minifyHTML,
+  optimizeCode,
+} from './minifier';
+
+import {
+  createChunks,
+  splitChunks,
+  analyzeChunks,
+  optimizeChunks,
+} from './chunks';
+
+import {
+  bundle,
+} from './bundle';
+
 // Export tree-shaking
 export {
   treeShake,

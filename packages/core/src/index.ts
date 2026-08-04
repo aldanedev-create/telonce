@@ -7,42 +7,11 @@
  */
 
 // Import all core packages
-import { createApp, defineComponent, mount, createConfig, createPlugin } from '@teloce/core';
-import { 
-  createSignal, 
-  createEffect, 
-  createComputed, 
-  createMemo, 
-  batch, 
-  untracked,
-  type Signal,
-  type Effect,
-  type Computed
-} from '@teloce/reactivity';
-import { 
-  createRenderer, 
-  reconcileList, 
-  For, 
-  If, 
-  Show, 
-  Switch, 
-  Match, 
-  createDirective, 
-  registerDirective,
-  type Renderer,
-  type ReconciliationResult
-} from '@teloce/runtime-dom';
-import { 
-  transition, 
-  animate, 
-  filter, 
-  format, 
-  createFilter, 
-  createTransition,
-  type Transition,
-  type Animation,
-  type Filter
-} from '@teloce/std';
+import { createApp, createConfig, createPlugin, mount } from './app';
+import { defineComponent } from './component';
+import { createSignal, createEffect, createComputed, createMemo, batch, untracked, type Signal, type Effect, type Computed } from '@teloce/reactivity';
+import { createRenderer, reconcileList, For, If, Show, type Renderer, type ReconciliationResult } from '@teloce/runtime-dom';
+import { transition, animate, createFilter, createTransition, type Transition, type Animation, type Filter } from '@teloce/std';
 
 // Export everything for ESM/npm users
 export {
@@ -67,16 +36,10 @@ export {
   For,
   If,
   Show,
-  Switch,
-  Match,
-  createDirective,
-  registerDirective,
 
   // Standard library
   transition,
   animate,
-  filter,
-  format,
   createFilter,
   createTransition,
 };
@@ -117,16 +80,10 @@ if (typeof window !== 'undefined') {
     For,
     If,
     Show,
-    Switch,
-    Match,
-    createDirective,
-    registerDirective,
 
     // Standard library
     transition,
     animate,
-    filter,
-    format,
     createFilter,
     createTransition,
   };
@@ -153,14 +110,8 @@ export default {
   For,
   If,
   Show,
-  Switch,
-  Match,
-  createDirective,
-  registerDirective,
   transition,
   animate,
-  filter,
-  format,
   createFilter,
   createTransition,
 };

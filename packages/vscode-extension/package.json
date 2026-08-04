@@ -1,0 +1,126 @@
+{
+  "name": "teloce-vscode",
+  "displayName": "Teloce",
+  "description": "Teloce template language support for VS Code",
+  "version": "0.1.0",
+  "publisher": "teloce",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/telocejs/teloce.git",
+    "directory": "packages/vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Formatters"
+  ],
+  "keywords": [
+    "teloce",
+    "template",
+    "python",
+    "flask",
+    "django",
+    "fastapi"
+  ],
+  "activationEvents": [
+    "onLanguage:teloce",
+    "onLanguage:html"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "teloce",
+        "aliases": ["Teloce", "teloce"],
+        "extensions": [".vel", ".teloce"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "teloce",
+        "scopeName": "source.teloce",
+        "path": "./syntaxes/teloce.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "teloce.format",
+        "title": "Format Teloce Template",
+        "category": "Teloce"
+      },
+      {
+        "command": "teloce.validate",
+        "title": "Validate Teloce Template",
+        "category": "Teloce"
+      },
+      {
+        "command": "teloce.openDebugger",
+        "title": "Open Teloce Debugger",
+        "category": "Teloce"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "teloce.format",
+        "key": "shift+alt+f",
+        "when": "editorLangId == teloce"
+      }
+    ],
+    "configuration": {
+      "title": "Teloce",
+      "properties": {
+        "teloce.format.indentSize": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of spaces for indentation"
+        },
+        "teloce.format.useTabs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use tabs instead of spaces"
+        },
+        "teloce.validate.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable validation"
+        },
+        "teloce.completion.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable autocompletion"
+        },
+        "teloce.debugger.host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Debugger host"
+        },
+        "teloce.debugger.port": {
+          "type": "number",
+          "default": 9000,
+          "description": "Debugger port"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "dependencies": {
+    "@teloce/language-service": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.22.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
+  }
+}

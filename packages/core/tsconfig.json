@@ -1,0 +1,20 @@
+// Export all core functionality
+export { createApp } from './app';
+export { defineComponent, type Component, type ComponentOptions } from './component';
+export { createConfig, type TeloceConfig } from './config';
+export { createTeloce } from './create';
+export { mount } from './mount';
+export { createPlugin, type Plugin, type PluginInstall } from './plugin';
+
+// Re-export reactivity types for convenience
+export { createSignal, createEffect, createComputed, createMemo, batch, untracked } from '@teloce/reactivity';
+
+// Default export
+export default {
+  createApp,
+  defineComponent,
+  createConfig,
+  createTeloce,
+  mount,
+  createPlugin,
+};

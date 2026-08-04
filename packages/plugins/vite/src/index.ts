@@ -1,0 +1,290 @@
+/**
+ * @teloce/vite-plugin - Vite plugin for Teloce
+ * 
+ * This plugin compiles .vel Single File Components and Teloce templates
+ * for use with Vite-based projects.
+ * 
+ * Features:
+ * - Compile .vel SFC files
+ * - Hot Module Replacement (HMR) support
+ * - TypeScript support for script sections
+ * - Scoped CSS support
+ * - Custom directives and filters
+ */
+
+import type { Plugin, ResolvedConfig } from 'vite';
+import { compile as compileSFC } from '@teloce/sfc';
+import { compile as compileTemplate } from '@teloce/compiler';
+import * as path from 'path';
+import * as fs from 'fs';
+
+export interface TelocePluginOptions {
+  /**
+   * Include patterns for template files
+   * @default ['**\/*.teloce', '**\/*.vel']
+   */
+  include?: string | RegExp | (string | RegExp)[];
+
+  /**
+   * Exclude patterns for template files
+   * @default ['node_modules/**', 'dist/**']
+   */
+  exclude?: string | RegExp | (string | RegExp)[];
+
+  /**
+   * Enable source maps
+   * @default true
+   */
+  sourceMap?: boolean;
+
+  /**
+   * Enable minification
+   * @default false (development) / true (production)
+   */
+  minify?: boolean;
+
+  /**
+   * Development mode
+   * @default process.env.NODE_ENV === 'development'
+   */
+  dev?: boolean;
+
+  /**
+   * Enable scoped CSS
+   * @default true
+   */
+  scoped?: boolean;
+
+  /**
+   * Custom plugins
+   * @default []
+   */
+  plugins?: Array<{
+    name: string;
+    transform?: (code: string, id: string) => string | null;
+    compile?: (sfc: any) => any;
+  }>;
+
+  /**
+   * Custom directives
+   * @default []
+   */
+  directives?: Array<{
+    name: string;
+    transform: (node: any, context: any) => any;
+  }>;
+
+  /**
+   * Custom filters
+   * @default []
+   */
+  filters?: Array<{
+    name: string;
+    transform: (value: any, ...args: any[]) => any;
+  }>;
+}
+
+/**
+ * Default options
+ */
+const defaultOptions: TelocePluginOptions = {
+  include: ['**/*.teloce', '**/*.vel'],
+  exclude: ['node_modules/**', 'dist/**'],
+  sourceMap: true,
+  minify: process.env.NODE_ENV === 'production',
+  dev: process.env.NODE_ENV === 'development',
+  scoped: true,
+  plugins: [],
+  directives: [],
+  filters: [],
+};
+
+/**
+ * Vite plugin for Teloce
+ */
+export default function telocePlugin(
+  options: TelocePluginOptions = {}
+): Plugin {
+  const opts = { ...defaultOptions, ...options };
+  let config: ResolvedConfig;
+
+  // Normalize include/exclude patterns
+  const includePatterns = Array.isArray(opts.include) ? opts.include : [opts.include];
+  const excludePatterns = Array.isArray(opts.exclude) ? opts.exclude : [opts.exclude];
+
+  return {
+    name: 'teloce',
+    enforce: 'pre' as const,
+
+    configResolved(resolvedConfig: ResolvedConfig) {
+      config = resolvedConfig;
+    },
+
+    /**
+     * Transform .vel and .teloce files
+     */
+    transform(code: string, id: string) {
+      // Check if file should be processed
+      const shouldProcess = includePatterns.some(pattern => {
+        if (typeof pattern === 'string') {
+          return id.includes(pattern) || id.endsWith(pattern);
+        }
+        return pattern.test(id);
+      });
+
+      if (!shouldProcess) return null;
+
+      // Check if file should be excluded
+      const shouldExclude = excludePatterns.some(pattern => {
+        if (typeof pattern === 'string') {
+          return id.includes(pattern) || id.endsWith(pattern);
+        }
+        return pattern.test(id);
+      });
+
+      if (shouldExclude) return null;
+
+      // Determine file type
+      const isSFC = id.endsWith('.vel');
+
+      try {
+        if (isSFC) {
+          // Compile Single File Component
+          return compileSFCFile(code, id, opts, config);
+        } else {
+          // Compile template
+          return compileTemplateFile(code, id, opts, config);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.error(`[teloce] Failed to compile ${id}: ${message}`);
+        return null;
+      }
+    },
+
+    /**
+     * Handle HMR for .vel files
+     */
+    handleHotUpdate({ file, server }: any) {
+      if (file.endsWith('.vel')) {
+        // Send HMR update
+        server.ws.send({
+          type: 'update',
+          updates: [
+            {
+              type: 'update',
+              path: file,
+              acceptedPath: file,
+              timestamp: Date.now(),
+            },
+          ],
+        });
+      }
+    },
+  };
+}
+
+/**
+ * Compile a Single File Component (.vel)
+ */
+function compileSFCFile(
+  code: string,
+  id: string,
+  opts: TelocePluginOptions,
+  config: ResolvedConfig
+): { code: string; map?: string } | null {
+  try {
+    // Parse and compile the SFC
+    const result = compileSFC(code, {
+      filename: path.basename(id),
+      sourceMap: opts.sourceMap,
+      minify: opts.minify,
+      dev: opts.dev,
+      scoped: opts.scoped,
+    });
+
+    // Process with custom plugins
+    let finalCode = result.code;
+    if (opts.plugins) {
+      for (const plugin of opts.plugins) {
+        if (plugin.transform) {
+          const transformed = plugin.transform(finalCode, id);
+          if (transformed) {
+            finalCode = transformed;
+          }
+        }
+      }
+    }
+
+    return {
+      code: finalCode,
+      map: result.map,
+    };
+  } catch (error) {
+    console.error(`[teloce] Error compiling SFC ${id}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Compile a template file (.teloce)
+ */
+function compileTemplateFile(
+  code: string,
+  id: string,
+  opts: TelocePluginOptions,
+  config: ResolvedConfig
+): { code: string; map?: string } | null {
+  try {
+    // Compile the template
+    const result = compileTemplate(code, {
+      filename: path.basename(id),
+      sourceMap: opts.sourceMap,
+      minify: opts.minify,
+      dev: opts.dev,
+    });
+
+    // Wrap in JavaScript
+    const jsCode = `
+// Teloce template compiled from ${path.basename(id)}
+export default function render(data) {
+  return ${result.code};
+}
+`;
+
+    return {
+      code: jsCode,
+      map: result.map,
+    };
+  } catch (error) {
+    console.error(`[teloce] Error compiling template ${id}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Virtual module for Teloce runtime
+ */
+export function teloceRuntime() {
+  return {
+    name: 'teloce:runtime',
+    resolveId(id: string) {
+      if (id === 'virtual:teloce-runtime') {
+        return '\0virtual:teloce-runtime';
+      }
+      return null;
+    },
+    load(id: string) {
+      if (id === '\0virtual:teloce-runtime') {
+        return `
+// Teloce Runtime
+import { createApp } from '@teloce/core';
+import { createSignal, createEffect } from '@teloce/reactivity';
+
+export { createApp, createSignal, createEffect };
+`;
+      }
+      return null;
+    },
+  };
+}

@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"],
+    "noEmit": true,
+    "allowJs": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "packages/**/*.test.ts",
+    "packages/**/*.spec.ts",
+    "packages/**/__tests__/**/*.ts",
+    "tests/**/*.ts",
+    "playground/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "coverage", ".turbo"]
+}

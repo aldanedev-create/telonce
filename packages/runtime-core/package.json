@@ -1,0 +1,59 @@
+{
+  "name": "@teloce/runtime-core",
+  "version": "0.1.0",
+  "description": "Teloce runtime core - component system, lifecycle, props, slots, directives",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@teloce/reactivity": "workspace:^"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": [
+    "teloce",
+    "runtime",
+    "component",
+    "lifecycle",
+    "props",
+    "slots",
+    "directives",
+    "reactive",
+    "template-engine"
+  ],
+  "author": "Teloce Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/telocejs/teloce.git",
+    "directory": "packages/runtime-core"
+  },
+  "bugs": {
+    "url": "https://github.com/telocejs/teloce/issues"
+  },
+  "homepage": "https://teloce.dev"
+}

@@ -1,0 +1,62 @@
+{
+  "name": "@teloce/server",
+  "version": "0.1.0",
+  "description": "Teloce development server - HTTP server, WebSocket HMR, middleware, and proxy",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@teloce/shared": "workspace:^",
+    "ws": "^8.17.1"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/ws": "^8.5.10",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": [
+    "teloce",
+    "server",
+    "dev-server",
+    "websocket",
+    "hmr",
+    "hot-reload",
+    "middleware",
+    "proxy",
+    "development"
+  ],
+  "author": "Teloce Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/telocejs/teloce.git",
+    "directory": "packages/server"
+  },
+  "bugs": {
+    "url": "https://github.com/telocejs/teloce/issues"
+  },
+  "homepage": "https://teloce.dev"
+}

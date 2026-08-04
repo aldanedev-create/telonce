@@ -1,0 +1,75 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+.cache/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+*.log
+
+# Coverage
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Runtime data
+*.pid
+*.seed
+*.pid.lock
+
+# Turbo
+.turbo/
+
+# Changesets
+.changeset/*.md
+!.changeset/config.json
+
+# Tests
+test-results/
+playwright-report/
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Python (for examples)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+
+# Flask/Django examples
+instance/
+.webassets-cache
+*.sqlite3
+*.db

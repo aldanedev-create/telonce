@@ -1,0 +1,56 @@
+{
+  "name": "@teloce/reactivity",
+  "version": "0.1.0",
+  "description": "Teloce reactivity system - Signals, Effects, Computed values",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "peerDependencies": {},
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": [
+    "teloce",
+    "reactivity",
+    "signals",
+    "effects",
+    "computed",
+    "reactive",
+    "template-engine",
+    "python"
+  ],
+  "author": "Teloce Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/telocejs/teloce.git",
+    "directory": "packages/reactivity"
+  },
+  "bugs": {
+    "url": "https://github.com/telocejs/teloce/issues"
+  },
+  "homepage": "https://teloce.dev"
+}

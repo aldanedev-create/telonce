@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teloce Debugger Dashboard</title>
+    <link rel="stylesheet" href="/__teloce_debug/layout.css" />
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">🐛</span>
+                    <span class="logo-text">Teloce Debugger</span>
+                </div>
+                <div class="status-badge" id="connectionStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-tab="overview">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Overview</span>
+                </button>
+                <button class="nav-item" data-tab="components">
+                    <span class="nav-icon">🧩</span>
+                    <span class="nav-label">Components</span>
+                    <span class="nav-badge" id="componentCount">0</span>
+                </button>
+                <button class="nav-item" data-tab="state">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-label">State</span>
+                </button>
+                <button class="nav-item" data-tab="errors">
+                    <span class="nav-icon">❌</span>
+                    <span class="nav-label">Errors</span>
+                    <span class="nav-badge error" id="errorCount">0</span>
+                </button>
+                <button class="nav-item" data-tab="performance">
+                    <span class="nav-icon">⚡</span>
+                    <span class="nav-label">Performance</span>
+                </button>
+                <button class="nav-item" data-tab="logs">
+                    <span class="nav-icon">📝</span>
+                    <span class="nav-label">Logs</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="version">v0.1.0</div>
+                <button class="btn-clear" id="clearAll">Clear All</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Overview Tab -->
+            <section class="tab-panel active" id="tab-overview">
+                <div class="panel-header">
+                    <h1>Dashboard Overview</h1>
+                    <p>Real-time insights into your Teloce application</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🧩</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statComponents">0</div>
+                            <div class="stat-label">Components</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-info">
+                            <div class="stat-value error" id="statErrors">0</div>
+                            <div class="stat-label">Errors</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statFps">60</div>
+                            <div class="stat-label">FPS</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💾</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statMemory">0 MB</div>
+                            <div class="stat-label">Memory</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statCompileTime">0 ms</div>
+                            <div class="stat-label">Compile Time</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📄</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statFiles">0</div>
+                            <div class="stat-label">Files</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-grid">
+                    <div class="panel-card">
+                        <div class="panel-card-header">
+                            <h3>Recent Errors</h3>
+                        </div>
+                        <div class="panel-card-body" id="recentErrors">
+                            <div class="empty-state">No errors detected</div>
+                        </div>
+                    </div>
+                    <div class="panel-card">
+                        <div class="panel-card-header">
+                            <h3>Component Tree</h3>
+                        </div>
+                        <div class="panel-card-body" id="componentTree">
+                            <div class="empty-state">No components mounted</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Components Tab -->
+            <section class="tab-panel" id="tab-components">
+                <div class="panel-header">
+                    <h1>Components</h1>
+                    <p>All mounted components in your application</p>
+                </div>
+                <div class="component-list" id="componentList">
+                    <div class="empty-state">No components found</div>
+                </div>
+            </section>
+
+            <!-- State Tab -->
+            <section class="tab-panel" id="tab-state">
+                <div class="panel-header">
+                    <h1>Application State</h1>
+                    <p>Current state of all reactive data</p>
+                </div>
+                <div class="state-viewer" id="stateViewer">
+                    <div class="empty-state">No state data available</div>
+                </div>
+            </section>
+
+            <!-- Errors Tab -->
+            <section class="tab-panel" id="tab-errors">
+                <div class="panel-header">
+                    <h1>Errors</h1>
+                    <p>Human-friendly error messages with suggestions</p>
+                </div>
+                <div class="error-list" id="errorList">
+                    <div class="empty-state">No errors to display</div>
+                </div>
+            </section>
+
+            <!-- Performance Tab -->
+            <section class="tab-panel" id="tab-performance">
+                <div class="panel-header">
+                    <h1>Performance</h1>
+                    <p>Real-time performance metrics</p>
+                </div>
+                <div class="performance-grid">
+                    <div class="performance-card">
+                        <h3>Render Times</h3>
+                        <div class="chart-container" id="renderChart">
+                            <canvas id="renderCanvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="performance-card">
+                        <h3>Component Performance</h3>
+                        <div class="component-performance-list" id="componentPerformance">
+                            <div class="empty-state">No data</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Logs Tab -->
+            <section class="tab-panel" id="tab-logs">
+                <div class="panel-header">
+                    <h1>Logs</h1>
+                    <p>Application logs and debug messages</p>
+                    <div class="log-controls">
+                        <button class="btn-log-level active" data-level="all">All</button>
+                        <button class="btn-log-level" data-level="info">Info</button>
+                        <button class="btn-log-level" data-level="warn">Warn</button>
+                        <button class="btn-log-level" data-level="error">Error</button>
+                        <button class="btn-log-level" data-level="debug">Debug</button>
+                        <button class="btn-clear-logs" id="clearLogs">Clear</button>
+                    </div>
+                </div>
+                <div class="log-container" id="logContainer">
+                    <div class="empty-state">No logs available</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="/__teloce_debug/app.js"></script>
+</body>
+</html>

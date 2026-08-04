@@ -1,0 +1,55 @@
+{
+  "name": "teloce-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A TypeScript template engine for Python web developers",
+  "scripts": {
+    "build": "turbo run build",
+    "build:packages": "turbo run build --filter=./packages/*",
+    "build:umbrella": "turbo run build --filter=teloce",
+    "dev": "turbo run dev --parallel",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:watch": "vitest --watch",
+    "lint": "biome check --apply .",
+    "lint:check": "biome check .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules .turbo",
+    "prepare": "husky",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && pnpm test && changeset publish",
+    "publish:packages": "pnpm publish -r --access public"
+  },
+  "keywords": [
+    "teloce",
+    "template-engine",
+    "python",
+    "flask",
+    "django",
+    "fastapi",
+    "signals",
+    "reactive",
+    "typescript"
+  ],
+  "author": "Teloce Contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.0",
+    "@changesets/cli": "^2.27.0",
+    "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "husky": "^9.0.0",
+    "tsup": "^8.0.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.3.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.1.0"
+}

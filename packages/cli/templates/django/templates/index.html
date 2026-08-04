@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teloce + Django</title>
+    
+    <!-- Teloce CDN -->
+    <script src="https://cdn.teloce.dev/teloce.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        .counter {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .counter-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #11998e;
+            transition: all 0.3s ease;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: #11998e;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0d7a6e;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #cbd5e0;
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: #fc8181;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #f56565;
+            transform: translateY(-2px);
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: #11998e;
+            color: white;
+            margin-top: 10px;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #aaa;
+            font-size: 12px;
+        }
+        .footer a {
+            color: #11998e;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .todo-input {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .todo-input input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        .todo-input input:focus {
+            border-color: #11998e;
+        }
+        .todo-list {
+            text-align: left;
+            margin-top: 20px;
+        }
+        .todo-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        .todo-list li {
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        .todo-list li:hover {
+            background: #edf2f7;
+        }
+        .todo-list li.done {
+            opacity: 0.6;
+            text-decoration: line-through;
+        }
+        .todo-list .delete-btn {
+            background: none;
+            border: none;
+            color: #fc8181;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 5px;
+            transition: color 0.3s ease;
+        }
+        .todo-list .delete-btn:hover {
+            color: #f56565;
+        }
+        .todo-count {
+            font-size: 14px;
+            color: #888;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+        <div class="logo">📝</div>
+        <h1>Hello {{ name }}</h1>
+        <p class="subtitle">Django + Teloce is running!</p>
+        
+        <div class="status">● Django</div>
+        
+        <div class="counter">
+            <div class="counter-number">{{ count }}</div>
+            <p style="color: #888; font-size: 14px;">Count</p>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn btn-primary" @click="increment">+ Increment</button>
+            <button class="btn btn-secondary" @click="decrement">- Decrement</button>
+            <button class="btn btn-danger" @click="reset">⟳ Reset</button>
+        </div>
+        
+        <div class="todo-input">
+            <input type="text" :model="newTodo" placeholder="Add a todo..." @keyup.enter="addTodo">
+            <button class="btn btn-primary" @click="addTodo">Add</button>
+        </div>
+        
+        <div class="todo-list">
+            <ul>
+                <for key="id" item="todo" in="todos">
+                    <li :class="{ done: todo.done }">
+                        <span @click="toggleTodo(todo.id)">{{ todo.text }}</span>
+                        <button class="delete-btn" @click="deleteTodo(todo.id)">✕</button>
+                    </li>
+                </for>
+            </ul>
+            <div class="todo-count">{{ todos.length }} items</div>
+        </div>
+        
+        <div class="footer">
+            Built with ❤️ using <a href="https://teloce.dev" target="_blank">Teloce</a> and Django
+        </div>
+    </div>
+    
+    <script>
+        // Initialize Teloce with data from Django
+        const app = teloce.createApp('#app', {
+            name: '{{ name }}',
+            count: 0,
+            newTodo: '',
+            todos: [],
+            
+            // Methods
+            increment() {
+                this.count++;
+            },
+            decrement() {
+                if (this.count > 0) this.count--;
+            },
+            reset() {
+                this.count = 0;
+            },
+            addTodo() {
+                if (this.newTodo.trim()) {
+                    this.todos.push({
+                        id: Date.now(),
+                        text: this.newTodo.trim(),
+                        done: false
+                    });
+                    this.newTodo = '';
+                }
+            },
+            deleteTodo(id) {
+                this.todos = this.todos.filter(t => t.id !== id);
+            },
+            toggleTodo(id) {
+                const todo = this.todos.find(t => t.id === id);
+                if (todo) {
+                    todo.done = !todo.done;
+                }
+            }
+        });
+        
+        console.log('🚀 Teloce + Django app initialized!');
+        console.log('State:', app.state);
+    </script>
+</body>
+</html>

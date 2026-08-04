@@ -1,0 +1,75 @@
+{
+  "name": "@teloce/cli",
+  "version": "0.1.0",
+  "description": "Teloce command-line interface - dev, build, debug, create, and more",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "teloce": "./bin/teloce.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@teloce/bundler": "workspace:^",
+    "@teloce/compiler": "workspace:^",
+    "@teloce/debugger": "workspace:^",
+    "@teloce/server": "workspace:^",
+    "@teloce/shared": "workspace:^",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "fs-extra": "^11.2.0",
+    "ora": "^8.0.1"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.11.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": [
+    "teloce",
+    "cli",
+    "command-line",
+    "dev",
+    "build",
+    "debug",
+    "create",
+    "doctor",
+    "lint",
+    "watch"
+  ],
+  "author": "Teloce Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/telocejs/teloce.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/telocejs/teloce/issues"
+  },
+  "homepage": "https://teloce.dev"
+}

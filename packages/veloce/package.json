@@ -1,0 +1,67 @@
+{
+  "name": "teloce",
+  "version": "0.1.0",
+  "description": "A TypeScript template engine for Python web developers",
+  "main": "dist/teloce.global.js",
+  "module": "dist/teloce.esm.js",
+  "unpkg": "dist/teloce.global.js",
+  "jsdelivr": "dist/teloce.global.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/teloce.esm.js",
+      "require": "./dist/teloce.global.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/teloce.global.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@teloce/core": "workspace:^",
+    "@teloce/reactivity": "workspace:^",
+    "@teloce/runtime-dom": "workspace:^",
+    "@teloce/std": "workspace:^"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "@teloce/shared": "workspace:^",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": [
+    "teloce",
+    "template-engine",
+    "python",
+    "flask",
+    "django",
+    "fastapi",
+    "signals",
+    "reactive",
+    "frontend",
+    "javascript",
+    "typescript"
+  ],
+  "author": "Teloce Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/telocejs/teloce.git",
+    "directory": "packages/veloce"
+  },
+  "bugs": {
+    "url": "https://github.com/telocejs/teloce/issues"
+  },
+  "homepage": "https://teloce.dev"
+}

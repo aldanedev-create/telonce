@@ -1,79 +1,180 @@
 # Teloce
 
-> A TypeScript template engine for Python web developers.
+> A modern TypeScript-powered JavaScript template engine built for Python web developers.
 
 ## What is Teloce?
 
-Teloce is a modern, production-grade JavaScript template engine built in TypeScript, specifically designed for Python web developers using Flask, Django, FastAPI, and other Python frameworks.
+Teloce is a production-grade JavaScript template engine written in **TypeScript** and designed specifically for **Python web frameworks** such as **Flask**, **Flaxon**, **Django**, **FastAPI**, and **Quart**.
 
-### Key Features
+Its goal is to make client-side development simple, fast, and enjoyable without forcing Python developers into a complex JavaScript ecosystem.
 
-- **Python-First Philosophy**: Write JavaScript, not TypeScript. No Node.js required.
-- **Signals-Based Reactivity**: Fine-grained updates without Virtual DOM.
-- **Keyed Loops**: Fast list rendering with node reuse.
-- **Human-Friendly Debugger**: Translates cryptic JavaScript errors into plain English.
-- **CDN First**: Start with one `<script>` tag, no build tools needed.
-- **Jinja/JinjaX Compatible**: Works seamlessly with your existing templates.
-- **14 npm Packages**: Modular architecture, install only what you need.
+---
 
-## Quick Start
+## Features
 
-### CDN (No build tools)
+- 🚀 **Python-First Philosophy** — Write JavaScript, not TypeScript.
+- 🌐 **CDN First** — Start with a single `<script>` tag. No build tools required.
+- ⚡ **Signals-Based Reactivity** — Fine-grained updates without a Virtual DOM.
+- 🔑 **Keyed Loops** — Efficient DOM updates with node reuse.
+- 🧩 **Single File Components** — Organize applications using `.tel` components.
+- 🐍 **Jinja & Jinax Compatible** — Works alongside your existing Python templates.
+- 🛠️ **Human-Friendly Debugger** — Converts JavaScript errors into easy-to-understand messages.
+- 📦 **Modular Packages** — Install only what your application needs.
+- 🎯 **Built for Flask, Flaxon, Django, FastAPI, and Quart.**
+
+---
+
+# Quick Start
+
+## CDN (No Build Tools)
 
 ```html
 <script src="https://cdn.teloce.dev/teloce.min.js"></script>
+
 <div id="app">
     <h1>Hello {{ name }}</h1>
-    <button @click="count++">{{ count }}</button>
+
+    <button @click="count++">
+        {{ count }}
+    </button>
 </div>
+
 <script>
-    teloce.create('#app', {
-        name: 'Python Developer',
-        count: 0
-    });
-</script>
-
-
-npm
-bash
-npm install teloce
-javascript
-import { createApp } from 'teloce';
-
-createApp('#app', {
-    name: 'Python Developer',
+teloce.create("#app", {
+    name: "Python Developer",
     count: 0
 });
-CLI
-bash
+</script>
+```
+
+---
+
+## Install with npm
+
+```bash
+npm install teloce
+```
+
+```javascript
+import { create } from "teloce";
+
+create("#app", {
+    name: "Python Developer",
+    count: 0
+});
+```
+
+---
+
+## CLI
+
+Install the CLI globally.
+
+```bash
 npm install -g @teloce/cli
+```
+
+Create a new project.
+
+```bash
 teloce create my-app
+```
+
+Start the development server.
+
+```bash
 teloce dev
-Documentation
-Getting Started
+```
 
-API Reference
+Build for production.
 
-Examples
+```bash
+teloce build
+```
 
-Packages
-Package	npm	Description
-teloce	teloce	Umbrella package (CDN + npm)
-core	@teloce/core	Core library
-compiler	@teloce/compiler	Template compiler
-reactivity	@teloce/reactivity	Signals system
-runtime-dom	@teloce/runtime-dom	DOM runtime
-cli	@teloce/cli	Command-line interface
-debugger	@teloce/debugger	Human-friendly debugger
-License
-MIT
+---
 
-Contributing
-Please read CONTRIBUTING.md for details on our code of conduct and the process for submitting pull requests.
+# Documentation
 
-Support
-GitHub Issues
+- Getting Started
+- Installation
+- API Reference
+- Examples
+- Guides
+- CLI Documentation
+- Debugger Guide
 
-Discord
+---
 
-Twitter
+# Packages
+
+| Package | npm | Description |
+|---------|-----|-------------|
+| Teloce | `teloce` | Complete framework package |
+| Core | `@teloce/core` | Core API |
+| Compiler | `@teloce/compiler` | Template compiler |
+| Runtime | `@teloce/runtime` | Runtime engine |
+| Reactivity | `@teloce/reactivity` | Signals-based reactivity |
+| Runtime DOM | `@teloce/runtime-dom` | DOM renderer |
+| CLI | `@teloce/cli` | Command-line interface |
+| Debugger | `@teloce/debugger` | Human-friendly debugger |
+
+---
+
+# Philosophy
+
+Teloce is designed to feel natural for Python developers.
+
+Start small with a CDN:
+
+```html
+<script src="https://cdn.teloce.dev/teloce.min.js"></script>
+```
+
+As your project grows, migrate to npm and the CLI without changing how you write templates.
+
+The API stays the same.
+
+---
+
+# Browser Support
+
+- Chrome
+- Edge
+- Firefox
+- Safari
+- Opera
+
+---
+
+# License
+
+Licensed under the **MIT License**.
+
+---
+
+# Contributing
+
+Contributions are welcome!
+
+Please read **CONTRIBUTING.md** before submitting issues or pull requests.
+
+---
+
+# Support
+
+- GitHub Issues
+- Discussions
+- Discord Community
+
+---
+
+# Roadmap
+
+- ✅ CDN Support
+- ✅ npm Packages
+- 🚧 Single File Components (`.tel`)
+- 🚧 VS Code Extension
+- 🚧 Browser DevTools
+- 🚧 Plugin System
+- 🚧 Python Framework Integrations

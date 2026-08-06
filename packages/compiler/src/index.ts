@@ -1,52 +1,107 @@
 /**
- * @teloce/compiler - Template Compiler
- * 
- * This is the compiler for Teloce templates.
- * It parses HTML with Teloce directives and transforms them
- * into JavaScript code that can be executed in the browser.
+ * Template compiler - hands off to @teloce/compiler
  */
 
-import { tokenize } from './lexer';
-import { parse } from './parser';
-import { validate } from './validator';
-import { analyzeScope } from './scope-analysis';
-import { transform } from './transformer';
-import { optimize } from './optimizer';
-import { generate } from './generator';
-import { compile } from './compile';
-import { parseHTML } from './parser/html';
-import { parseTemplate } from './parser/template';
-import { parseExpression } from './parser/expressions';
-import { PatchFlag } from './types';
+// NOTE: this used to import `compile` aliased to the name `compileTemplate`,
+// which collided with the `compileTemplate` function declared below in this
+// same module (a duplicate identifier - TS2440). That meant this file could
+// not build, and if a looser transpiler had let it through, the call inside
+// compileTemplate() below would have resolved to itself, recursing forever.
+// Renamed the import to avoid the collision.
+import { compile as compileWithCompiler, type CompileOptions } from '@teloce/compiler';
 
-export { tokenize } from './lexer';
-export type { Token, TokenType } from './lexer';
-export { TokenType as TokenTypes } from './lexer/tokens';
-export { parse } from './parser';
-export type { ASTNode, ElementNode, TextNode, InterpolationNode, ForNode, IfNode, DirectiveNode } from './parser';
-export { ASTNodeType } from './parser/ast';
-export { parseHTML } from './parser/html';
-export { parseTemplate } from './parser/template';
-export { parseExpression } from './parser/expressions';
-export { validate, type ValidationResult } from './validator';
-export { analyzeScope, type Scope, type ScopeAnalysis } from './scope-analysis';
-export { transform, type TransformOptions, type TransformResult } from './transformer';
-export { optimize, type OptimizeOptions, type OptimizeResult } from './optimizer';
-export { generate, type GenerateOptions, type GenerateResult } from './generator';
-export { compile, type CompileOptions, type CompileResult } from './compile';
-export { PatchFlag } from './types';
+export interface TemplateCompileResult {
+  /**
+   * Compiled template code
+   */
+  code: string;
 
-export default {
-  tokenize,
-  parse,
-  parseHTML,
-  parseTemplate,
-  parseExpression,
-  validate,
-  analyzeScope,
-  transform,
-  optimize,
-  generate,
-  compile,
-  PatchFlag,
-};
+  /**
+   * Source map (if enabled)
+   */
+  map?: string;
+
+  /**
+   * Diagnostics
+   */
+  diagnostics: {
+    errors: string[];
+    warnings: string[];
+  };
+}
+
+export interface TemplateCompileOptions {
+  /**
+   * Filename for error reporting
+   */
+  filename?: string;
+
+  /**
+   * Enable source maps
+   */
+  sourceMap?: boolean;
+
+  /**
+   * Enable minification
+   */
+  minify?: boolean;
+
+  /**
+   * Development mode
+   */
+  dev?: boolean;
+
+  /**
+   * Target platform
+   */
+  target?: 'browser' | 'node' | 'esm';
+}
+
+/**
+ * Compile the template section
+ * 
+ * This function passes the template to @teloce/compiler
+ * for full compilation to JavaScript.
+ */
+export function compileTemplate(
+  source: string,
+  options: TemplateCompileOptions = {}
+): TemplateCompileResult {
+  const diagnostics = {
+    errors: [] as string[],
+    warnings: [] as string[],
+  };
+
+  try {
+    // Compile the template using the main compiler
+    const compileOptions: CompileOptions = {
+      filename: options.filename,
+      sourceMap: options.sourceMap,
+      minify: options.minify,
+      dev: options.dev,
+      target: options.target,
+    };
+    const result = compileWithCompiler(source, compileOptions);
+
+    // Extract diagnostics
+    diagnostics.errors = result.diagnostics.errors;
+    diagnostics.warnings = result.diagnostics.warnings;
+
+    // Generate code for the template
+    const code = result.code || '() => []';
+
+    return {
+      code,
+      map: result.map,
+      diagnostics,
+    };
+  } catch (error) {
+    diagnostics.errors.push(
+      `Failed to compile template: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return {
+      code: '() => []',
+      diagnostics,
+    };
+  }
+}

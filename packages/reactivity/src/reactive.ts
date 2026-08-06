@@ -14,6 +14,7 @@ export type Signal<T> = {
 export type Effect = {
   run: () => void;
   stop: () => void;
+  deps: Set<Set<Effect>>;
 };
 
 export type Computed<T> = {
@@ -41,6 +42,7 @@ export function createSignal<T>(initial: T): Signal<T> {
   function get(): T {
     if (currentEffect) {
       subscribers.add(currentEffect);
+      currentEffect.deps.add(subscribers);
     }
     return value;
   }
@@ -65,12 +67,15 @@ export function createSignal<T>(initial: T): Signal<T> {
   }
 
   function notify(): void {
+    // Clone to prevent infinite loops if effects modify subscriptions while running
+    const currentSubs = Array.from(subscribers);
+    
     if (isBatching) {
-      for (const effect of subscribers) {
+      for (const effect of currentSubs) {
         pendingEffects.add(effect);
       }
     } else {
-      for (const effect of subscribers) {
+      for (const effect of currentSubs) {
         effect.run();
       }
     }
@@ -88,17 +93,23 @@ export function createSignal<T>(initial: T): Signal<T> {
 
 export function createEffect(fn: () => void): Effect {
   const effect: Effect = {
+    deps: new Set(),
     run() {
+      this.stop(); // Clean up stale dependencies before running
+      
+      const prev = currentEffect;
       currentEffect = this;
       try {
         fn();
       } finally {
-        currentEffect = null;
+        currentEffect = prev; // Restore previous to support nested effects
       }
     },
     stop() {
-      // Clean up subscriptions
-      // Implementation will be extended in effect.ts
+      for (const dep of this.deps) {
+        dep.delete(this);
+      }
+      this.deps.clear();
     }
   };
 
@@ -111,13 +122,29 @@ export function createEffect(fn: () => void): Effect {
 export function createComputed<T>(fn: () => T): Computed<T> {
   let value: T;
   let dirty = true;
+  const subscribers = new Set<Effect>();
 
   const effect = createEffect(() => {
-    value = fn();
-    dirty = false;
+    const nextValue = fn();
+    // Only notify if value actually changed or it's the first run
+    if (dirty || value !== nextValue) {
+      value = nextValue;
+      dirty = false;
+      
+      const currentSubs = Array.from(subscribers);
+      if (isBatching) {
+        for (const sub of currentSubs) pendingEffects.add(sub);
+      } else {
+        for (const sub of currentSubs) sub.run();
+      }
+    }
   });
 
   function get(): T {
+    if (currentEffect) {
+      subscribers.add(currentEffect);
+      currentEffect.deps.add(subscribers);
+    }
     if (dirty) {
       effect.run();
     }

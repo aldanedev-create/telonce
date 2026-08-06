@@ -155,7 +155,7 @@ export function analyzeChunks(
 /**
  * Split code into chunks
  */
-export function splitChunks(modules: string[]): Chunk[] {
+export function splitChunks(modules: string[], options: ChunkOptions = {}): Chunk[] {
   const chunks: Chunk[] = [];
   const targetSize = options.targetSize || 100000; // 100KB default
   let currentChunk: Chunk | null = null;
@@ -225,7 +225,7 @@ export function optimizeChunks(chunks: Chunk[]): ChunkOptimization {
 /**
  * Create chunks from entry files
  */
-export function createChunks(entries: string[]): ChunkResult {
+export function createChunks(entries: string[], options: ChunkOptions = {}): ChunkResult {
   const chunks: Chunk[] = [];
 
   // Create entry chunks

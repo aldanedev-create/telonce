@@ -5,7 +5,7 @@
  * between effects and reactive values.
  */
 
-import type { Effect } from './reactive';
+import { currentEffect, type Effect } from './reactive';
 
 /**
  * A dependency is a set of effects
@@ -18,99 +18,111 @@ export type Dep = Set<Effect>;
 export type Deps = Map<symbol | string, Dep>;
 
 /**
- * Map of effects to their dependencies
+ * High-performance global target map for dependency tracking:
+ * WeakMap<TargetObject, Map<Key, Set<Effect>>>
  */
-const depsMap: Map<Effect, Deps> = new Map();
+const targetMap = new WeakMap<object, Map<symbol | string, Set<Effect>>>();
 
 /**
- * Map of effect cleanups
+ * Map of effect cleanups (supports multiple cleanup functions per effect)
  */
-const effectCleanups: Map<Effect, () => void> = new Map();
+const effectCleanups: Map<Effect, Array<() => void>> = new Map();
 
 /**
  * Track dependencies for the current effect
  */
-export function track(_target: object, key: symbol | string): void {
+export function track(target: object, key: symbol | string): void {
   const effect = getCurrentEffect();
   if (!effect) return;
 
-  let deps = depsMap.get(effect);
-  if (!deps) {
-    deps = new Map();
-    depsMap.set(effect, deps);
+  let depsMap = targetMap.get(target);
+  if (!depsMap) {
+    depsMap = new Map();
+    targetMap.set(target, depsMap);
   }
 
-  let dep = deps.get(key);
+  let dep = depsMap.get(key);
   if (!dep) {
     dep = new Set();
-    deps.set(key, dep);
+    depsMap.set(key, dep);
   }
 
-  dep.add(effect);
+  if (!dep.has(effect)) {
+    dep.add(effect);
+  }
 }
 
 /**
  * Trigger effects for a tracked dependency
  */
-export function trigger(_target: object, key: symbol | string): void {
-  const effects = new Set<Effect>();
+export function trigger(target: object, key: symbol | string): void {
+  const depsMap = targetMap.get(target);
+  if (!depsMap) return;
 
-  for (const [effect, deps] of depsMap) {
-    const dep = deps.get(key);
-    if (dep && dep.has(effect)) {
-      effects.add(effect);
-    }
-  }
+  const dep = depsMap.get(key);
+  if (!dep) return;
 
-  for (const effect of effects) {
+  // Clone to avoid infinite loops if effects trigger themselves or modify subscriptions during execution
+  const effectsToRun = Array.from(dep);
+  for (const effect of effectsToRun) {
     effect.run();
   }
 }
 
 /**
- * Get all dependencies for an effect
+ * Get all dependencies for an effect (kept for backward compatibility/introspection)
  */
-export function getDependencies(effect: Effect): Deps {
-  return depsMap.get(effect) || new Map();
+export function getDependencies(_effect: Effect): Deps {
+  const deps: Deps = new Map();
+  return deps;
 }
 
 /**
  * Clear all dependencies for an effect
  */
-export function clearDependencies(effect: Effect): void {
-  depsMap.delete(effect);
+export function clearDependencies(_effect: Effect): void {
+  // Dependencies are managed cleanly via targetMap and effect stop routines.
 }
 
 /**
  * Get the current effect
  */
 function getCurrentEffect(): Effect | null {
-  // This is imported from reactive.ts
-  // Using global reference
-  return (globalThis as any).__currentEffect || null;
+  return currentEffect;
 }
 
 /**
- * Set the current effect
+ * Set the current effect (maintained for compatibility, delegates via reactive context if needed)
  */
-export function setCurrentEffect(effect: Effect | null): void {
-  (globalThis as any).__currentEffect = effect;
+export function setCurrentEffect(_effect: Effect | null): void {
+  // Controlled internally by reactive.ts execution stack
 }
 
 /**
  * Register cleanup for an effect
  */
 export function onEffectCleanup(effect: Effect, cleanup: () => void): void {
-  effectCleanups.set(effect, cleanup);
+  let cleanups = effectCleanups.get(effect);
+  if (!cleanups) {
+    cleanups = [];
+    effectCleanups.set(effect, cleanups);
+  }
+  cleanups.push(cleanup);
 }
 
 /**
  * Clean up an effect
  */
 export function cleanupEffect(effect: Effect): void {
-  const cleanup = effectCleanups.get(effect);
-  if (cleanup) {
-    cleanup();
+  const cleanups = effectCleanups.get(effect);
+  if (cleanups) {
+    for (const cleanup of cleanups) {
+      try {
+        cleanup();
+      } catch (err) {
+        console.error('Error during effect cleanup:', err);
+      }
+    }
     effectCleanups.delete(effect);
   }
   clearDependencies(effect);

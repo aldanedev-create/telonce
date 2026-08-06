@@ -52,11 +52,13 @@ export interface SFCParserOptions {
 /**
  * Parse a .vel Single File Component
  */
-export function parseSFC(source: string): SFCResult {
+export function parseSFC(source: string, options: SFCParserOptions = {}): SFCResult {
+  const { filename = 'component.vel' } = options;
   const diagnostics = {
     errors: [] as string[],
     warnings: [] as string[],
   };
+  const errorPrefix = `[${filename}] `;
 
   let template = '';
   let script = '';
@@ -70,7 +72,7 @@ export function parseSFC(source: string): SFCResult {
   if (templateMatch) {
     template = templateMatch[1].trim();
   } else {
-    diagnostics.errors.push('Missing <template> section');
+    diagnostics.errors.push(`${errorPrefix}Missing <template> section`);
   }
 
   const scriptMatch = source.match(/<script[^>]*>([\s\S]*?)<\/script>/);
@@ -81,23 +83,27 @@ export function parseSFC(source: string): SFCResult {
     if (langMatch) {
       scriptLang = langMatch[1];
     }
-    // Extract component name
-    const nameMatch = script.match(/name:\s*['"]([^'"]+)['"]/);
-    if (nameMatch) {
-      name = nameMatch[1];
-    }
-    // Extract export default
+    // Extract component name. Prefer a `name:` found inside the actual
+    // `export default {...}` object; only fall back to searching the whole
+    // script if that fails, so an unrelated `name:` on some other object
+    // literal elsewhere in the file (e.g. `const config = { name: 'x' }`)
+    // can't be mistaken for the component's name.
     const exportMatch = script.match(/export\s+default\s+({[\s\S]*})/);
     if (exportMatch) {
-      // Parse the object to extract name
       const objStr = exportMatch[1];
       const nameInObj = objStr.match(/name:\s*['"]([^'"]+)['"]/);
-      if (nameInObj && !name) {
+      if (nameInObj) {
         name = nameInObj[1];
       }
     }
+    if (!name) {
+      const nameMatch = script.match(/name:\s*['"]([^'"]+)['"]/);
+      if (nameMatch) {
+        name = nameMatch[1];
+      }
+    }
   } else {
-    diagnostics.warnings.push('No <script> section found');
+    diagnostics.warnings.push(`${errorPrefix}No <script> section found`);
   }
 
   const styleMatch = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);

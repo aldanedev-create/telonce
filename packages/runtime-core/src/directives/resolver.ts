@@ -2,7 +2,7 @@
  * Directive resolver - resolve and apply directives
  */
 
-import { getDirective, hasDirective, type Directive } from './register';
+import { getDirective, type Directive } from './register';
 
 /**
  * Directive resolution

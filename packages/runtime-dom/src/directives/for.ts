@@ -2,7 +2,7 @@
  * For directive - keyed loop with Map<key,node> + insertBefore moves
  */
 
-import { createEffect, type Signal } from '@teloce/reactivity';
+import { createEffect, type Signal, type Effect } from '@teloce/reactivity';
 import { reconcileList } from '../reconciler';
 
 export interface ForDirectiveProps<T = any> {
@@ -47,7 +47,7 @@ export function For<T>(props: ForDirectiveProps<T>): any {
  */
 export function createFor<T>(
   container: HTMLElement,
-  items: Signal<T[]>,
+  items: Signal<T[]> | T[],
   renderFn: (item: T, index: number) => Node,
   keyFn: (item: T) => string
 ): {
@@ -57,13 +57,18 @@ export function createFor<T>(
 } {
   const cache = new Map<string, { node: Node; data: T; key: string }>();
   let currentItems: T[] = [];
-  let isMounted = false;
+  let effect: Effect | null = null;
 
   function update() {
-    const newItems = items();
+    // Support both static arrays and reactive signals
+    const newItems = typeof items === 'function' ? (items as Signal<T[]>)() : items;
     
+    if (!Array.isArray(newItems)) {
+      return;
+    }
+
     // Reconcile the list
-    const result = reconcileList(
+    reconcileList(
       currentItems,
       newItems,
       keyFn,
@@ -76,30 +81,35 @@ export function createFor<T>(
   }
 
   function unmount() {
-    // Clear all nodes
-    for (const [key, entry] of cache) {
+    // Stop the reactive effect subscription to prevent memory leaks
+    if (effect) {
+      effect.stop();
+      effect = null;
+    }
+
+    // Clear all DOM nodes
+    for (const [_key, entry] of cache) {
       if (entry.node.parentNode) {
         entry.node.parentNode.removeChild(entry.node);
       }
     }
     cache.clear();
     currentItems = [];
-    isMounted = false;
   }
 
   function getCache() {
     return cache;
   }
 
-  // Create effect for reactivity
-  const effect = createEffect(() => {
-    if (!isMounted) {
-      isMounted = true;
+  // Create effect for reactivity if items is a signal/function
+  if (typeof items === 'function') {
+    effect = createEffect(() => {
       update();
-    } else {
-      update();
-    }
-  });
+    });
+  } else {
+    // Initial run for static arrays
+    update();
+  }
 
   return {
     update,
@@ -116,15 +126,16 @@ export function getKeyFn<T>(
 ): (item: T) => string {
   if (!key) {
     return (item: T) => {
-      // Use item itself if primitive, or fallback to index
+      // Use item itself if primitive, or fallback to object properties
       if (typeof item === 'string' || typeof item === 'number') {
         return String(item);
       }
-      // Try to use id or name
       const obj = item as any;
-      return obj.id !== undefined ? String(obj.id) : 
-             obj.name !== undefined ? String(obj.name) : 
-             String(Math.random());
+      if (obj && typeof obj === 'object') {
+        if (obj.id !== undefined) return String(obj.id);
+        if (obj.name !== undefined) return String(obj.name);
+      }
+      return String(Math.random());
     };
   }
 
@@ -134,6 +145,6 @@ export function getKeyFn<T>(
 
   return (item: T) => {
     const obj = item as any;
-    return String(obj[key]);
+    return obj ? String(obj[key]) : String(Math.random());
   };
 }

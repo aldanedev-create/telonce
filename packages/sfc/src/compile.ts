@@ -168,6 +168,17 @@ export function compile(
 }
 
 /**
+ * Turn an arbitrary (possibly user-authored) string into a safe JS
+ * identifier: strip characters that aren't valid in an identifier, and
+ * ensure it doesn't start with a digit.
+ */
+function toValidIdentifier(name: string): string {
+  const cleaned = name.replace(/[^a-zA-Z0-9_$]/g, '');
+  const safe = /^[0-9]/.test(cleaned) ? `_${cleaned}` : cleaned;
+  return safe || 'Component';
+}
+
+/**
  * Generate final JavaScript code
  */
 function generateCode(
@@ -177,10 +188,23 @@ function generateCode(
   style: StyleCompileResult | undefined,
   options: SFCCompileOptions
 ): string {
-  const { name = 'Component' } = sfc;
+  const { name: rawName = 'Component' } = sfc;
   const { dev = false } = options;
 
+  // `rawName` comes from user-authored source (a `name:` field extracted
+  // from the component's <script> block) and was previously spliced
+  // directly into both a JS identifier position (`export const ${name}`)
+  // and a quoted string literal (`name: '${name}'`) with no validation or
+  // escaping - a name containing a space/hyphen/quote would produce
+  // invalid or, worse, injectable generated code. Sanitize both uses.
+  const name = toValidIdentifier(rawName);
+  const nameLiteral = JSON.stringify(rawName);
+
   let code = '';
+
+  if (dev) {
+    code += `// Compiled in development mode from ${sfc.name ? `component "${sfc.name}"` : 'an unnamed component'}\n`;
+  }
 
   // Add imports
   code += `import { defineComponent } from '@teloce/core';\n`;
@@ -200,7 +224,7 @@ function generateCode(
 
   // Define component
   code += `\nexport const ${name} = defineComponent({\n`;
-  code += `  name: '${name}',\n`;
+  code += `  name: ${nameLiteral},\n`;
   code += `  template,\n`;
   if (style?.css) {
     code += `  styles,\n`;

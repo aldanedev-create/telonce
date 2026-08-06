@@ -228,9 +228,21 @@ export function removeUnused(
 
 /**
  * Perform tree-shaking on modules
+ *
+ * NOTE: this is currently a simulated analysis, not real dead-code
+ * elimination - `analyzeImports`/`analyzeExports`/`removeUnused` above are
+ * fully implemented but never invoked here, so no code is actually removed
+ * and every entry is reported as full-size regardless of content. This
+ * fixes the signature (bundle.ts was already passing `options`, which
+ * didn't exist as a parameter and failed to compile) and honors
+ * `options.entries`/`options.external`, but the "shaking" itself is still
+ * a placeholder pending real module-graph analysis.
  */
-export function treeShake(entries: string | string[]): TreeShakeResult {
-  const entryList = Array.isArray(entries) ? entries : [entries];
+export function treeShake(entries: string | string[], options: TreeShakeOptions = {}): TreeShakeResult {
+  const entryList = options.entries && options.entries.length > 0
+    ? options.entries
+    : Array.isArray(entries) ? entries : [entries];
+  const external = new Set(options.external || []);
   const modules: ModuleInfo[] = [];
   const removed: string[] = [];
   let removedSize = 0;
@@ -238,7 +250,12 @@ export function treeShake(entries: string | string[]): TreeShakeResult {
 
   // Simulate module analysis
   for (const entry of entryList) {
-    // In practice, this would parse the module and analyze imports/exports
+    if (external.has(entry)) {
+      continue;
+    }
+    // In practice, this would read and parse the module and run
+    // analyzeImports/analyzeExports/removeUnused against the real module
+    // graph; see the note above.
     modules.push({
       path: entry,
       size: 0,

@@ -5,7 +5,6 @@
  */
 
 import { ASTNodeType, type ASTNode, type ElementNode } from '../parser';
-import { PatchFlag } from '../optimizer';
 
 export interface GenerateOptions {
   /**
@@ -42,6 +41,17 @@ export interface GenerateResult {
 }
 
 /**
+ * Escapes characters that would break JS single-quoted string literals.
+ */
+function escapeString(str: string): string {
+  return str
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r');
+}
+
+/**
  * Generate JavaScript code from the AST
  */
 export function generate(
@@ -52,7 +62,7 @@ export function generate(
   const exports: string[] = [];
   let code = '';
 
-  const { target = 'browser', dev = false, minify = false } = options;
+  const { target = 'browser' } = options;
 
   // Add imports
   if (target === 'browser') {
@@ -60,13 +70,17 @@ export function generate(
   }
 
   // Generate the code
-  for (const node of ast) {
-    code += generateNode(node, { options, imports, exports, indent: 0 });
-  }
+  // Top level nodes are separated by commas if this is meant to be a single render return, 
+  // or just statement-level. We'll join them safely.
+  const children = ast.map(node => 
+    generateNode(node, { options, imports, exports, indent: 1 })
+  ).join(',\n');
+  
+  code += children;
 
   // Wrap in IIFE if needed
   if (options.format === 'iife') {
-    code = `(function() {\n${code}\n})();`;
+    code = `(function() {\n  return [\n${code}\n  ];\n})();`;
   }
 
   return {
@@ -88,8 +102,6 @@ function generateNode(
     indent: number;
   }
 ): string {
-  const indent = '  '.repeat(context.indent);
-
   switch (node.type) {
     case ASTNodeType.Element:
       return generateElement(node as ElementNode, context);
@@ -118,12 +130,14 @@ function generateElement(
     indent: number;
   }
 ): string {
-  const { options, indent } = context;
+  const { indent } = context;
   const ind = '  '.repeat(indent);
   const tag = node.tag;
+  
+  // Joined by ',\n' instead of '\n' to form valid comma-separated arguments
   const children = node.children.map(child =>
     generateNode(child, { ...context, indent: indent + 1 })
-  ).join('\n');
+  ).join(',\n');
 
   // Check for self-closing tags
   const isVoid = ['img', 'br', 'hr', 'input', 'meta', 'link'].includes(tag);
@@ -147,14 +161,15 @@ function generateText(
     indent: number;
   }
 ): string {
-  const { options, indent } = context;
+  const { indent } = context;
   const ind = '  '.repeat(indent);
 
+  // Escape strings to prevent literal breakout and injection
   if (node.folded) {
-    return `${ind}createText('${node.foldedValue}')`;
+    return `${ind}createText('${escapeString(node.foldedValue)}')`;
   }
 
-  return `${ind}createText('${node.value.trim()}')`;
+  return `${ind}createText('${escapeString(node.value.trim())}')`;
 }
 
 /**
@@ -192,19 +207,22 @@ function generateFor(
     indent: number;
   }
 ): string {
-  const { options, indent } = context;
+  const { indent } = context;
   const ind = '  '.repeat(indent);
   const item = node.item;
   const collection = node.collection;
-  const key = node.key || 'index';
 
+  // Joined children properly with commas
   const children = node.children.map((child: ASTNode) =>
     generateNode(child, { ...context, indent: indent + 1 })
-  ).join('\n');
+  ).join(',\n');
 
-  const keyed = node.key ? `, key: '${node.key}'` : '';
+  // Syntactically correct options object for key
+  const keyed = node.key ? `, { key: '${escapeString(node.key)}' }` : '';
 
-  return `${ind}createFor('${collection}', (${item}, index) => {\n${children}\n${ind})${keyed}`;
+  // Removed quotes around ${collection} to pass it as a reference, not a literal string.
+  // Returns an array `[...]` to enclose multiple children properly without missing braces.
+  return `${ind}createFor(${collection}, (${item}, index) => [\n${children}\n${ind}]${keyed})`;
 }
 
 /**
@@ -219,22 +237,24 @@ function generateIf(
     indent: number;
   }
 ): string {
-  const { options, indent } = context;
+  const { indent } = context;
   const ind = '  '.repeat(indent);
 
+  // Joined children properly with commas
   const children = node.children.map((child: ASTNode) =>
     generateNode(child, { ...context, indent: indent + 1 })
-  ).join('\n');
+  ).join(',\n');
 
   const elseChildren = node.elseChildren?.map((child: ASTNode) =>
     generateNode(child, { ...context, indent: indent + 1 })
-  ).join('\n');
+  ).join(',\n');
 
+  // Wrapped both branches in `() => [...]` to enforce lazy evaluation and correct syntax.
   if (elseChildren) {
-    return `${ind}createIf(() => ${node.condition},\n${children}\n${ind}, () => {\n${elseChildren}\n${ind})`;
+    return `${ind}createIf(() => ${node.condition}, () => [\n${children}\n${ind}], () => [\n${elseChildren}\n${ind}])`;
   }
 
-  return `${ind}createIf(() => ${node.condition},\n${children}\n${ind})`;
+  return `${ind}createIf(() => ${node.condition}, () => [\n${children}\n${ind}])`;
 }
 
 /**
@@ -253,8 +273,8 @@ function generateAttributes(attributes: Record<string, string>): string {
         const prop = key.slice(1);
         return `${prop}: ${value}`;
       }
-      // Handle regular attributes
-      return `${key}: '${value}'`;
+      // Handle regular attributes safely by escaping strings
+      return `${key}: '${escapeString(value)}'`;
     })
     .join(', ');
 

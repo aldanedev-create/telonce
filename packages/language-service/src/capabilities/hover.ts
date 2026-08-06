@@ -2,8 +2,6 @@
  * Hover - Provides hover information for Teloce templates
  */
 
-import { ASTNodeType, type ASTNode, type ElementNode } from '@teloce/compiler';
-
 export interface HoverInfo {
   /**
    * Hover content

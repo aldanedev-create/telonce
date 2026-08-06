@@ -2,8 +2,6 @@
  * Lifecycle management - hooks and lifecycle manager
  */
 
-import { createEffect } from '@teloce/reactivity';
-
 /**
  * Lifecycle hook functions
  */
@@ -78,7 +76,8 @@ export function createLifecycleManager(): LifecycleManager {
  */
 export function runLifecycle(
   phase: string,
-  component: any
+  component: any,
+  manager?: LifecycleManager
 ): void {
   const hookMap: Record<string, string> = {
     'beforeMount': 'beforeMount',
@@ -94,43 +93,84 @@ export function runLifecycle(
   if (hookName && component[hookName]) {
     component[hookName]();
   }
+
+  // Also run any composition-style hooks registered via onMounted()/
+  // onBeforeUnmount()/etc. (see below). `component[hookName]` above only
+  // covers the options-object style (`mounted() {...}` on defineComponent).
+  manager?.run(phase);
 }
 
 /**
- * Lifecycle hooks
+ * Composition-style lifecycle hooks (`onMounted(fn)`, `onBeforeUnmount(fn)`,
+ * ...). These previously accepted a callback and discarded it — nothing
+ * ever stored `fn` anywhere, so hooks registered this way silently never
+ * ran. They now register against whichever component instance is
+ * "currently being set up," tracked via a stack (a stack, not a single
+ * nullable slot, so that a component whose data()/render() constructs or
+ * reads another component mid-setup doesn't clobber the outer instance's
+ * registration target - see the equivalent bug in @teloce/reactivity's
+ * `currentEffect`).
  */
+const instanceStack: LifecycleManager[] = [];
+
+/**
+ * Push the lifecycle manager that onX() calls should register against
+ * while a component is being set up. Must be paired with popCurrentInstance().
+ */
+export function pushCurrentInstance(manager: LifecycleManager): void {
+  instanceStack.push(manager);
+}
+
+/**
+ * Pop the current lifecycle manager, restoring the previous one (if any).
+ */
+export function popCurrentInstance(): void {
+  instanceStack.pop();
+}
+
+function registerHook(phase: string, fn: LifecycleHook | ((err: Error) => void)): void {
+  const current = instanceStack[instanceStack.length - 1];
+  if (!current) {
+    console.warn(
+      `[teloce] on${phase[0].toUpperCase()}${phase.slice(1)}() was called outside of component setup - the callback will never run.`
+    );
+    return;
+  }
+  current.on(phase, fn as LifecycleHook);
+}
+
 export function onBeforeMount(fn: LifecycleHook): void {
-  // Register hook
+  registerHook(LifecyclePhases.BEFORE_MOUNT, fn);
 }
 
 export function onMounted(fn: LifecycleHook): void {
-  // Register hook
+  registerHook(LifecyclePhases.MOUNTED, fn);
 }
 
 export function onBeforeUpdate(fn: LifecycleHook): void {
-  // Register hook
+  registerHook(LifecyclePhases.BEFORE_UPDATE, fn);
 }
 
 export function onUpdated(fn: LifecycleHook): void {
-  // Register hook
+  registerHook(LifecyclePhases.UPDATED, fn);
 }
 
 export function onBeforeUnmount(fn: LifecycleHook): void {
-  // Register hook
+  registerHook(LifecyclePhases.BEFORE_UNMOUNT, fn);
 }
 
 export function onUnmounted(fn: LifecycleHook): void {
-  // Register hook
+  registerHook(LifecyclePhases.UNMOUNTED, fn);
 }
 
 export function onErrorCaptured(fn: (err: Error) => void): void {
-  // Register hook
+  registerHook(LifecyclePhases.ERROR_CAPTURED, fn);
 }
 
 export function onActivated(fn: LifecycleHook): void {
-  // Register hook
+  registerHook(LifecyclePhases.ACTIVATED, fn);
 }
 
 export function onDeactivated(fn: LifecycleHook): void {
-  // Register hook
+  registerHook(LifecyclePhases.DEACTIVATED, fn);
 }

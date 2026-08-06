@@ -2,7 +2,7 @@
  * Model directive - two-way binding
  */
 
-import { type Signal } from '@teloce/reactivity';
+import { createEffect, type Signal, type Effect } from '@teloce/reactivity';
 
 export interface ModelDirectiveProps {
   /**
@@ -43,8 +43,11 @@ export function createModel(
   unmount: () => void;
 } {
   const { type = 'text', value } = options;
+  let effect: Effect | null = null;
+  let isUpdatingFromDOM = false;
 
   function update() {
+    if (isUpdatingFromDOM) return;
     const val = signal();
     
     if (el instanceof HTMLInputElement) {
@@ -53,43 +56,58 @@ export function createModel(
       } else if (type === 'radio') {
         el.checked = val === value;
       } else {
-        el.value = val;
+        el.value = val !== undefined && val !== null ? val : '';
       }
     } else if (el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
-      el.value = val;
+      el.value = val !== undefined && val !== null ? val : '';
     }
   }
 
   function handleInput() {
-    if (el instanceof HTMLInputElement) {
-      if (type === 'checkbox') {
-        signal.set(el.checked);
-      } else if (type === 'radio') {
-        if (el.checked) {
-          signal.set(value);
+    isUpdatingFromDOM = true;
+    try {
+      if (el instanceof HTMLInputElement) {
+        if (type === 'checkbox') {
+          signal.set(el.checked);
+        } else if (type === 'radio') {
+          if (el.checked) {
+            signal.set(value);
+          }
+        } else {
+          signal.set(el.value);
         }
-      } else {
+      } else if (el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
         signal.set(el.value);
       }
-    } else if (el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
-      signal.set(el.value);
+    } finally {
+      isUpdatingFromDOM = false;
     }
   }
 
   // Bind event listeners
   el.addEventListener('input', handleInput);
-  if (type === 'checkbox' || type === 'radio') {
+  const isCheckType = type === 'checkbox' || type === 'radio';
+  if (isCheckType) {
     el.addEventListener('change', handleInput);
   }
 
-  // Initial update
-  update();
+  // Create reactive effect so external signal changes update the DOM element automatically
+  effect = createEffect(() => {
+    update();
+  });
 
   return {
     update,
     unmount() {
+      // Stop the effect subscription to prevent memory leaks
+      if (effect) {
+        effect.stop();
+        effect = null;
+      }
       el.removeEventListener('input', handleInput);
-      el.removeEventListener('change', handleInput);
+      if (isCheckType) {
+        el.removeEventListener('change', handleInput);
+      }
     },
   };
 }

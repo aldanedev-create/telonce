@@ -137,6 +137,15 @@ export function createDirectiveRegistry(): DirectiveRegistry {
 
 /**
  * Built-in directives
+ *
+ * NOTE: these are placeholder registrations only. The real, working
+ * implementations of for/if/show live in @teloce/runtime-dom
+ * (createFor/createIf/createShow) and are wired up there directly - this
+ * package intentionally has no dependency on runtime-dom (runtime-dom
+ * already depends on runtime-core, so the reverse would be circular).
+ * getDirective('for'|'if'|'show') will resolve to these entries, but their
+ * hooks are no-ops; do not rely on this registry for actual for/if/show
+ * behavior.
  */
 export const BuiltinDirectives = {
   /**
@@ -144,8 +153,8 @@ export const BuiltinDirectives = {
    */
   For: {
     name: 'for',
-    beforeMount(el: HTMLElement, binding: any) {
-      // Initialize for loop
+    beforeMount(_el: HTMLElement, _binding: any) {
+      // Not implemented here - see @teloce/runtime-dom's createFor.
     }
   },
 
@@ -154,8 +163,8 @@ export const BuiltinDirectives = {
    */
   If: {
     name: 'if',
-    beforeMount(el: HTMLElement, binding: any) {
-      // Initialize if statement
+    beforeMount(_el: HTMLElement, _binding: any) {
+      // Not implemented here - see @teloce/runtime-dom's createIf.
     }
   },
 
@@ -164,8 +173,8 @@ export const BuiltinDirectives = {
    */
   Show: {
     name: 'show',
-    mounted(el: HTMLElement, binding: any) {
-      // Show/hide element
+    mounted(_el: HTMLElement, _binding: any) {
+      // Not implemented here - see @teloce/runtime-dom's createShow.
     }
   }
 };

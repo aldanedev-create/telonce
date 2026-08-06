@@ -5,8 +5,6 @@
  * for keyed loops, enabling efficient updates without a Virtual DOM.
  */
 
-import { createEffect, type Signal } from '@teloce/reactivity';
-
 /**
  * Renderer options
  */
@@ -93,17 +91,15 @@ interface CacheEntry<T = any> {
 /**
  * Create a renderer
  */
-export function createRenderer(options: RendererOptions): Renderer {
+export function createRenderer(_options: RendererOptions): Renderer {
   return {
-    render(template, data) {
-      // Implementation depends on template type
+    render(_template, _data) {
       return document.createTextNode('');
     },
-    update(node, data) {
+    update(_node, _data) {
       // Update node with new data
     },
     unmount(node) {
-      // Remove node from DOM
       if (node.parentNode) {
         node.parentNode.removeChild(node);
       }
@@ -156,7 +152,6 @@ export function reconcileList<T>(
   }
 
   // Step 2: Process new items
-  let currentIndex = 0;
   for (const [index, item] of newItems.entries()) {
     const key = keyFn(item);
     const cached = cache.get(key);
@@ -164,12 +159,11 @@ export function reconcileList<T>(
     if (cached) {
       // Reuse existing node
       const node = cached.node;
-      const oldIndex = oldItems.findIndex(i => keyFn(i) === key);
+      const oldEntry = oldKeys.get(key);
 
-      // Update content if needed
-      if (oldIndex === -1 || oldItems[oldIndex] !== item) {
+      // Update content if item reference changed
+      if (!oldEntry || oldEntry.item !== item) {
         const newNode = renderFn(item, index);
-        // Replace content if different
         if (node !== newNode) {
           if (node.parentNode) {
             node.parentNode.replaceChild(newNode, node);
@@ -185,8 +179,8 @@ export function reconcileList<T>(
         nodes.push(node);
       }
 
-      // Move to correct position using insertBefore
-      const targetNode = container.children[index];
+      // Move to correct position using insertBefore (using childNodes to include text/comment nodes)
+      const targetNode = container.childNodes[index];
       if (targetNode && targetNode !== node) {
         container.insertBefore(node, targetNode);
         operations.push({ type: 'move', node, index, key });
@@ -194,15 +188,13 @@ export function reconcileList<T>(
         container.appendChild(node);
         operations.push({ type: 'move', node, index, key });
       }
-
-      currentIndex++;
     } else {
       // Create new node
       const node = renderFn(item, index);
       cache.set(key, { node, data: item, key });
       
-      // Insert at correct position
-      const targetNode = container.children[index];
+      // Insert at correct position (using childNodes)
+      const targetNode = container.childNodes[index];
       if (targetNode) {
         container.insertBefore(node, targetNode);
       } else {
@@ -211,7 +203,6 @@ export function reconcileList<T>(
       
       operations.push({ type: 'add', node, index, key });
       nodes.push(node);
-      currentIndex++;
     }
   }
 
@@ -235,11 +226,9 @@ export function reconcileChildren(
 
   // If no key function, simple replace
   if (!keyFn) {
-    // Clear container
     while (container.firstChild) {
       container.removeChild(container.firstChild);
     }
-    // Add new children
     for (const child of newChildren) {
       container.appendChild(child);
       operations.push({ type: 'add', node: child });
@@ -252,9 +241,9 @@ export function reconcileChildren(
     };
   }
 
-  // Keyed reconciliation
+  // Keyed reconciliation using childNodes to support all node types
   const oldKeys = new Map<string, Node>();
-  const oldChildren = Array.from(container.children);
+  const oldChildren = Array.from(container.childNodes);
 
   for (const child of oldChildren) {
     const key = keyFn(child);
@@ -274,7 +263,9 @@ export function reconcileChildren(
   // Remove old nodes not in new list
   for (const [key, node] of oldKeys) {
     if (!newKeys.has(key)) {
-      container.removeChild(node);
+      if (node.parentNode) {
+        node.parentNode.removeChild(node);
+      }
       operations.push({ type: 'remove', node, key });
     }
   }
@@ -283,19 +274,19 @@ export function reconcileChildren(
   for (const [index, child] of newChildren.entries()) {
     const key = keyFn(child);
     if (key && oldKeys.has(key)) {
-      // Move existing node
       const existingNode = oldKeys.get(key)!;
       if (existingNode !== child) {
-        const targetNode = container.children[index];
+        const targetNode = container.childNodes[index];
         if (targetNode !== existingNode) {
           container.insertBefore(existingNode, targetNode || null);
           operations.push({ type: 'move', node: existingNode, index, key });
         }
         nodes.push(existingNode);
+      } else {
+        nodes.push(existingNode);
       }
     } else {
-      // Add new node
-      const targetNode = container.children[index];
+      const targetNode = container.childNodes[index];
       if (targetNode) {
         container.insertBefore(child, targetNode);
       } else {

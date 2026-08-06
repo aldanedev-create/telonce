@@ -2,7 +2,7 @@
  * Autocomplete - Provides completion items for Teloce templates
  */
 
-import { ASTNodeType, type ASTNode, type ElementNode } from '@teloce/compiler';
+import type { ASTNode } from '@teloce/compiler';
 
 export interface CompletionItem {
   /**
@@ -468,7 +468,6 @@ export function getCompletions(
   context: CompletionContext
 ): CompletionItem[] {
   const { content, position, word = '' } = context;
-  const results: CompletionItem[] = [];
 
   // Check if we're inside a directive (starting with @ or :)
   const before = content.substring(0, position);
@@ -593,6 +592,7 @@ function getInterpolationCompletions(
 function getTagCompletions(
   context: CompletionContext
 ): CompletionItem[] {
+  const { word = '' } = context;
   const tags: CompletionItem[] = [
     {
       label: 'div',
@@ -662,7 +662,11 @@ function getTagCompletions(
     ),
   ];
 
-  return tags;
+  // Previously ignored `context` entirely (unused-parameter build error),
+  // so typing e.g. "<di" surfaced every tag/directive instead of narrowing
+  // to matches like "div" - now filters consistently with the sibling
+  // getVariableCompletions/getDirectiveCompletions functions above.
+  return word ? tags.filter(t => t.label.includes(word)) : tags;
 }
 
 /**
@@ -733,7 +737,9 @@ function getVariableCompletions(
 function getFilterCompletions(
   context: CompletionContext
 ): CompletionItem[] {
-  return TELOCE_DIRECTIVES.filter(d => d.kind === 'function');
+  const { word = '' } = context;
+  const filters = TELOCE_DIRECTIVES.filter(d => d.kind === 'function');
+  return word ? filters.filter(f => f.label.includes(word)) : filters;
 }
 
 /**

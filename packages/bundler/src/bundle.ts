@@ -4,7 +4,7 @@
 
 import { treeShake, type TreeShakeOptions, type TreeShakeResult } from './tree-shaking';
 import { minify, type MinifyOptions, type MinifyResult } from './minifier';
-import { createChunks, splitChunks, type ChunkOptions, type ChunkResult } from './chunks';
+import { createChunks, type ChunkOptions, type ChunkResult } from './chunks';
 
 export interface BundleOptions {
   /**

@@ -42,28 +42,33 @@ export class HookSystem {
     }
 
     const hook: Hook = { name, handler, priority, plugin };
-    this.hooks.get(name)!.push(hook);
+    const list = this.hooks.get(name)!;
+    list.push(hook);
 
     // Sort by priority (higher first)
-    this.hooks.get(name)!.sort((a, b) => b.priority - a.priority);
+    list.sort((a, b) => b.priority - a.priority);
   }
 
   /**
-   * Unregister a hook (requires a plugin reference to prevent accidental mass deletion)
+   * Unregister a hook. If plugin is omitted, clears only global/unscoped hooks, preserving scoped plugin hooks.
    */
   unregister(name: string, plugin?: string): void {
-    if (!plugin) {
-      throw new Error(`Plugin reference is required to unregister hook "${name}" to prevent accidental mass deletion.`);
-    }
-
     const hooks = this.hooks.get(name);
     if (!hooks) return;
 
-    // Remove hooks from specific plugin
-    this.hooks.set(
-      name,
-      hooks.filter(h => h.plugin !== plugin)
-    );
+    if (plugin === undefined) {
+      // Clear only global/unscoped hooks (e.g. plugin === 'unknown')
+      this.hooks.set(
+        name,
+        hooks.filter(h => h.plugin && h.plugin !== 'unknown')
+      );
+    } else {
+      // Remove hooks from specific plugin
+      this.hooks.set(
+        name,
+        hooks.filter(h => h.plugin !== plugin)
+      );
+    }
   }
 
   /**
@@ -79,12 +84,12 @@ export class HookSystem {
 
     for (const hook of hooks) {
       if (this.debug) {
-        console.log(`[hooks] Running ${name} from ${hook.plugin}`);
+        console.log(`[hooks] Running waterfall ${name} from ${hook.plugin}`);
       }
       try {
         result = await hook.handler(result, context);
       } catch (error) {
-        console.error(`[hooks] Error in ${name} from ${hook.plugin}:`, error);
+        console.error(`[hooks] Error in waterfall ${name} from ${hook.plugin}:`, error);
         throw error;
       }
     }
@@ -104,12 +109,12 @@ export class HookSystem {
 
     const promises = hooks.map(async (hook) => {
       if (this.debug) {
-        console.log(`[hooks] Running ${name} from ${hook.plugin}`);
+        console.log(`[hooks] Running parallel ${name} from ${hook.plugin}`);
       }
       try {
         return await hook.handler(value, context);
       } catch (error) {
-        console.error(`[hooks] Error in ${name} from ${hook.plugin}:`, error);
+        console.error(`[hooks] Error in parallel ${name} from ${hook.plugin}:`, error);
         throw error;
       }
     });
@@ -118,7 +123,7 @@ export class HookSystem {
   }
 
   /**
-   * Run hooks for each item in an array with standardized error handling
+   * Run hooks for each item/result in sequence with standardized error handling
    */
   async runEach<T>(
     name: string,
@@ -130,12 +135,15 @@ export class HookSystem {
 
     for (const hook of hooks) {
       if (this.debug) {
-        console.log(`[hooks] Running ${name} from ${hook.plugin}`);
+        console.log(`[hooks] Running each ${name} from ${hook.plugin}`);
       }
       try {
-        results = await hook.handler(results, context);
+        const res = await hook.handler(results, context);
+        if (Array.isArray(res)) {
+          results = res;
+        }
       } catch (error) {
-        console.error(`[hooks] Error in ${name} from ${hook.plugin}:`, error);
+        console.error(`[hooks] Error in each ${name} from ${hook.plugin}:`, error);
         throw error;
       }
     }
@@ -154,12 +162,12 @@ export class HookSystem {
 
     for (const hook of hooks) {
       if (this.debug) {
-        console.log(`[hooks] Running ${name} from ${hook.plugin}`);
+        console.log(`[hooks] Running side-effect ${name} from ${hook.plugin}`);
       }
       try {
         await hook.handler(...args);
       } catch (error) {
-        console.error(`[hooks] Error in ${name} from ${hook.plugin}:`, error);
+        console.error(`[hooks] Error in side-effect ${name} from ${hook.plugin}:`, error);
         throw error;
       }
     }
@@ -169,7 +177,8 @@ export class HookSystem {
    * Check if hooks exist for a name
    */
   has(name: string): boolean {
-    return this.hooks.has(name) && this.hooks.get(name)!.length > 0;
+    const hooks = this.hooks.get(name);
+    return !!hooks && hooks.length > 0;
   }
 
   /**
@@ -180,10 +189,11 @@ export class HookSystem {
   }
 
   /**
-   * Get hooks for a name
+   * Get a shallow copy of hooks for a name to prevent internal array mutation
    */
   get(name: string): Hook[] {
-    return this.hooks.get(name) || [];
+    const hooks = this.hooks.get(name);
+    return hooks ? [...hooks] : [];
   }
 
   /**
@@ -194,7 +204,7 @@ export class HookSystem {
   }
 
   /**
-   * Clear hooks for a plugin
+   * Clear hooks for a specific plugin
    */
   clearPlugin(plugin: string): void {
     for (const [name, hooks] of this.hooks) {
@@ -207,7 +217,7 @@ export class HookSystem {
 }
 
 /**
- * Create a hook system
+ * Create a hook system instance
  */
 export function createHookSystem(debug: boolean = false): HookSystem {
   return new HookSystem(debug);

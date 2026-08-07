@@ -6,8 +6,6 @@
  * <div :animation="slide">
  */
 
-import { createSignal, createEffect, type Signal } from '@teloce/reactivity';
-
 /**
  * Transition options
  */
@@ -89,28 +87,28 @@ export interface AnimationOptions {
 }
 
 /**
- * Transition function
+ * Transition function type
  */
 export type Transition = (el: HTMLElement, options?: TransitionOptions) => Promise<void>;
 
 /**
- * Animation function
+ * Animation function type
  */
 export type Animation = (el: HTMLElement, options?: AnimationOptions) => Promise<void>;
 
 /**
- * Transition manager
+ * Transition manager interface
  */
 export interface TransitionManager {
   /**
    * Apply a transition
    */
-  apply: (el: HTMLElement, transition: Transition, options?: TransitionOptions) => Promise<void>;
+  apply: (el: HTMLElement, transitionFn: Transition, options?: TransitionOptions) => Promise<void>;
 
   /**
    * Apply an animation
    */
-  animate: (el: HTMLElement, animation: Animation, options?: AnimationOptions) => Promise<void>;
+  animate: (el: HTMLElement, animationFn: Animation, options?: AnimationOptions) => Promise<void>;
 
   /**
    * Cancel all transitions
@@ -125,18 +123,15 @@ export function createTransitionManager(): TransitionManager {
   const runningTransitions: Animation[] = [];
 
   return {
-    async apply(el: HTMLElement, transition: Transition, options?: TransitionOptions) {
-      return transition(el, options);
+    async apply(el: HTMLElement, transitionFn: Transition, options?: TransitionOptions) {
+      return transitionFn(el, options);
     },
 
-    async animate(el: HTMLElement, animation: Animation, options?: AnimationOptions) {
-      return animation(el, options);
+    async animate(el: HTMLElement, animationFn: Animation, options?: AnimationOptions) {
+      return animationFn(el, options);
     },
 
     cancel() {
-      for (const anim of runningTransitions) {
-        // Cancel animation
-      }
       runningTransitions.length = 0;
     },
   };
@@ -193,6 +188,20 @@ export function setTransitionStyles(
 }
 
 /**
+ * Generic transition runner helper function
+ */
+export function transition(el: HTMLElement, options?: TransitionOptions): Promise<void> {
+  return fade(el, options);
+}
+
+/**
+ * Generic animation runner helper function
+ */
+export function animate(el: HTMLElement, options?: AnimationOptions): Promise<void> {
+  return fadeIn(el, options);
+}
+
+/**
  * Create a transition with options
  */
 export function createTransition(
@@ -202,7 +211,8 @@ export function createTransition(
 ): Transition {
   return async (el: HTMLElement, opts?: TransitionOptions) => {
     const finalOpts = { ...options, ...opts };
-    const duration = finalOpts.duration || 300;
+    
+    if (finalOpts.onStart) finalOpts.onStart();
 
     // Apply enter styles
     enter(el);
@@ -212,14 +222,18 @@ export function createTransition(
 
     // Apply leave styles if needed
     leave(el);
+
+    if (finalOpts.onEnd) finalOpts.onEnd();
   };
 }
 
 /**
  * Create an animation
+ *//**
+ * Create an animation
  */
 export function createAnimation(
-  keyframes: Keyframe[] | KeyframeAnimationOptions,
+  keyframes: Keyframe[] | PropertyIndexedKeyframes,
   options: AnimationOptions = {}
 ): Animation {
   return async (el: HTMLElement, opts?: AnimationOptions) => {
@@ -238,17 +252,16 @@ export function createAnimation(
     await anim.finished;
   };
 }
-
 /**
  * Wrap a function with transition
  */
 export function withTransition<T>(
   fn: () => T,
-  transition: Transition,
+  transitionFn: Transition,
   el: HTMLElement
 ): Promise<T> {
   return new Promise(async (resolve) => {
-    await transition(el);
+    await transitionFn(el);
     const result = fn();
     resolve(result);
   });

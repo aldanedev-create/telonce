@@ -4,7 +4,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { promisify } from 'util';
 
 const fsPromises = fs.promises;
 
@@ -151,7 +150,7 @@ export class FileSystem {
     if (this.createIfMissing) {
       await this.mkdir(path.dirname(fullPath), { recursive: true });
     }
-    return fsPromises.writeFile(fullPath, content, encoding);
+    await fsPromises.writeFile(fullPath, content, encoding);
   }
 
   /**
@@ -175,13 +174,13 @@ export class FileSystem {
     if (this.debug) {
       console.log(`[fs] Creating directory: ${fullPath}`);
     }
-    return fsPromises.mkdir(fullPath, { recursive: options.recursive || false });
+    await fsPromises.mkdir(fullPath, { recursive: options.recursive || false });
   }
 
   /**
    * Read directory contents
    */
-  async readdir(dirPath: string, options: { withFileTypes?: boolean } = {}): Promise<FileEntry[]> {
+  async readdir(dirPath: string, _options: { withFileTypes?: boolean } = {}): Promise<FileEntry[]> {
     const fullPath = this.resolve(dirPath);
     if (this.debug) {
       console.log(`[fs] Reading directory: ${fullPath}`);
@@ -221,9 +220,10 @@ export class FileSystem {
 
     const stats = await this.stats(fullPath);
     if (stats.isDirectory) {
-      return fsPromises.rm(fullPath, { recursive: options.recursive || true });
+      await fsPromises.rm(fullPath, { recursive: options.recursive || true });
+      return;
     }
-    return fsPromises.unlink(fullPath);
+    await fsPromises.unlink(fullPath);
   }
 
   /**
@@ -242,7 +242,6 @@ export class FileSystem {
 
     const stats = await this.stats(fullSource);
     if (stats.isDirectory) {
-      // Recursively copy directory
       const entries = await this.readdir(fullSource);
       for (const entry of entries) {
         const sourcePath = entry.path;
@@ -268,7 +267,7 @@ export class FileSystem {
       await this.mkdir(path.dirname(fullDest), { recursive: true });
     }
 
-    return fsPromises.rename(fullSource, fullDest);
+    await fsPromises.rename(fullSource, fullDest);
   }
 
   /**
@@ -349,29 +348,59 @@ export class FileSystem {
   }
 
   /**
-   * Glob search
+   * Glob search using built-in recursive file traversal
    */
   async glob(pattern: string | string[], options: GlobOptions = {}): Promise<string[]> {
-    const { glob: globSync } = await import('glob');
     const patterns = Array.isArray(pattern) ? pattern : [pattern];
     const ignore = options.ignore ? (Array.isArray(options.ignore) ? options.ignore : [options.ignore]) : [];
-
     const results: string[] = [];
 
-    for (const p of patterns) {
-      const matches = await new Promise<string[]>((resolve, reject) => {
-        globSync(p, {
-          cwd: this.baseDir,
-          absolute: options.absolute,
-          ignore: ignore,
-          nodir: !options.includeDirectories,
-          dot: true,
-        }, (err: any, matches: string[]) => {
-          if (err) reject(err);
-          else resolve(matches);
-        });
-      });
-      results.push(...matches);
+    try {
+      const entries = await fsPromises.readdir(this.baseDir, { recursive: true, withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!options.includeDirectories && entry.isDirectory()) {
+          continue;
+        }
+
+        const parentPath = entry.parentPath || this.baseDir;
+        const fullEntryPath = path.join(parentPath, entry.name);
+        const relPath = path.relative(this.baseDir, fullEntryPath).replace(/\\/g, '/');
+
+        let matched = false;
+        for (const pat of patterns) {
+          const regexPattern = pat
+            .replace(/\./g, '\\.')
+            .replace(/\*\*/g, '.*')
+            .replace(/\*/g, '[^/]*');
+          const regex = new RegExp(`^${regexPattern}$`);
+
+          if (regex.test(relPath) || regex.test(entry.name)) {
+            matched = true;
+            break;
+          }
+        }
+
+        if (matched) {
+          let ignored = false;
+          for (const ign of ignore) {
+            if (typeof ign === 'string' && relPath.includes(ign)) {
+              ignored = true;
+              break;
+            }
+            if (ign instanceof RegExp && ign.test(relPath)) {
+              ignored = true;
+              break;
+            }
+          }
+
+          if (!ignored) {
+            results.push(options.absolute ? fullEntryPath : relPath);
+          }
+        }
+      }
+    } catch {
+      // Base directory might not exist yet
     }
 
     return results;
@@ -394,7 +423,6 @@ export class FileSystem {
     const watcher = fs.watch(fullPath, { recursive }, (eventType, filename) => {
       if (!filename) return;
 
-      // Check ignore patterns
       if (options.ignore) {
         const ignorePatterns = Array.isArray(options.ignore) ? options.ignore : [options.ignore];
         for (const pattern of ignorePatterns) {
@@ -459,34 +487,34 @@ export function createFileSystem(options: FileSystemOptions = {}): FileSystem {
 /**
  * Convenience functions
  */
-export const readFile = (path: string, encoding?: BufferEncoding) => {
+export const readFile = (filePath: string, encoding?: BufferEncoding) => {
   const fs = createFileSystem();
-  return fs.readFile(path, encoding);
+  return fs.readFile(filePath, encoding);
 };
 
-export const writeFile = (path: string, content: string | Buffer, encoding?: BufferEncoding) => {
+export const writeFile = (filePath: string, content: string | Buffer, encoding?: BufferEncoding) => {
   const fs = createFileSystem({ createIfMissing: true });
-  return fs.writeFile(path, content, encoding);
+  return fs.writeFile(filePath, content, encoding);
 };
 
-export const exists = (path: string) => {
+export const exists = (filePath: string) => {
   const fs = createFileSystem();
-  return fs.exists(path);
+  return fs.exists(filePath);
 };
 
-export const mkdir = (path: string, options?: { recursive?: boolean }) => {
+export const mkdir = (dirPath: string, options?: { recursive?: boolean }) => {
   const fs = createFileSystem({ createIfMissing: true });
-  return fs.mkdir(path, options);
+  return fs.mkdir(dirPath, options);
 };
 
-export const readdir = (path: string) => {
+export const readdir = (dirPath: string) => {
   const fs = createFileSystem();
-  return fs.readdir(path);
+  return fs.readdir(dirPath);
 };
 
-export const remove = (path: string, options?: { recursive?: boolean }) => {
+export const remove = (targetPath: string, options?: { recursive?: boolean }) => {
   const fs = createFileSystem();
-  return fs.remove(path, options);
+  return fs.remove(targetPath, options);
 };
 
 export const copy = (source: string, destination: string, options?: { overwrite?: boolean }) => {
@@ -499,17 +527,17 @@ export const move = (source: string, destination: string) => {
   return fs.move(source, destination);
 };
 
-export const resolve = (path: string) => {
+export const resolve = (targetPath: string) => {
   const fs = createFileSystem();
-  return fs.resolve(path);
+  return fs.resolve(targetPath);
 };
 
-export const dirname = (path: string) => path.dirname(path);
-export const basename = (path: string, ext?: string) => path.basename(path, ext);
-export const extname = (path: string) => path.extname(path);
+export const dirname = (p: string) => path.dirname(p);
+export const basename = (p: string, ext?: string) => path.basename(p, ext);
+export const extname = (p: string) => path.extname(p);
 export const join = (...paths: string[]) => path.join(...paths);
-export const normalize = (path: string) => path.normalize(path);
-export const isAbsolute = (path: string) => path.isAbsolute(path);
+export const normalize = (p: string) => path.normalize(p);
+export const isAbsolute = (p: string) => path.isAbsolute(p);
 export const relative = (from: string, to: string) => path.relative(from, to);
 
 export const glob = async (pattern: string | string[], options?: GlobOptions) => {
@@ -518,10 +546,10 @@ export const glob = async (pattern: string | string[], options?: GlobOptions) =>
 };
 
 export const watch = (
-  path: string,
+  targetPath: string,
   callback: (event: WatchEvent) => void,
   options?: WatchOptions
 ) => {
   const fs = createFileSystem();
-  return fs.watch(path, callback, options);
+  return fs.watch(targetPath, callback, options);
 };

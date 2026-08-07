@@ -89,15 +89,59 @@ interface CacheEntry<T = any> {
 }
 
 /**
+ * Patch an existing DOM node with fresh content from a new node without losing DOM identity
+ */
+function patchNode(oldNode: Node, newNode: Node): void {
+  if (oldNode.nodeType === Node.TEXT_NODE && newNode.nodeType === Node.TEXT_NODE) {
+    if (oldNode.textContent !== newNode.textContent) {
+      oldNode.textContent = newNode.textContent;
+    }
+  } else if (oldNode.nodeType === Node.ELEMENT_NODE && newNode.nodeType === Node.ELEMENT_NODE) {
+    const oldEl = oldNode as HTMLElement;
+    const newEl = newNode as HTMLElement;
+
+    // Sync attributes
+    for (const attr of Array.from(newEl.attributes)) {
+      if (oldEl.getAttribute(attr.name) !== attr.value) {
+        oldEl.setAttribute(attr.name, attr.value);
+      }
+    }
+    for (const attr of Array.from(oldEl.attributes)) {
+      if (!newEl.hasAttribute(attr.name)) {
+        oldEl.removeAttribute(attr.name);
+      }
+    }
+
+    // Reconcile child nodes recursively
+    reconcileChildren(oldEl, Array.from(newEl.childNodes));
+  }
+}
+
+/**
  * Create a renderer
  */
-export function createRenderer(_options: RendererOptions): Renderer {
+export function createRenderer(options: RendererOptions): Renderer {
   return {
-    render(_template, _data) {
-      return document.createTextNode('');
+    render(template, data) {
+      const result = typeof template === 'function' ? template(data) : template;
+      if (result instanceof Node) {
+        return result;
+      }
+      if (Array.isArray(result)) {
+        const fragment = document.createDocumentFragment();
+        for (const item of result) {
+          if (item instanceof Node) {
+            fragment.appendChild(item);
+          }
+        }
+        return fragment as unknown as Node;
+      }
+      return options.createText(String(result ?? ''));
     },
-    update(_node, _data) {
-      // Update node with new data
+    update(node, data) {
+      if (typeof (node as any).__update === 'function') {
+        (node as any).__update(data);
+      }
     },
     unmount(node) {
       if (node.parentNode) {
@@ -122,7 +166,6 @@ export function reconcileList<T>(
   const operations: ReconciliationResult['operations'] = [];
   const nodes: Node[] = [];
 
-  // Build key sets
   const oldKeys = new Map<string, { item: T; index: number }>();
   const newKeys = new Set<string>();
 
@@ -157,29 +200,17 @@ export function reconcileList<T>(
     const cached = cache.get(key);
 
     if (cached) {
-      // Reuse existing node
       const node = cached.node;
-      const oldEntry = oldKeys.get(key);
 
-      // Update content if item reference changed
-      if (!oldEntry || oldEntry.item !== item) {
-        const newNode = renderFn(item, index);
-        if (node !== newNode) {
-          if (node.parentNode) {
-            node.parentNode.replaceChild(newNode, node);
-            cache.set(key, { node: newNode, data: item, key });
-            operations.push({ type: 'update', node: newNode, index, key });
-            nodes.push(newNode);
-          }
-        } else {
-          operations.push({ type: 'update', node, index, key });
-          nodes.push(node);
-        }
-      } else {
-        nodes.push(node);
-      }
+      // Render fresh node to extract updates, then patch existing node in-place
+      const freshNode = renderFn(item, index);
+      patchNode(node, freshNode);
 
-      // Move to correct position using insertBefore (using childNodes to include text/comment nodes)
+      cache.set(key, { node, data: item, key });
+      operations.push({ type: 'update', node, index, key });
+      nodes.push(node);
+
+      // Move to correct position using O(1) index access
       const targetNode = container.childNodes[index];
       if (targetNode && targetNode !== node) {
         container.insertBefore(node, targetNode);
@@ -189,18 +220,16 @@ export function reconcileList<T>(
         operations.push({ type: 'move', node, index, key });
       }
     } else {
-      // Create new node
       const node = renderFn(item, index);
       cache.set(key, { node, data: item, key });
-      
-      // Insert at correct position (using childNodes)
+
       const targetNode = container.childNodes[index];
       if (targetNode) {
         container.insertBefore(node, targetNode);
       } else {
         container.appendChild(node);
       }
-      
+
       operations.push({ type: 'add', node, index, key });
       nodes.push(node);
     }
@@ -224,7 +253,7 @@ export function reconcileChildren(
   const operations: ReconciliationResult['operations'] = [];
   const nodes: Node[] = [];
 
-  // If no key function, simple replace
+  // If no key function, perform clean replace
   if (!keyFn) {
     while (container.firstChild) {
       container.removeChild(container.firstChild);
@@ -241,7 +270,6 @@ export function reconcileChildren(
     };
   }
 
-  // Keyed reconciliation using childNodes to support all node types
   const oldKeys = new Map<string, Node>();
   const oldChildren = Array.from(container.childNodes);
 
@@ -270,21 +298,23 @@ export function reconcileChildren(
     }
   }
 
-  // Add or move new nodes
+  // Add, patch, or move new nodes
   for (const [index, child] of newChildren.entries()) {
     const key = keyFn(child);
     if (key && oldKeys.has(key)) {
       const existingNode = oldKeys.get(key)!;
-      if (existingNode !== child) {
-        const targetNode = container.childNodes[index];
-        if (targetNode !== existingNode) {
-          container.insertBefore(existingNode, targetNode || null);
-          operations.push({ type: 'move', node: existingNode, index, key });
-        }
-        nodes.push(existingNode);
-      } else {
-        nodes.push(existingNode);
+      
+      // Patch existing node content with fresh child updates instead of dropping them
+      patchNode(existingNode, child);
+
+      const targetNode = container.childNodes[index];
+      if (targetNode !== existingNode) {
+        container.insertBefore(existingNode, targetNode || null);
+        operations.push({ type: 'move', node: existingNode, index, key });
       }
+
+      operations.push({ type: 'update', node: existingNode, index, key });
+      nodes.push(existingNode);
     } else {
       const targetNode = container.childNodes[index];
       if (targetNode) {

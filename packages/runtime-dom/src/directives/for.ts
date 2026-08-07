@@ -14,7 +14,7 @@ export interface ForDirectiveProps<T = any> {
   /**
    * Key function or property name
    */
-  key?: string | ((item: T) => string);
+  key?: string | ((item: T, index: number) => string) | ((item: T) => string);
 
   /**
    * Item name in template
@@ -49,7 +49,7 @@ export function createFor<T>(
   container: HTMLElement,
   items: Signal<T[]> | T[],
   renderFn: (item: T, index: number) => Node,
-  keyFn: (item: T) => string
+  keyFn: (item: T, index?: number) => string
 ): {
   update: () => void;
   unmount: () => void;
@@ -71,7 +71,7 @@ export function createFor<T>(
     reconcileList(
       currentItems,
       newItems,
-      keyFn,
+      keyFn as any,
       renderFn,
       container,
       cache
@@ -118,33 +118,57 @@ export function createFor<T>(
   };
 }
 
+// WeakMap cache to maintain stable object-reference identities across renders without Math.random()
+const objectKeyCache = new WeakMap<object, string>();
+let fallbackKeyCounter = 0;
+
 /**
  * Key function helper
  */
 export function getKeyFn<T>(
-  key?: string | ((item: T) => string)
-): (item: T) => string {
+  key?: string | ((item: T, index: number) => string) | ((item: T) => string)
+): (item: T, index?: number) => string {
   if (!key) {
-    return (item: T) => {
-      // Use item itself if primitive, or fallback to object properties
-      if (typeof item === 'string' || typeof item === 'number') {
+    return (item: T, _index?: number) => {
+      if (item === null || item === undefined) {
         return String(item);
       }
-      const obj = item as any;
-      if (obj && typeof obj === 'object') {
-        if (obj.id !== undefined) return String(obj.id);
-        if (obj.name !== undefined) return String(obj.name);
+      if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+        return String(item);
       }
-      return String(Math.random());
+      if (typeof item === 'object') {
+        let cachedKey = objectKeyCache.get(item as object);
+        if (!cachedKey) {
+          cachedKey = (item as any).id !== undefined 
+            ? String((item as any).id) 
+            : (item as any).name !== undefined 
+            ? String((item as any).name) 
+            : `__teloce_key_${++fallbackKeyCounter}`;
+          objectKeyCache.set(item as object, cachedKey);
+        }
+        return cachedKey;
+      }
+      return String(item);
     };
   }
 
   if (typeof key === 'function') {
-    return key;
+    return key as (item: T, index?: number) => string;
   }
 
-  return (item: T) => {
-    const obj = item as any;
-    return obj ? String(obj[key]) : String(Math.random());
+  return (item: T, _index?: number) => {
+    if (item && typeof item === 'object') {
+      const val = (item as any)[key];
+      if (val !== undefined && val !== null) {
+        return String(val);
+      }
+      let cachedKey = objectKeyCache.get(item as object);
+      if (!cachedKey) {
+        cachedKey = `__teloce_key_${++fallbackKeyCounter}`;
+        objectKeyCache.set(item as object, cachedKey);
+      }
+      return cachedKey;
+    }
+    return String(item);
   };
 }

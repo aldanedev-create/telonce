@@ -53,19 +53,64 @@ export interface SFCParserOptions {
  * Helper to extract content and attributes of a SFC block
  */
 function parseBlock(source: string, tag: string): { content: string; lang?: string } | null {
-  const regex = new RegExp(`<${tag}([^>]*)>([\\s\\S]*?)<\\/${tag}>`, 'i');
-  const match = source.match(regex);
-  if (!match) return null;
+  // Check for self-closing tag (e.g. <style src="..." />)
+  const selfCloseRegex = new RegExp(`<${tag}\\b([^>]*)\\/\\s*>`, 'i');
+  const selfMatch = source.match(selfCloseRegex);
+  if (selfMatch) {
+    const attrs = selfMatch[1];
+    let lang: string | undefined;
+    const langMatch = attrs.match(/lang\s*=\s*(["'])([^"']+)\1/i);
+    if (langMatch) {
+      lang = langMatch[2];
+    }
+    return { content: '', lang };
+  }
 
-  const attrs = match[1];
-  const content = match[2].trim();
+  // Find opening tag
+  const openRegex = new RegExp(`<${tag}\\b([^>]*)>`, 'i');
+  const openMatch = source.match(openRegex);
+  if (!openMatch || openMatch.index === undefined) return null;
 
+  const attrs = openMatch[1];
   let lang: string | undefined;
   const langMatch = attrs.match(/lang\s*=\s*(["'])([^"']+)\1/i);
   if (langMatch) {
     lang = langMatch[2];
   }
 
+  const startIndex = openMatch.index + openMatch[0].length;
+  const closeTag = `</${tag}>`;
+
+  // Use a balanced tag scanning approach to avoid truncating at inner closing tags
+  const combinedRegex = new RegExp(`(<${tag}\\b[^>]*>)|(<\\/${tag}>)`, 'gi');
+  combinedRegex.lastIndex = startIndex;
+
+  let depth = 1;
+  let endIndex = -1;
+  let match: RegExpExecArray | null;
+
+  while ((match = combinedRegex.exec(source)) !== null) {
+    if (match[1]) {
+      const tagStr = match[1].trim();
+      if (!tagStr.endsWith('/>')) {
+        depth++;
+      }
+    } else if (match[2]) {
+      depth--;
+      if (depth === 0) {
+        endIndex = match.index;
+        break;
+      }
+    }
+  }
+
+  if (endIndex === -1) {
+    const fallbackIndex = source.toLowerCase().indexOf(closeTag.toLowerCase(), startIndex);
+    if (fallbackIndex === -1) return null;
+    endIndex = fallbackIndex;
+  }
+
+  const content = source.slice(startIndex, endIndex).trim();
   return { content, lang };
 }
 

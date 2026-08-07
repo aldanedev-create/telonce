@@ -12,10 +12,9 @@ import {
   TeloceHoverProvider,
   TeloceFormattingProvider,
   TeloceSymbolProvider,
-} from './providers';
+} from './providers/index.js';
 
-import { registerCommands } from './commands';
-
+import { registerCommands } from './commands/index.js';
 /**
  * Extension activation
  */
@@ -36,14 +35,8 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // Register diagnostic provider
+  // Initialize diagnostic provider (manages its own DiagnosticCollection and workspace listeners)
   const diagnosticProvider = new TeloceDiagnosticProvider();
-  context.subscriptions.push(
-    vscode.languages.registerDiagnosticProvider(
-      selector,
-      diagnosticProvider
-    )
-  );
 
   // Register hover provider
   context.subscriptions.push(

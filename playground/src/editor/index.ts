@@ -14,8 +14,8 @@ export class EditorManager {
   private container: HTMLElement;
   private options: EditorOptions;
   private editor: any;
+  private monaco: any;
   private code: string = '';
-  private isMounted: boolean = false;
 
   constructor(container: HTMLElement, options: EditorOptions) {
     this.container = container;
@@ -31,10 +31,10 @@ export class EditorManager {
   private async init() {
     try {
       // Dynamic import of Monaco Editor
-      const monaco = await import('monaco-editor');
+      this.monaco = await import('monaco-editor');
 
       // Create editor instance
-      this.editor = monaco.editor.create(this.container, {
+      this.editor = this.monaco.editor.create(this.container, {
         value: this.code,
         language: 'html',
         theme: this.options.theme === 'dark' ? 'vs-dark' : 'vs',
@@ -77,9 +77,7 @@ export class EditorManager {
       });
 
       // Register Teloce language
-      this.registerLanguage(monaco);
-
-      this.isMounted = true;
+      this.registerLanguage(this.monaco);
 
       console.log('📝 Editor initialized');
     } catch (error) {
@@ -106,7 +104,7 @@ export class EditorManager {
           // Events
           [/@\w+/, 'keyword'],
           // Bindings
-          [/:[\w-]+/, 'keyword'],
+          [/:\w+/, 'keyword'],
           // Interpolation
           [/\{\{[\s\S]*?\}\}/, 'string'],
           // Comments
@@ -191,8 +189,8 @@ export class EditorManager {
    */
   setTheme(theme: 'light' | 'dark') {
     this.options.theme = theme;
-    if (this.editor) {
-      monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs');
+    if (this.editor && this.monaco) {
+      this.monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs');
     }
   }
 
@@ -222,6 +220,5 @@ export class EditorManager {
     if (this.editor) {
       this.editor.dispose();
     }
-    this.isMounted = false;
   }
 }

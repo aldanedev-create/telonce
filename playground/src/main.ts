@@ -114,7 +114,7 @@ async function init() {
 // --- Example Loading ---
 
 function loadExample(name: string) {
-  const example = EXAMPLES[name];
+  const example = (EXAMPLES as Record<string, any>)[name];
   if (!example) return;
 
   state.currentExample = name;
@@ -223,9 +223,13 @@ function showError(message: string, fix?: string) {
   elements.errorMessage.textContent = message;
   if (fix) {
     elements.errorFixText.textContent = fix;
-    elements.errorFixText.parentElement?.style.display = 'block';
+    if (elements.errorFixText.parentElement) {
+      elements.errorFixText.parentElement.style.display = 'block';
+    }
   } else {
-    elements.errorFixText.parentElement?.style.display = 'none';
+    if (elements.errorFixText.parentElement) {
+      elements.errorFixText.parentElement.style.display = 'none';
+    }
   }
   elements.previewOverlay.classList.add('show');
 }
@@ -274,7 +278,7 @@ function setupEventListeners() {
   // Tab switching
   elements.editorTabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      const tabName = tab.dataset.tab as PlaygroundState['activeTab'];
+      const tabName = (tab as HTMLElement).dataset.tab as PlaygroundState['activeTab'];
       switchTab(tabName);
     });
   });
@@ -313,7 +317,7 @@ function switchTab(tab: PlaygroundState['activeTab']) {
 
   // Update tab UI
   elements.editorTabs.forEach(el => {
-    el.classList.toggle('active', el.dataset.tab === tab);
+    el.classList.toggle('active', (el as HTMLElement).dataset.tab === tab);
   });
 
   // Update editor content

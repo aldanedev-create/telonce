@@ -58,7 +58,7 @@ export function formatTemplate(
   const lines = content.split('\n');
   
   for (const line of lines) {
-    let trimmed = line.trim();
+    const trimmed = line.trim();
     if (!trimmed) {
       if (preserveNewlines) {
         result += '\n';
@@ -140,13 +140,13 @@ function formatAttributes(line: string, maxLength: number): string {
 
   // If we have attributes, format them
   if (attributes.length > 0) {
-    const indent = '  ';
+    const attrIndent = '  ';
     const lines = [`<${tagName}`];
     for (const attr of attributes) {
-      lines.push(`${indent}${attr}`);
+      lines.push(`${attrIndent}${attr}`);
     }
     if (remaining.trim()) {
-      lines.push(`${indent}${remaining.trim()}`);
+      lines.push(`${attrIndent}${remaining.trim()}`);
     }
     lines[lines.length - 1] = lines[lines.length - 1] + (lines.length === 1 ? closing : ` ${closing}`);
     return lines.join('\n');

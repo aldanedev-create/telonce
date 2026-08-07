@@ -83,6 +83,9 @@ export interface JSDocType {
   doc?: string;
 }
 
+// Registry for custom JSDoc tag handlers
+const customTagHandlers = new Map<string, (value: string) => JSDocTag | null>();
+
 /**
  * Parse JSDoc annotations
  */
@@ -92,7 +95,7 @@ export function parseJSDoc(content: string): JSDocResult {
   const warnings: string[] = [];
   const types: JSDocType[] = [];
 
-  // Parse @type, @param, @returns, @typedef, @property
+  // Parse @type, @param, @returns, @typedef, @property, and custom tags
   const lines = content.split('\n');
   
   for (let i = 0; i < lines.length; i++) {
@@ -116,6 +119,7 @@ export function parseJSDoc(content: string): JSDocResult {
         if (typeInfo) {
           types.push(typeInfo);
         }
+        continue;
       }
 
       // Parse @param
@@ -128,6 +132,7 @@ export function parseJSDoc(content: string): JSDocResult {
           description: paramMatch[3] || '',
           line: i + 1,
         });
+        continue;
       }
 
       // Parse @returns
@@ -139,6 +144,7 @@ export function parseJSDoc(content: string): JSDocResult {
           description: returnsMatch[2] || '',
           line: i + 1,
         });
+        continue;
       }
 
       // Parse @typedef
@@ -151,6 +157,7 @@ export function parseJSDoc(content: string): JSDocResult {
           description: typedefMatch[3] || '',
           line: i + 1,
         });
+        continue;
       }
 
       // Parse @property
@@ -163,6 +170,24 @@ export function parseJSDoc(content: string): JSDocResult {
           description: propertyMatch[3] || '',
           line: i + 1,
         });
+        continue;
+      }
+
+      // Parse registered custom tags
+      const customMatch = trimmed.match(/@(\w+)\s+(.*)/);
+      if (customMatch) {
+        const tagName = customMatch[1];
+        const tagValue = customMatch[2];
+        if (customTagHandlers.has(tagName)) {
+          const handler = customTagHandlers.get(tagName)!;
+          const customTag = handler(tagValue);
+          if (customTag) {
+            parsed.push({
+              ...customTag,
+              line: i + 1,
+            });
+          }
+        }
       }
     }
   }
@@ -329,7 +354,7 @@ export function registerJSDocTagHandler(
   tagName: string,
   handler: (value: string) => JSDocTag | null
 ): void {
-  // Custom tag registration
+  customTagHandlers.set(tagName, handler);
 }
 
 /**
@@ -340,5 +365,6 @@ export function createJSDocBridge() {
     parse: parseJSDoc,
     validate: validateJSDoc,
     generateTypes,
+    registerTagHandler: registerJSDocTagHandler,
   };
 }

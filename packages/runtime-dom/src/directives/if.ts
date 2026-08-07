@@ -2,7 +2,7 @@
  * If directive - conditional rendering
  */
 
-import { createEffect, type Signal } from '@teloce/reactivity';
+import { createEffect, type Signal, type Effect } from '@teloce/reactivity';
 
 export interface IfDirectiveProps {
   /**
@@ -57,6 +57,7 @@ export function createIf(
   let currentBranch: 'true' | 'false' | null = null;
   let currentNode: Node | null = null;
   let isMounted = false;
+  let effect: Effect | null = null;
 
   function render() {
     const cond = condition();
@@ -85,6 +86,12 @@ export function createIf(
   }
 
   function unmount() {
+    // Stop the reactive effect subscription to prevent memory leaks
+    if (effect) {
+      effect.stop();
+      effect = null;
+    }
+
     if (currentNode && currentNode.parentNode) {
       currentNode.parentNode.removeChild(currentNode);
     }
@@ -98,7 +105,7 @@ export function createIf(
   }
 
   // Create effect for reactivity
-  const effect = createEffect(() => {
+  effect = createEffect(() => {
     if (!isMounted) {
       isMounted = true;
       render();

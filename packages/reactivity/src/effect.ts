@@ -5,7 +5,7 @@
  * between effects and reactive values.
  */
 
-import { currentEffect, type Effect } from './reactive';
+import type { Effect } from './reactive';
 
 /**
  * A dependency is a set of effects
@@ -24,9 +24,19 @@ export type Deps = Map<symbol | string, Dep>;
 const targetMap = new WeakMap<object, Map<symbol | string, Set<Effect>>>();
 
 /**
- * Map of effect cleanups (supports multiple cleanup functions per effect)
+ * Map of effect cleanups (supports multiple cleanup functions per effect) - using WeakMap to prevent memory leaks
  */
-const effectCleanups: Map<Effect, Array<() => void>> = new Map();
+const effectCleanups = new WeakMap<Effect, Array<() => void>>();
+
+/**
+ * Ensure globalThis has the effect context initialized to prevent uninitialized context issues across modules/bundles
+ */
+const globalContext = globalThis as unknown as {
+  __currentEffect?: Effect | null;
+};
+if (globalContext.__currentEffect === undefined) {
+  globalContext.__currentEffect = null;
+}
 
 /**
  * Track dependencies for the current effect
@@ -88,14 +98,14 @@ export function clearDependencies(_effect: Effect): void {
  * Get the current effect
  */
 function getCurrentEffect(): Effect | null {
-  return currentEffect;
+  return globalContext.__currentEffect ?? null;
 }
 
 /**
- * Set the current effect (maintained for compatibility, delegates via reactive context if needed)
+ * Set the current effect
  */
-export function setCurrentEffect(_effect: Effect | null): void {
-  // Controlled internally by reactive.ts execution stack
+export function setCurrentEffect(effect: Effect | null): void {
+  globalContext.__currentEffect = effect;
 }
 
 /**

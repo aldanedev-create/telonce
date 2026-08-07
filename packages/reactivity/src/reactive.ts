@@ -27,9 +27,27 @@ export type Memo<T> = {
   peek: () => T;
 };
 
-// --- Internal State ---
+// --- Internal State & Global Synchronization ---
 
-let currentEffect: Effect | null = null;
+const globalContext = globalThis as unknown as {
+  __currentEffect?: Effect | null;
+};
+
+if (globalContext.__currentEffect === undefined) {
+  globalContext.__currentEffect = null;
+}
+
+export let currentEffect: Effect | null = globalContext.__currentEffect ?? null;
+
+export function getCurrentEffect(): Effect | null {
+  return globalContext.__currentEffect ?? null;
+}
+
+export function setCurrentEffect(effect: Effect | null): void {
+  globalContext.__currentEffect = effect;
+  currentEffect = effect;
+}
+
 const pendingEffects: Set<Effect> = new Set();
 let isBatching = false;
 
@@ -40,9 +58,10 @@ export function createSignal<T>(initial: T): Signal<T> {
   const subscribers = new Set<Effect>();
 
   function get(): T {
-    if (currentEffect) {
-      subscribers.add(currentEffect);
-      currentEffect.deps.add(subscribers);
+    const activeEffect = getCurrentEffect();
+    if (activeEffect) {
+      subscribers.add(activeEffect);
+      activeEffect.deps.add(subscribers);
     }
     return value;
   }
@@ -52,7 +71,8 @@ export function createSignal<T>(initial: T): Signal<T> {
       ? (newValue as (prev: T) => T)(value) 
       : newValue;
     
-    if (value !== nextValue) {
+    // Use Object.is to prevent redundant notifications when updating NaN to NaN
+    if (!Object.is(value, nextValue)) {
       value = nextValue;
       notify();
     }
@@ -92,24 +112,35 @@ export function createSignal<T>(initial: T): Signal<T> {
 // --- Effect Implementation ---
 
 export function createEffect(fn: () => void): Effect {
+  let active = true;
+
   const effect: Effect = {
     deps: new Set(),
     run() {
-      this.stop(); // Clean up stale dependencies before running
+      if (!active) return;
       
-      const prev = currentEffect;
-      currentEffect = this;
-      try {
-        fn();
-      } finally {
-        currentEffect = prev; // Restore previous to support nested effects
-      }
-    },
-    stop() {
+      // Clean up stale dependencies before running
       for (const dep of this.deps) {
         dep.delete(this);
       }
       this.deps.clear();
+      
+      const prev = getCurrentEffect();
+      setCurrentEffect(this);
+      try {
+        fn();
+      } finally {
+        setCurrentEffect(prev); // Restore previous effect to support nested effects & computed properties
+      }
+    },
+    stop() {
+      if (active) {
+        active = false;
+        for (const dep of this.deps) {
+          dep.delete(this);
+        }
+        this.deps.clear();
+      }
     }
   };
 
@@ -126,8 +157,8 @@ export function createComputed<T>(fn: () => T): Computed<T> {
 
   const effect = createEffect(() => {
     const nextValue = fn();
-    // Only notify if value actually changed or it's the first run
-    if (dirty || value !== nextValue) {
+    // Only notify if value actually changed or it's the first run (using Object.is for NaN safety)
+    if (dirty || !Object.is(value, nextValue)) {
       value = nextValue;
       dirty = false;
       
@@ -141,9 +172,10 @@ export function createComputed<T>(fn: () => T): Computed<T> {
   });
 
   function get(): T {
-    if (currentEffect) {
-      subscribers.add(currentEffect);
-      currentEffect.deps.add(subscribers);
+    const activeEffect = getCurrentEffect();
+    if (activeEffect) {
+      subscribers.add(activeEffect);
+      activeEffect.deps.add(subscribers);
     }
     if (dirty) {
       effect.run();
@@ -190,15 +222,11 @@ function flushPending(): void {
 // --- Untracked ---
 
 export function untracked<T>(fn: () => T): T {
-  const prev = currentEffect;
-  currentEffect = null;
+  const prev = getCurrentEffect();
+  setCurrentEffect(null);
   try {
     return fn();
   } finally {
-    currentEffect = prev;
+    setCurrentEffect(prev);
   }
 }
-
-// --- Exports for internal use ---
-
-export { currentEffect };

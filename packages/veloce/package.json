@@ -28,14 +28,15 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@teloce/core": "workspace:^",
-    "@teloce/reactivity": "workspace:^",
-    "@teloce/runtime-dom": "workspace:^",
-    "@teloce/std": "workspace:^"
+    "@teloce/compiler": "workspace:*",
+    "@teloce/core": "workspace:*",
+    "@teloce/reactivity": "workspace:*",
+    "@teloce/runtime-core": "workspace:*",
+    "@teloce/runtime-dom": "workspace:*",
+    "@teloce/sfc": "workspace:*",
+    "@teloce/std": "workspace:*"
   },
-  "peerDependencies": {},
   "devDependencies": {
-    "@teloce/shared": "workspace:^",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
@@ -57,8 +58,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldanedev-create/telonce.git",
-    "directory": "packages/veloce"
+    "url": "https://github.com/aldanedev-create/telonce.git"
   },
   "bugs": {
     "url": "https://github.com/aldanedev-create/telonce/issues"

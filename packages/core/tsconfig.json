@@ -10,12 +10,17 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2020", "DOM"],
-    "baseUrl": ".",
+    "types": ["node"],
     "paths": {
       "@teloce/reactivity": ["../reactivity/src"],
       "@teloce/runtime-dom": ["../runtime-dom/src"],
       "@teloce/std": ["../std/src"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    { "path": "../reactivity" },
+    { "path": "../runtime-dom" },
+    { "path": "../std" }
+  ]
 }

@@ -3,6 +3,8 @@
  */
 
 import type { ASTNode } from '@teloce/compiler';
+import type { HookSystem } from './hooks';
+import type { PluginRegistry } from './registry';
 
 /**
  * Plugin definition

@@ -133,13 +133,13 @@ export interface Suggestion {
 const errorPatterns: Array<{
   pattern: RegExp;
   category: ErrorCategory;
-  translate: (match: RegExpMatchArray) => ErrorTranslation;
+  translate: (match: RegExpMatchArray, parsed: ParsedError) => ErrorTranslation;
 }> = [
   // TypeScript Type Errors
   {
     pattern: /Type '(.+)' is not assignable to type '(.+)'/,
     category: 'type_error',
-    translate: (match) => ({
+    translate: (match, _parsed) => ({
       title: 'Type Mismatch',
       description: `You're using a value of type "${match[1]}" where "${match[2]}" is expected.`,
       fix: `Change the value to match type "${match[2]}"`,
@@ -151,7 +151,7 @@ const errorPatterns: Array<{
   {
     pattern: /Cannot find name '(.+)'/,
     category: 'reference_error',
-    translate: (match) => ({
+    translate: (match, _parsed) => ({
       title: 'Undefined Variable',
       description: `The variable "${match[1]}" is not defined.`,
       fix: `Define "${match[1]}" before using it, or check for typos.`,
@@ -163,7 +163,7 @@ const errorPatterns: Array<{
   {
     pattern: /Cannot read property '(.+)' of (undefined|null)/,
     category: 'property_error',
-    translate: (match) => ({
+    translate: (match, _parsed) => ({
       title: 'Property Access on Empty Value',
       description: `Tried to read property "${match[1]}" from ${match[2]}.`,
       fix: `Make sure the object exists before accessing "${match[1]}".`,
@@ -175,7 +175,7 @@ const errorPatterns: Array<{
   {
     pattern: /(.+) is not a function/,
     category: 'function_error',
-    translate: (match, parsed) => ({
+    translate: (match, _parsed) => ({
       title: 'Not a Function',
       description: `"${match[1]}" is being called as a function but is not a function.`,
       fix: `Check if "${match[1]}" is defined correctly.`,
@@ -187,7 +187,7 @@ const errorPatterns: Array<{
   {
     pattern: /Cannot find module '(.+)'/,
     category: 'import_error',
-    translate: (match, parsed) => ({
+    translate: (match, _parsed) => ({
       title: 'Module Not Found',
       description: `The module "${match[1]}" could not be found.`,
       fix: `Install the module: npm install ${match[1]}`,
@@ -199,7 +199,7 @@ const errorPatterns: Array<{
   {
     pattern: /Unexpected token (.+)/,
     category: 'syntax_error',
-    translate: (match, parsed) => ({
+    translate: (match, _parsed) => ({
       title: 'Syntax Error',
       description: `Unexpected token "${match[1]}" in your code.`,
       fix: `Check the syntax around "${match[1]}".`,
@@ -211,7 +211,7 @@ const errorPatterns: Array<{
   {
     pattern: /Template parse error: (.+)/,
     category: 'template_error',
-    translate: (match, parsed) => ({
+    translate: (match, _parsed) => ({
       title: 'Template Error',
       description: `Error in template: "${match[1]}"`,
       fix: `Check the template syntax around the error.`,
@@ -223,7 +223,7 @@ const errorPatterns: Array<{
   {
     pattern: /Cannot bind to '(.+)' because it isn't a known property/,
     category: 'binding_error',
-    translate: (match, parsed) => ({
+    translate: (match, _parsed) => ({
       title: 'Unknown Binding',
       description: `Cannot bind to "${match[1]}" - it's not a known property.`,
       fix: `Check the spelling of "${match[1]}" or use a different binding.`,

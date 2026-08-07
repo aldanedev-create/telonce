@@ -15,134 +15,188 @@ export function tokenize(input: string): Token[] {
   let line = 1;
   let column = 1;
 
-  while (position < input.length) {
-    const char = input[position];
-
-    // Skip whitespace
-    if (isWhitespace(char)) {
-      if (char === '\n') {
+  function advance(str: string) {
+    for (let i = 0; i < str.length; i++) {
+      if (str[i] === '\n') {
         line++;
         column = 1;
       } else {
         column++;
       }
-      position++;
+    }
+    position += str.length;
+  }
+
+  function advanceChars(count: number) {
+    for (let i = 0; i < count; i++) {
+      if (position < input.length) {
+        const char = input[position];
+        if (char === '\n') {
+          line++;
+          column = 1;
+        } else {
+          column++;
+        }
+        position++;
+      }
+    }
+  }
+
+  while (position < input.length) {
+    const char = input[position];
+
+    // 1. Handle HTML Comments <!-- ... -->
+    if (input.startsWith('<!--', position)) {
+      const end = input.indexOf('-->', position + 4);
+      const commentStr = end !== -1 ? input.substring(position, end + 3) : input.substring(position);
+      advance(commentStr);
       continue;
     }
 
-    // Handle HTML tags
-    if (char === '<') {
+    // 2. Handle Interpolation {{ ... }}
+    if (char === '{' && input[position + 1] === '{') {
+      const end = input.indexOf('}}', position + 2);
+      if (end !== -1) {
+        const fullExprBlock = input.substring(position, end + 2);
+        const expression = input.substring(position + 2, end).trim();
+        tokens.push({
+          type: TokenType.Interpolation,
+          value: expression,
+          position,
+          line,
+          column,
+        });
+        advance(fullExprBlock);
+        continue;
+      }
+    }
+
+    // 3. Handle HTML Tags
+    if (char === '<' && isTagStart(input, position)) {
       const next = input[position + 1];
-      
-      // Check for closing tag
+
+      // Closing Tag </tag>
       if (next === '/') {
-        const tagName = readTagName(input, position + 2);
+        const tagStartPos = position;
+        const tagStartLine = line;
+        const tagStartCol = column;
+
+        advanceChars(2); // consume '</'
+        const tagName = readTagName(input, position);
+        advance(tagName);
+
+        // Skip whitespace before '>'
+        while (position < input.length && isWhitespace(input[position])) {
+          advanceChars(1);
+        }
+
+        if (input[position] === '>') {
+          advanceChars(1); // consume '>'
+        }
+
         tokens.push({
           type: TokenType.CloseTag,
           value: tagName,
-          position: position,
-          line,
-          column,
+          position: tagStartPos,
+          line: tagStartLine,
+          column: tagStartCol,
         });
-        position += tagName.length + 3;
-        column += tagName.length + 3;
         continue;
       }
 
-      // Check for self-closing tag
-      const tagName = readTagName(input, position + 1);
-      const closing = input[position + 1 + tagName.length];
-      if (closing === '/') {
-        tokens.push({
-          type: TokenType.SelfCloseTag,
-          value: tagName,
-          position: position,
-          line,
-          column,
-        });
-        position += tagName.length + 3;
-        column += tagName.length + 3;
-        continue;
-      }
+      // Opening or Self-Closing Tag <tag attr="val" />
+      const tagStartPos = position;
+      const tagStartLine = line;
+      const tagStartCol = column;
 
-      // Opening tag
-      tokens.push({
-        type: TokenType.OpenTag,
-        value: tagName,
-        position: position,
-        line,
-        column,
-      });
-      position += tagName.length + 2;
-      column += tagName.length + 2;
+      advanceChars(1); // consume '<'
+      const tagName = readTagName(input, position);
+      advance(tagName);
 
-      // Parse attributes
-      while (position < input.length && input[position] !== '>') {
+      let isSelfClosing = false;
+
+      while (position < input.length) {
+        // Skip whitespace
+        while (position < input.length && isWhitespace(input[position])) {
+          advanceChars(1);
+        }
+
+        if (position >= input.length) break;
+
+        if (input[position] === '>') {
+          advanceChars(1); // consume '>'
+          break;
+        }
+
+        if (input[position] === '/' && input[position + 1] === '>') {
+          advanceChars(2); // consume '/>'
+          isSelfClosing = true;
+          break;
+        }
+
+        const attrStart = position;
         const attr = readAttribute(input, position);
         if (attr) {
           tokens.push({
             type: TokenType.Attribute,
             value: attr.name,
-            position: position,
+            position: attrStart,
             line,
             column,
           });
-          if (attr.value) {
+
+          const consumedAttrStr = input.substring(attrStart, attrStart + attr.length);
+          advance(consumedAttrStr);
+
+          if (attr.value !== undefined && attr.value !== '') {
             tokens.push({
               type: TokenType.AttributeValue,
               value: attr.value,
-              position: position + attr.name.length + 1,
+              position: attrStart + attr.name.length,
               line,
-              column: column + attr.name.length + 1,
+              column,
             });
           }
-          position += attr.length;
-          column += attr.length;
         } else {
-          break;
+          advanceChars(1);
         }
       }
 
-      // Skip closing >
-      if (input[position] === '>') {
-        position++;
-        column++;
-      }
+      tokens.push({
+        type: isSelfClosing ? TokenType.SelfCloseTag : TokenType.OpenTag,
+        value: tagName,
+        position: tagStartPos,
+        line: tagStartLine,
+        column: tagStartCol,
+      });
       continue;
     }
 
-    // Handle interpolation {{ }}
-    if (char === '{' && input[position + 1] === '{') {
-      const end = input.indexOf('}}', position + 2);
-      if (end !== -1) {
-        const expression = input.substring(position + 2, end).trim();
-        tokens.push({
-          type: TokenType.Interpolation,
-          value: expression,
-          position: position,
-          line,
-          column,
-        });
-        position = end + 2;
-        column += expression.length + 4;
-        continue;
+    // 4. Handle Text Nodes (preserves whitespace and handles literal '<')
+    let text = '';
+    const textStartPos = position;
+    const textStartLine = line;
+    const textStartCol = column;
+
+    while (position < input.length) {
+      if (
+        (input[position] === '<' && isTagStart(input, position)) ||
+        (input[position] === '{' && input[position + 1] === '{') ||
+        input.startsWith('<!--', position)
+      ) {
+        break;
       }
+      text += input[position];
+      advanceChars(1);
     }
 
-    // Handle text
-    let text = '';
-    while (position < input.length && input[position] !== '<' && !(input[position] === '{' && input[position + 1] === '{')) {
-      text += input[position];
-      position++;
-      column++;
-    }
-    if (text.trim()) {
+    if (text.length > 0) {
       tokens.push({
         type: TokenType.Text,
         value: text,
-        position: position - text.length,
-        line,
-        column: column - text.length,
+        position: textStartPos,
+        line: textStartLine,
+        column: textStartCol,
       });
     }
   }
@@ -161,6 +215,12 @@ export function tokenize(input: string): Token[] {
 
 function isWhitespace(char: string): boolean {
   return char === ' ' || char === '\n' || char === '\t' || char === '\r';
+}
+
+function isTagStart(input: string, pos: number): boolean {
+  if (input[pos] !== '<') return false;
+  const next = input[pos + 1];
+  return /[a-zA-Z\/!]/.test(next);
 }
 
 function readTagName(input: string, start: number): string {
@@ -189,39 +249,37 @@ function readAttribute(input: string, start: number): { name: string; value: str
   }
 
   let value = '';
-  let length = name.length;
+
+  // Skip whitespace before =
+  while (pos < input.length && isWhitespace(input[pos])) {
+    pos++;
+  }
 
   // Check for = value
   if (input[pos] === '=') {
     pos++;
-    length++;
-    // Skip whitespace
+    // Skip whitespace after =
     while (pos < input.length && isWhitespace(input[pos])) {
       pos++;
-      length++;
     }
 
     const quote = input[pos];
     if (quote === '"' || quote === "'") {
       pos++;
-      length++;
       while (pos < input.length && input[pos] !== quote) {
         value += input[pos];
         pos++;
-        length++;
       }
       if (pos < input.length) {
-        pos++;
-        length++;
+        pos++; // consume closing quote
       }
     } else {
       while (pos < input.length && !isWhitespace(input[pos]) && input[pos] !== '>' && input[pos] !== '/') {
         value += input[pos];
         pos++;
-        length++;
       }
     }
   }
 
-  return { name, value, length };
+  return { name, value, length: pos - start };
 }

@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import { getDiagnostics, type Diagnostic } from '@teloce/language-service';
 
-export class TeloceDiagnosticProvider implements vscode.DiagnosticProvider {
+export class TeloceDiagnosticProvider {
   private diagnosticCollection: vscode.DiagnosticCollection;
   private timer: NodeJS.Timeout | null = null;
   private enabled: boolean = true;
@@ -16,7 +16,7 @@ export class TeloceDiagnosticProvider implements vscode.DiagnosticProvider {
 
   async provideDiagnostics(
     document: vscode.TextDocument,
-    token: vscode.CancellationToken
+    _token: vscode.CancellationToken
   ): Promise<vscode.Diagnostic[]> {
     if (!this.enabled || document.languageId !== 'teloce') {
       return [];

@@ -1,6 +1,6 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
     "outDir": "./dist",
     "rootDir": "./src",
     "module": "ESNext",
@@ -8,19 +8,25 @@
     "target": "ES2020",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "strict": true,
-    "declaration": true,
-    "declarationMap": true,
+    "declaration": false,
+    "declarationMap": false,
     "sourceMap": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["node"]
+    "types": ["vite/client", "node"],
+    "noEmit": true,
+    "isolatedModules": true,
+    "jsx": "preserve"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
   "references": [
-    { "path": "../reactivity" },
-    { "path": "../runtime-dom" }
+    { "path": "../packages/compiler" },
+    { "path": "../packages/core" },
+    { "path": "../packages/reactivity" },
+    { "path": "../packages/runtime-dom" },
+    { "path": "../packages/shared" }
   ]
 }

@@ -56,47 +56,50 @@ export function createFilter<T = any, R = any>(
 /**
  * Capitalize first letter of a string
  */
-export function capitalize(value: string): string {
-  if (!value) return '';
-  return value.charAt(0).toUpperCase() + value.slice(1);
+export function capitalize(value: any): string {
+  const str = String(value ?? '');
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 /**
  * Uppercase a string
  */
-export function uppercase(value: string): string {
-  return value?.toUpperCase() || '';
+export function uppercase(value: any): string {
+  return String(value ?? '').toUpperCase();
 }
 
 /**
  * Lowercase a string
  */
-export function lowercase(value: string): string {
-  return value?.toLowerCase() || '';
+export function lowercase(value: any): string {
+  return String(value ?? '').toLowerCase();
 }
 
 /**
  * Trim whitespace from a string
  */
-export function trim(value: string): string {
-  return value?.trim() || '';
+export function trim(value: any): string {
+  return String(value ?? '').trim();
 }
 
 /**
  * Truncate a string to a specified length
  */
-export function truncate(value: string, length: number = 30, suffix: string = '...'): string {
-  if (!value) return '';
-  if (value.length <= length) return value;
-  return value.slice(0, length) + suffix;
+export function truncate(value: any, length: number = 30, suffix: string = '...'): string {
+  const str = String(value ?? '');
+  if (!str) return '';
+  if (str.length <= length) return str;
+  return str.slice(0, length) + suffix;
 }
 
 /**
  * Convert to slug (URL-friendly)
  */
-export function slugify(value: string): string {
-  if (!value) return '';
-  return value
+export function slugify(value: any): string {
+  const str = String(value ?? '');
+  if (!str) return '';
+  return str
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-')
@@ -106,9 +109,10 @@ export function slugify(value: string): string {
 /**
  * Convert to kebab-case
  */
-export function kebabCase(value: string): string {
-  if (!value) return '';
-  return value
+export function kebabCase(value: any): string {
+  const str = String(value ?? '');
+  if (!str) return '';
+  return str
     .replace(/([a-z])([A-Z])/g, '$1-$2')
     .replace(/[\s_]+/g, '-')
     .toLowerCase();
@@ -117,9 +121,10 @@ export function kebabCase(value: string): string {
 /**
  * Convert to camelCase
  */
-export function camelCase(value: string): string {
-  if (!value) return '';
-  return value
+export function camelCase(value: any): string {
+  const str = String(value ?? '');
+  if (!str) return '';
+  return str
     .replace(/[-_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : '')
     .replace(/^[A-Z]/, c => c.toLowerCase());
 }
@@ -127,9 +132,10 @@ export function camelCase(value: string): string {
 /**
  * Convert to snake_case
  */
-export function snakeCase(value: string): string {
-  if (!value) return '';
-  return value
+export function snakeCase(value: any): string {
+  const str = String(value ?? '');
+  if (!str) return '';
+  return str
     .replace(/([a-z])([A-Z])/g, '$1_$2')
     .replace(/[\s-]+/g, '_')
     .toLowerCase();
@@ -138,9 +144,10 @@ export function snakeCase(value: string): string {
 /**
  * Convert to Start Case
  */
-export function startCase(value: string): string {
-  if (!value) return '';
-  return value
+export function startCase(value: any): string {
+  const str = String(value ?? '');
+  if (!str) return '';
+  return str
     .replace(/[-_\s]+/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -148,8 +155,9 @@ export function startCase(value: string): string {
 /**
  * Escape HTML characters
  */
-export function escape(value: string): string {
-  if (!value) return '';
+export function escape(value: any): string {
+  const str = String(value ?? '');
+  if (!str) return '';
   const map: Record<string, string> = {
     '&': '&amp;',
     '<': '&lt;',
@@ -157,14 +165,15 @@ export function escape(value: string): string {
     '"': '&quot;',
     "'": '&#039;',
   };
-  return value.replace(/[&<>"']/g, m => map[m]);
+  return str.replace(/[&<>"']/g, m => map[m]);
 }
 
 /**
  * Unescape HTML characters
  */
-export function unescape(value: string): string {
-  if (!value) return '';
+export function unescape(value: any): string {
+  const str = String(value ?? '');
+  if (!str) return '';
   const map: Record<string, string> = {
     '&amp;': '&',
     '&lt;': '<',
@@ -172,7 +181,7 @@ export function unescape(value: string): string {
     '&quot;': '"',
     '&#039;': "'",
   };
-  return value.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, m => map[m]);
+  return str.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, m => map[m]);
 }
 
 // --- Number Filters ---
@@ -180,61 +189,69 @@ export function unescape(value: string): string {
 /**
  * Format as currency
  */
-export function currency(value: number, symbol: string = '$', decimals: number = 2): string {
-  if (value === undefined || value === null) return '';
-  return `${symbol}${value.toFixed(decimals)}`;
+export function currency(value: any, symbol: string = '$', decimals: number = 2): string {
+  const num = Number(value);
+  if (value === undefined || value === null || isNaN(num)) return '';
+  return `${symbol}${num.toFixed(decimals)}`;
 }
 
 /**
  * Format as percentage
  */
-export function percent(value: number, decimals: number = 0): string {
-  if (value === undefined || value === null) return '';
-  return `${(value * 100).toFixed(decimals)}%`;
+export function percent(value: any, decimals: number = 0): string {
+  const num = Number(value);
+  if (value === undefined || value === null || isNaN(num)) return '';
+  return `${(num * 100).toFixed(decimals)}%`;
 }
 
 /**
  * Format as number with commas
  */
-export function number(value: number): string {
-  if (value === undefined || value === null) return '';
-  return value.toLocaleString();
+export function number(value: any): string {
+  const num = Number(value);
+  if (value === undefined || value === null || isNaN(num)) return '';
+  return num.toLocaleString();
 }
 
 /**
  * Format to decimal places
  */
-export function decimal(value: number, places: number = 2): string {
-  if (value === undefined || value === null) return '';
-  return value.toFixed(places);
+export function decimal(value: any, places: number = 2): string {
+  const num = Number(value);
+  if (value === undefined || value === null || isNaN(num)) return '';
+  return num.toFixed(places);
 }
 
 /**
  * Round a number
  */
-export function round(value: number): number {
-  return Math.round(value);
+export function round(value: any): number {
+  const num = Number(value);
+  return isNaN(num) ? 0 : Math.round(num);
 }
 
 /**
  * Floor a number
  */
-export function floor(value: number): number {
-  return Math.floor(value);
+export function floor(value: any): number {
+  const num = Number(value);
+  return isNaN(num) ? 0 : Math.floor(num);
 }
 
 /**
  * Ceil a number
  */
-export function ceil(value: number): number {
-  return Math.ceil(value);
+export function ceil(value: any): number {
+  const num = Number(value);
+  return isNaN(num) ? 0 : Math.ceil(num);
 }
 
 /**
  * Absolute value
  */
-export function abs(value: number): number {
-  return Math.abs(value);
+export function abs(value: any): number {
+  const num = Number(value);
+  return isNaN(num) ? 0 : Math.abs(num);
 }
 
 // --- Date Filters ---
@@ -242,7 +259,7 @@ export function abs(value: number): number {
 /**
  * Format a date
  */
-export function dateFormat(value: Date | string, format: string = 'YYYY-MM-DD'): string {
+export function dateFormat(value: Date | string | number, format: string = 'YYYY-MM-DD'): string {
   const date = value instanceof Date ? value : new Date(value);
   if (isNaN(date.getTime())) return '';
 
@@ -265,7 +282,7 @@ export function dateFormat(value: Date | string, format: string = 'YYYY-MM-DD'):
 /**
  * Time ago from now
  */
-export function timeAgo(value: Date | string): string {
+export function timeAgo(value: Date | string | number): string {
   const date = value instanceof Date ? value : new Date(value);
   if (isNaN(date.getTime())) return '';
 
@@ -297,7 +314,7 @@ export function dateFromISO(value: string): Date | null {
 /**
  * Relative time (past or future)
  */
-export function relativeTime(value: Date | string): string {
+export function relativeTime(value: Date | string | number): string {
   const date = value instanceof Date ? value : new Date(value);
   if (isNaN(date.getTime())) return '';
 
@@ -328,38 +345,41 @@ export function relativeTime(value: Date | string): string {
 /**
  * Join array elements with a separator
  */
-export function join<T>(value: T[], separator: string = ', '): string {
-  return value?.join(separator) || '';
+export function join<T>(value: T[] | any, separator: string = ', '): string {
+  if (!Array.isArray(value)) return String(value ?? '');
+  return value.join(separator);
 }
 
 /**
  * Get first element of array
  */
-export function first<T>(value: T[]): T | undefined {
-  return value?.[0];
+export function first<T>(value: T[] | any): T | undefined {
+  return Array.isArray(value) ? value[0] : undefined;
 }
 
 /**
  * Get last element of array
  */
-export function last<T>(value: T[]): T | undefined {
-  return value?.[value.length - 1];
+export function last<T>(value: T[] | any): T | undefined {
+  return Array.isArray(value) ? value[value.length - 1] : undefined;
 }
 
 /**
  * Pluck a property from array of objects
  */
-export function pluck<T, K extends keyof T>(value: T[], key: K): T[K][] {
-  return value?.map(item => item[key]) || [];
+export function pluck<T, K extends keyof T>(value: T[] | any, key: K): T[K][] {
+  if (!Array.isArray(value)) return [];
+  return value.map(item => item?.[key]);
 }
 
 /**
  * Filter array by condition
  */
-export function where<T>(value: T[], key: keyof T, operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in', compare: any): T[] {
-  if (!value) return [];
+export function where<T>(value: T[] | any, key: keyof T, operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in', compare: any): T[] {
+  if (!Array.isArray(value)) return [];
   
   return value.filter(item => {
+    if (!item) return false;
     const val = item[key];
     switch (operator) {
       case 'eq': return val === compare;
@@ -377,12 +397,12 @@ export function where<T>(value: T[], key: keyof T, operator: 'eq' | 'neq' | 'gt'
 /**
  * Order array by property
  */
-export function orderBy<T>(value: T[], key: keyof T, direction: 'asc' | 'desc' = 'asc'): T[] {
-  if (!value) return [];
+export function orderBy<T>(value: T[] | any, key: keyof T, direction: 'asc' | 'desc' = 'asc'): T[] {
+  if (!Array.isArray(value)) return [];
   
   return [...value].sort((a, b) => {
-    const aVal = a[key];
-    const bVal = b[key];
+    const aVal = a?.[key];
+    const bVal = b?.[key];
     if (aVal < bVal) return direction === 'asc' ? -1 : 1;
     if (aVal > bVal) return direction === 'asc' ? 1 : -1;
     return 0;
@@ -392,11 +412,12 @@ export function orderBy<T>(value: T[], key: keyof T, direction: 'asc' | 'desc' =
 /**
  * Group array by property
  */
-export function groupBy<T>(value: T[], key: keyof T): Record<string, T[]> {
-  if (!value) return {};
+export function groupBy<T>(value: T[] | any, key: keyof T): Record<string, T[]> {
+  if (!Array.isArray(value)) return {};
   
   const result: Record<string, T[]> = {};
   for (const item of value) {
+    if (!item) continue;
     const groupKey = String(item[key]);
     if (!result[groupKey]) {
       result[groupKey] = [];
@@ -412,21 +433,24 @@ export function groupBy<T>(value: T[], key: keyof T): Record<string, T[]> {
  * Get keys of object
  */
 export function keys<T extends Record<string, any>>(value: T): string[] {
-  return Object.keys(value || {});
+  if (!value || typeof value !== 'object') return [];
+  return Object.keys(value);
 }
 
 /**
  * Get values of object
  */
 export function values<T extends Record<string, any>>(value: T): any[] {
-  return Object.values(value || {});
+  if (!value || typeof value !== 'object') return [];
+  return Object.values(value);
 }
 
 /**
  * Get entries of object
  */
 export function entries<T extends Record<string, any>>(value: T): [string, any][] {
-  return Object.entries(value || {});
+  if (!value || typeof value !== 'object') return [];
+  return Object.entries(value);
 }
 
 /**
@@ -436,7 +460,7 @@ export function pick<T extends Record<string, any>, K extends keyof T>(
   value: T,
   ...keys: K[]
 ): Pick<T, K> {
-  if (!value) return {} as Pick<T, K>;
+  if (!value || typeof value !== 'object') return {} as Pick<T, K>;
   const result: any = {};
   for (const key of keys) {
     if (key in value) {
@@ -453,7 +477,7 @@ export function omit<T extends Record<string, any>, K extends keyof T>(
   value: T,
   ...keys: K[]
 ): Omit<T, K> {
-  if (!value) return {} as Omit<T, K>;
+  if (!value || typeof value !== 'object') return {} as Omit<T, K>;
   const result: any = { ...value };
   for (const key of keys) {
     delete result[key];
@@ -469,7 +493,6 @@ export function size(value: any): number {
   if (typeof value === 'object' && value !== null) return Object.keys(value).length;
   return 0;
 }
-
 // Register all built-in filters
 registerFilter('capitalize', capitalize);
 registerFilter('uppercase', uppercase);
@@ -495,13 +518,13 @@ registerFilter('dateFormat', dateFormat);
 registerFilter('timeAgo', timeAgo);
 registerFilter('dateFromISO', dateFromISO);
 registerFilter('relativeTime', relativeTime);
-registerFilter('join', join);
-registerFilter('first', first);
-registerFilter('last', last);
-registerFilter('pluck', pluck);
-registerFilter('where', where);
-registerFilter('orderBy', orderBy);
-registerFilter('groupBy', groupBy);
+registerFilter('join', join as Filter);
+registerFilter('first', first as Filter);
+registerFilter('last', last as Filter);
+registerFilter('pluck', pluck as Filter);
+registerFilter('where', where as Filter);
+registerFilter('orderBy', orderBy as Filter);
+registerFilter('groupBy', groupBy as Filter);
 registerFilter('keys', keys);
 registerFilter('values', values);
 registerFilter('entries', entries);

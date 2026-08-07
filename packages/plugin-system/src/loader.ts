@@ -2,8 +2,11 @@
  * Plugin Loader - Loads plugins from various sources
  */
 
-import type { Plugin, PluginManifest, PluginDependency } from './types';
+import { createRequire } from 'module';
+import type { Plugin } from './types';
 import type { PluginRegistry } from './registry';
+
+const require = createRequire(import.meta.url);
 
 export interface LoaderOptions {
   /** Plugin registry */
@@ -25,6 +28,76 @@ export interface LoaderResult {
 
   /** Total found plugins */
   total: number;
+}
+
+/**
+ * Lightweight semver version matching helper
+ */
+function satisfiesVersion(installed: string, required: string): boolean {
+  if (!required || required === '*' || required === 'latest') return true;
+  if (installed === required) return true;
+
+  const cleanReq = required.trim();
+  
+  if (cleanReq.startsWith('>=')) {
+    return compareVersions(installed, cleanReq.slice(2).trim()) >= 0;
+  }
+  if (cleanReq.startsWith('>')) {
+    return compareVersions(installed, cleanReq.slice(1).trim()) > 0;
+  }
+  if (cleanReq.startsWith('<=')) {
+    return compareVersions(installed, cleanReq.slice(2).trim()) <= 0;
+  }
+  if (cleanReq.startsWith('<')) {
+    return compareVersions(installed, cleanReq.slice(1).trim()) < 0;
+  }
+
+  if (cleanReq.startsWith('^')) {
+    return matchCaret(installed, cleanReq.slice(1).trim());
+  }
+
+  if (cleanReq.startsWith('~')) {
+    return matchTilde(installed, cleanReq.slice(1).trim());
+  }
+
+  return compareVersions(installed, cleanReq) === 0;
+}
+
+function parseVersion(v: string): [number, number, number] {
+  const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+}
+
+function compareVersions(v1: string, v2: string): number {
+  const [major1, minor1, patch1] = parseVersion(v1);
+  const [major2, minor2, patch2] = parseVersion(v2);
+
+  if (major1 !== major2) return major1 > major2 ? 1 : -1;
+  if (minor1 !== minor2) return minor1 > minor2 ? 1 : -1;
+  if (patch1 !== patch2) return patch1 > patch2 ? 1 : -1;
+  return 0;
+}
+
+function matchCaret(installed: string, target: string): boolean {
+  const [instMaj, instMin, instPat] = parseVersion(installed);
+  const [targMaj, targMin, targPat] = parseVersion(target);
+
+  if (instMaj !== targMaj) return false;
+  if (targMaj === 0) {
+    if (targMin === 0) {
+      return instMin === 0 && instPat >= targPat;
+    }
+    return instMin === targMin && instPat >= targPat;
+  }
+  return compareVersions(installed, target) >= 0 && instMaj === targMaj;
+}
+
+function matchTilde(installed: string, target: string): boolean {
+  const [instMaj, instMin, _] = parseVersion(installed);
+  const [targMaj, targMin, __] = parseVersion(target);
+
+  if (instMaj !== targMaj || instMin !== targMin) return false;
+  return compareVersions(installed, target) >= 0;
 }
 
 export class PluginLoader {
@@ -82,7 +155,7 @@ export class PluginLoader {
         console.log(`[loader] Loading plugin package: ${name}`);
       }
 
-      // Try to load the package
+      // Try to load the package using ESM-compatible require.resolve
       const packagePath = require.resolve(name, { paths: [this.baseDir] });
       return await this.loadModule(packagePath);
     } catch (error) {
@@ -138,7 +211,7 @@ export class PluginLoader {
           const deps = plugin.dependencies || [];
           for (const dep of deps) {
             if (!dep.optional) {
-              // Check if dependency is available
+              // Check if dependency is available in registry
               const depPlugin = this.registry.get(dep.name);
               if (!depPlugin) {
                 const error = `Missing required dependency: ${dep.name}@${dep.version}`;
@@ -149,8 +222,8 @@ export class PluginLoader {
                 plugin = null;
                 break;
               }
-              // Check version
-              if (dep.version && depPlugin.version !== dep.version) {
+              // Check version compatibility using semver ranges
+              if (dep.version && !satisfiesVersion(depPlugin.version, dep.version)) {
                 const error = `Dependency version mismatch: ${dep.name}@${dep.version} (found ${depPlugin.version})`;
                 if (this.debug) {
                   console.error(`[loader] ${error}`);
@@ -192,16 +265,24 @@ export class PluginLoader {
    */
   async loadFromPackageJson(): Promise<LoaderResult> {
     try {
-      const packageJson = require(`${this.baseDir}/package.json`);
+      const packageJsonPath = `${this.baseDir}/package.json`;
+      const packageJson = require(packageJsonPath);
       const teloce = packageJson.teloce || {};
 
       if (!teloce.plugins || !Array.isArray(teloce.plugins)) {
+        if (this.debug) {
+          console.log(`[loader] No plugins configured under "teloce.plugins" in ${packageJsonPath}`);
+        }
         return { plugins: [], failed: [], total: 0 };
       }
 
       return await this.loadMany(teloce.plugins);
     } catch (error) {
-      return { plugins: [], failed: [], total: 0 };
+      const message = error instanceof Error ? error.message : String(error);
+      if (this.debug) {
+        console.error(`[loader] Failed to load plugins from package.json:`, message);
+      }
+      return { plugins: [], failed: [{ name: 'package.json', error: message }], total: 0 };
     }
   }
 

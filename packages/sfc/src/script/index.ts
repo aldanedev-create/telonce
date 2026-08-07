@@ -1,5 +1,5 @@
 /**
- * Script compiler - compiles the <script> section
+ * Script compiler - compiles the <script> section with stateful brace balancing and safe minification
  */
 
 export interface ScriptCompileResult {
@@ -61,66 +61,185 @@ export interface ScriptCompileOptions {
 }
 
 /**
- * Extract the main export default object content using brace balancing
+ * Stateful brace finder that ignores strings, template literals, and comments
+ */
+function findMatchingBrace(str: string, startIdx: number): number {
+  let braceCount = 0;
+  let inString: string | null = null;
+  let inCommentLine = false;
+  let inCommentBlock = false;
+  let escaped = false;
+
+  for (let i = startIdx; i < str.length; i++) {
+    const char = str[i];
+    const nextChar = str[i + 1];
+
+    if (inCommentLine) {
+      if (char === '\n') inCommentLine = false;
+      continue;
+    }
+    if (inCommentBlock) {
+      if (char === '*' && nextChar === '/') {
+        inCommentBlock = false;
+        i++;
+      }
+      continue;
+    }
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (char === '/' && nextChar === '/') {
+      inCommentLine = true;
+      i++;
+      continue;
+    }
+    if (char === '/' && nextChar === '*') {
+      inCommentBlock = true;
+      i++;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === '`') {
+      inString = char;
+      continue;
+    }
+
+    if (char === '{') {
+      braceCount++;
+    } else if (char === '}') {
+      braceCount--;
+      if (braceCount === 0) {
+        return i;
+      }
+    }
+  }
+  return -1;
+}
+
+/**
+ * Extract the main export default object content using stateful brace balancing
  */
 function extractExportObject(script: string): string | null {
   const exportIdx = script.search(/export\s+default/);
   if (exportIdx === -1) return null;
 
   const scriptFromExport = script.slice(exportIdx);
-  let braceCount = 0;
-  let startIndex = -1;
-  let endIndex = -1;
+  const firstBraceIdx = scriptFromExport.indexOf('{');
+  if (firstBraceIdx === -1) return null;
 
-  for (let i = 0; i < scriptFromExport.length; i++) {
-    const char = scriptFromExport[i];
-    if (char === '{') {
-      if (startIndex === -1) startIndex = i;
-      braceCount++;
-    } else if (char === '}') {
-      braceCount--;
-      if (braceCount === 0 && startIndex !== -1) {
-        endIndex = i;
-        break;
-      }
-    }
-  }
-
-  if (startIndex !== -1 && endIndex !== -1) {
-    return scriptFromExport.slice(startIndex + 1, endIndex);
+  const endBraceIdx = findMatchingBrace(scriptFromExport, firstBraceIdx);
+  if (endBraceIdx !== -1) {
+    return scriptFromExport.slice(firstBraceIdx + 1, endBraceIdx);
   }
   return null;
 }
 
 /**
- * Extract a specific property block (like methods, computed, props) using brace balancing
+ * Extract a specific property block using stateful brace balancing
  */
 function extractObjectProperty(objStr: string, propName: string): string | null {
-  const regex = new RegExp(`${propName}\\s*:\\s*\\{`, '');
+  const regex = new RegExp(`${propName}\\s*:\\s*(?:function\\s*\\([^)]*\\)\\s*\\{|\\([^)]*\\)\\s*=>\\s*\\{|\\{)`, '');
   const match = objStr.match(regex);
   if (!match || match.index === undefined) return null;
 
-  const startIdx = match.index + match[0].length - 1;
-  let braceCount = 0;
-  let endIndex = -1;
+  const startIdx = objStr.indexOf('{', match.index);
+  if (startIdx === -1) return null;
 
-  for (let i = startIdx; i < objStr.length; i++) {
-    const char = objStr[i];
-    if (char === '{') {
-      braceCount++;
-    } else if (char === '}') {
-      braceCount--;
-      if (braceCount === 0) {
-        endIndex = i;
-        break;
-      }
-    }
-  }
-
-  if (endIndex !== -1) {
-    return objStr.slice(startIdx + 1, endIndex).trim();
+  const endIdx = findMatchingBrace(objStr, startIdx);
+  if (endIdx !== -1) {
+    return objStr.slice(startIdx + 1, endIdx).trim();
   }
   return null;
+}
+
+/**
+ * Safe minifier that preserves strings, template literals, URLs, and comments correctly
+ */
+function safeMinify(code: string): string {
+  let result = '';
+  let i = 0;
+  let inString: string | null = null;
+  let inCommentLine = false;
+  let inCommentBlock = false;
+  let escaped = false;
+
+  while (i < code.length) {
+    const char = code[i];
+    const nextChar = code[i + 1];
+
+    if (inCommentLine) {
+      if (char === '\n') {
+        inCommentLine = false;
+        result += '\n';
+      }
+      i++;
+      continue;
+    }
+
+    if (inCommentBlock) {
+      if (char === '*' && nextChar === '/') {
+        inCommentBlock = false;
+        i += 2;
+        continue;
+      }
+      i++;
+      continue;
+    }
+
+    if (inString) {
+      result += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === inString) {
+        inString = null;
+      }
+      i++;
+      continue;
+    }
+
+    if (char === '/' && nextChar === '/') {
+      inCommentLine = true;
+      i += 2;
+      continue;
+    }
+    if (char === '/' && nextChar === '*') {
+      inCommentBlock = true;
+      i += 2;
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === '`') {
+      inString = char;
+      result += char;
+      i++;
+      continue;
+    }
+
+    if (/\s/.test(char)) {
+      if (!result.endsWith(' ') && !result.endsWith('\n') && result.length > 0) {
+        result += ' ';
+      }
+      i++;
+      while (i < code.length && /\s/.test(code[i])) {
+        i++;
+      }
+      continue;
+    }
+
+    result += char;
+    i++;
+  }
+
+  return result.trim();
 }
 
 /**
@@ -145,14 +264,23 @@ export function compileScript(
 
     if (exportObj) {
       // 1. Extract data function
-      const dataMatch = exportObj.match(/data\s*\(\s*\)\s*\{\s*return\s*(\{[\s\S]*?\})\s*\}/);
-      if (dataMatch) {
-        exports.data = `() => ${dataMatch[1]}`;
+      const dataMatch = exportObj.match(/data\s*\(\s*\)\s*\{/);
+      if (dataMatch && dataMatch.index !== undefined) {
+        const startIdx = exportObj.indexOf('{', dataMatch.index);
+        const endIdx = findMatchingBrace(exportObj, startIdx);
+        if (endIdx !== -1) {
+          const dataBody = exportObj.slice(startIdx + 1, endIdx).trim();
+          exports.data = `() => { ${dataBody} }`;
+        }
       } else {
-        // Fallful fallback for arrow function or simple object returns in data
-        const simpleDataMatch = exportObj.match(/data\s*:\s*(?:function\s*\(\s*\)\s*\{[\s\S]*?return\s*(\{[\s\S]*?\})\s*\}|\(\s*\)\s*=>\s*(\{[\s\S]*?\}))/);
-        if (simpleDataMatch) {
-          exports.data = `() => ${simpleDataMatch[1] || simpleDataMatch[2]}`;
+        const simpleDataMatch = exportObj.match(/data\s*:\s*(?:function\s*\(\s*\)\s*\{|\(\s*\)\s*=>\s*\{)/);
+        if (simpleDataMatch && simpleDataMatch.index !== undefined) {
+          const startIdx = exportObj.indexOf('{', simpleDataMatch.index);
+          const endIdx = findMatchingBrace(exportObj, startIdx);
+          if (endIdx !== -1) {
+            const dataBody = exportObj.slice(startIdx + 1, endIdx).trim();
+            exports.data = `() => { ${dataBody} }`;
+          }
         }
       }
 
@@ -173,7 +301,6 @@ export function compileScript(
       if (propsContent) {
         exports.props = `{ ${propsContent} }`;
       } else {
-        // Handle array syntax for props e.g. props: ['a', 'b']
         const propsArrayMatch = exportObj.match(/props\s*:\s*(\[[^\]]*\])/);
         if (propsArrayMatch) {
           exports.props = propsArrayMatch[1];
@@ -181,30 +308,24 @@ export function compileScript(
       }
 
       // 5. Extract lifecycle hooks
-      const lifecycleHooks = ['created', 'mounted', 'updated', 'unmounted', 'beforeCreate', 'beforeMount', 'beforeUpdate', 'beforeUnmount'];
+      const lifecycleHooks = [
+        'created',
+        'mounted',
+        'updated',
+        'unmounted',
+        'beforeCreate',
+        'beforeMount',
+        'beforeUpdate',
+        'beforeUnmount',
+      ];
       for (const hook of lifecycleHooks) {
-        const hookRegex = new RegExp(`${hook}\\s*\\(\\s*\\)\\s*\\{`, '');
+        const hookRegex = new RegExp(`${hook}\\s*\\([^)]*\\)\\s*\\{`, '');
         const hookMatch = exportObj.match(hookRegex);
         if (hookMatch && hookMatch.index !== undefined) {
-          const startIdx = hookMatch.index + hookMatch[0].length - 1;
-          let braceCount = 0;
-          let endIndex = -1;
-
-          for (let i = startIdx; i < exportObj.length; i++) {
-            const char = exportObj[i];
-            if (char === '{') {
-              braceCount++;
-            } else if (char === '}') {
-              braceCount--;
-              if (braceCount === 0) {
-                endIndex = i;
-                break;
-              }
-            }
-          }
-
-          if (endIndex !== -1) {
-            const hookBody = exportObj.slice(startIdx + 1, endIndex).trim();
+          const startIdx = exportObj.indexOf('{', hookMatch.index);
+          const endIdx = findMatchingBrace(exportObj, startIdx);
+          if (endIdx !== -1) {
+            const hookBody = exportObj.slice(startIdx + 1, endIdx).trim();
             if (exports.lifecycle) {
               exports.lifecycle[hook] = `function() { ${hookBody} }`;
             }
@@ -218,13 +339,9 @@ export function compileScript(
     );
   }
 
-  // Minify if requested
+  // Minify safely if requested
   if (options.minify) {
-    code = code
-      .replace(/\s+/g, ' ')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\/\/.*$/gm, '')
-      .trim();
+    code = safeMinify(code);
   }
 
   return {

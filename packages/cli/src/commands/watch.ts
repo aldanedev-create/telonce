@@ -16,21 +16,20 @@ export interface WatchOptions {
 }
 
 /**
- * Recursively find all .vel files while ignoring node_modules and dist
+ * Recursively find all .vel files while ignoring node_modules, dist, and hidden directories
  */
 async function getVelFiles(dir: string): Promise<string[]> {
   let results: string[] = [];
   if (!(await fs.pathExists(dir))) return results;
   
-  const list = await fs.readdir(dir);
-  for (const file of list) {
-    const filePath = path.join(dir, file);
-    const stat = await fs.stat(filePath);
-    if (stat && stat.isDirectory()) {
-      if (file !== 'node_modules' && file !== 'dist') {
+  const list = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of list) {
+    const filePath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!['node_modules', 'dist', '.git', '.vscode', '__pycache__'].includes(entry.name)) {
         results = results.concat(await getVelFiles(filePath));
       }
-    } else if (filePath.endsWith('.vel')) {
+    } else if (entry.name.endsWith('.vel')) {
       results.push(filePath);
     }
   }
@@ -61,17 +60,17 @@ export async function watchCommand(options: WatchOptions, _command: any): Promis
     let buildQueue = false;
 
     // Real rebuild logic compiling .vel files
-    async function rebuild() {
+    async function rebuild(changedFile?: string) {
       if (isBuilding) {
         buildQueue = true;
         return;
       }
 
       isBuilding = true;
-      const buildSpinner = ora('Rebuilding SFCs...').start();
+      const buildSpinner = ora(changedFile ? `Rebuilding due to ${path.basename(changedFile)}...` : 'Rebuilding SFCs...').start();
 
       try {
-        const files = await getVelFiles('src');
+        const files = await getValFilesSafe('src');
         
         for (const file of files) {
           const source = await fs.readFile(file, 'utf-8');
@@ -81,7 +80,7 @@ export async function watchCommand(options: WatchOptions, _command: any): Promis
             dev: true,
           } as any) as any;
 
-          // Determine output paths
+          // Determine output paths preserving directory structure
           const relativePath = file.replace(/^src[/\\]/, '');
           const jsOutPath = path.join(outDir, relativePath.replace(/\.vel$/, '.js'));
           
@@ -104,13 +103,21 @@ export async function watchCommand(options: WatchOptions, _command: any): Promis
       } catch (error) {
         buildSpinner.fail('Rebuild failed');
         logger.error(error instanceof Error ? error.message : String(error));
+      } finally {
+        isBuilding = false;
+
+        if (buildQueue) {
+          buildQueue = false;
+          await rebuild();
+        }
       }
+    }
 
-      isBuilding = false;
-
-      if (buildQueue) {
-        buildQueue = false;
-        await rebuild();
+    async function getValFilesSafe(dir: string): Promise<string[]> {
+      try {
+        return await getVelFiles(dir);
+      } catch {
+        return [];
       }
     }
 
@@ -119,16 +126,16 @@ export async function watchCommand(options: WatchOptions, _command: any): Promis
 
     console.log(chalk.gray(`\n   Press Ctrl+C to stop\n`));
 
-    // Watch directories recursively to track newly created files automatically
+    // Watch directories recursively to track newly created files and directories automatically
     const watchers: fs.FSWatcher[] = [];
     const watchDirs = ['src'];
 
     for (const dir of watchDirs) {
       if (await fs.pathExists(dir)) {
         try {
-          const watcher = fs.watch(dir, { recursive: true }, (_eventType, filename) => {
-            if (filename && filename.endsWith('.vel')) {
-              rebuild();
+          const watcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
+            if (filename && (filename.toString().endsWith('.vel') || eventType === 'rename')) {
+              rebuild(filename.toString());
             }
           });
           watchers.push(watcher);
@@ -139,20 +146,18 @@ export async function watchCommand(options: WatchOptions, _command: any): Promis
     }
 
     // Handle graceful shutdown
-    process.on('SIGINT', async () => {
+    const cleanup = () => {
       console.log(chalk.yellow(`\nShutting down watcher...`));
       for (const watcher of watchers) {
-        watcher.close();
+        try {
+          watcher.close();
+        } catch {}
       }
       process.exit(0);
-    });
+    };
 
-    process.on('SIGTERM', async () => {
-      for (const watcher of watchers) {
-        watcher.close();
-      }
-      process.exit(0);
-    });
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
 
   } catch (error) {
     spinner.fail('Failed to start watch mode');

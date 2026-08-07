@@ -1,5 +1,5 @@
 /**
- * Framework detection - auto-detects Python frameworks using precise import parsing
+ * Framework detection - auto-detects Python frameworks using precise import parsing and dependency inspection
  */
 
 import * as fs from 'fs-extra';
@@ -17,56 +17,127 @@ export interface FrameworkInfo {
 }
 
 /**
- * Helper to check for valid Python import statements (import framework / from framework import)
+ * Strip Python comments and docstrings from code to ensure true import awareness
  */
-function hasPythonImport(content: string, framework: string): boolean {
-  const regex = new RegExp(`(?:^|\\n)\\s*(?:import\\s+${framework}\\b|from\\s+${framework}\\b)`, 'i');
-  return regex.test(content);
+function cleanPythonCode(code: string): string {
+  // Remove multi-line triple-quote strings/docstrings and block comments
+  let cleaned = code.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|\/\*[\s\S]*?\*\/)/g, '');
+  // Remove single-line comments (#)
+  cleaned = cleaned.replace(/#.*$/gm, '');
+  return cleaned;
 }
 
 /**
- * Detect the Python framework in the current directory with correct execution priority
+ * Check if cleaned Python code contains a genuine import of the framework
+ */
+function hasTruePythonImport(content: string, framework: string): boolean {
+  const cleaned = cleanPythonCode(content);
+  // Matches "import framework" or "from framework import" or "from framework.something import"
+  const importRegex = new RegExp(`\\b(?:import\\s+${framework}\\b|from\\s+${framework}\\b|from\\s+${framework}\\.)`, 'i');
+  return importRegex.test(cleaned);
+}
+
+/**
+ * Recursively find all .py files in directory (ignoring virtualenvs, git, cache)
+ */
+async function findPythonFiles(dir: string, fileList: string[] = []): Promise<string[]> {
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (['node_modules', '.git', 'venv', '.venv', '__pycache__', 'dist', 'build'].includes(entry.name)) {
+        continue;
+      }
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await findPythonFiles(fullPath, fileList);
+      } else if (entry.isFile() && entry.name.endsWith('.py')) {
+        fileList.push(fullPath);
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+  return fileList;
+}
+
+/**
+ * Detect the Python framework in the current directory with true import and dependency awareness
  */
 export async function detectFramework(): Promise<Framework | null> {
   const cwd = process.cwd();
 
-  // 1. Check for Django (manage.py)
+  // 1. Check dependency config files first (requirements.txt, pyproject.toml)
+  const reqPath = path.join(cwd, 'requirements.txt');
+  if (await fs.pathExists(reqPath)) {
+    const reqContent = await fs.readFile(reqPath, 'utf-8');
+    const lowerReq = reqContent.toLowerCase();
+    if (lowerReq.includes('django')) return 'django';
+    if (lowerReq.includes('fastapi')) return 'fastapi';
+    if (lowerReq.includes('quart')) return 'quart';
+    if (lowerReq.includes('flaxon')) return 'flaxon';
+    if (lowerReq.includes('flask')) return 'flask';
+  }
+
+  const pyprojectPath = path.join(cwd, 'pyproject.toml');
+  if (await fs.pathExists(pyprojectPath)) {
+    const pyprojectContent = await fs.readFile(pyprojectPath, 'utf-8');
+    const lowerP = pyprojectContent.toLowerCase();
+    if (lowerP.includes('django')) return 'django';
+    if (lowerP.includes('fastapi')) return 'fastapi';
+    if (lowerP.includes('quart')) return 'quart';
+    if (lowerP.includes('flaxon')) return 'flaxon';
+    if (lowerP.includes('flask')) return 'flask';
+  }
+
+  // 2. Scan all Python source files for true imports with priority ordering
+  const pyFiles = await findPythonFiles(cwd);
+
+  for (const filePath of pyFiles) {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      if (hasTruePythonImport(content, 'django')) return 'django';
+    } catch {}
+  }
+
+  for (const filePath of pyFiles) {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      if (hasTruePythonImport(content, 'fastapi')) return 'fastapi';
+    } catch {}
+  }
+
+  for (const filePath of pyFiles) {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      if (hasTruePythonImport(content, 'quart')) return 'quart';
+      if (hasTruePythonImport(content, 'flaxon')) return 'flaxon';
+      if (hasTruePythonImport(content, 'flask')) return 'flask';
+    } catch {}
+  }
+
+  // 3. Fallback signature file checks (manage.py, main.py, app.py)
   const managePath = path.join(cwd, 'manage.py');
   if (await fs.pathExists(managePath)) {
     const content = await fs.readFile(managePath, 'utf-8');
-    if (hasPythonImport(content, 'django')) {
-      return 'django';
-    }
+    if (hasTruePythonImport(content, 'django')) return 'django';
   }
 
-  // 2. Check for FastAPI (main.py)
   const mainPath = path.join(cwd, 'main.py');
   if (await fs.pathExists(mainPath)) {
     const content = await fs.readFile(mainPath, 'utf-8');
-    if (hasPythonImport(content, 'fastapi')) {
-      return 'fastapi';
-    }
+    if (hasTruePythonImport(content, 'fastapi')) return 'fastapi';
   }
 
-  // 3. Check for app.py-based frameworks (Quart, Flaxon, Flask) in correct specificity order
   const appPath = path.join(cwd, 'app.py');
   if (await fs.pathExists(appPath)) {
     const content = await fs.readFile(appPath, 'utf-8');
-
-    // Check specialized / async frameworks before generic Flask to fix early-return shadowing
-    if (hasPythonImport(content, 'quart')) {
-      return 'quart';
-    }
-    if (hasPythonImport(content, 'flaxon')) {
-      return 'flaxon';
-    }
-    if (hasPythonImport(content, 'flask')) {
-      return 'flask';
-    }
+    if (hasTruePythonImport(content, 'quart')) return 'quart';
+    if (hasTruePythonImport(content, 'flaxon')) return 'flaxon';
+    if (hasTruePythonImport(content, 'flask')) return 'flask';
   }
 
-  // 4. Check for templates folder (fallback unknown framework)
-  if (await fs.pathExists(path.join(cwd, 'templates'))) {
+  // 4. Fallback unknown if template folder or python files exist
+  if (await fs.pathExists(path.join(cwd, 'templates')) || pyFiles.length > 0) {
     return 'unknown';
   }
 
@@ -131,9 +202,6 @@ export function getFrameworkInfo(framework: Framework): FrameworkInfo {
   return infos[framework] || infos.unknown;
 }
 
-/**
- * Detect and get framework info
- */
 export async function detectFrameworkInfo(): Promise<FrameworkInfo | null> {
   const framework = await detectFramework();
   if (!framework) return null;

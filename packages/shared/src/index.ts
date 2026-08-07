@@ -7,8 +7,8 @@
  * helpers used across Teloce packages.
  */
 
-// Export constants
-export {
+// 1. Import everything locally
+import {
   VERSION,
   NAME,
   PACKAGE_NAME,
@@ -27,8 +27,7 @@ export {
   LOG_LEVELS,
 } from './constants';
 
-// Export filesystem utilities
-export {
+import {
   FileSystem,
   createFileSystem,
   readFile,
@@ -57,35 +56,110 @@ export {
   type GlobOptions,
 } from './filesystem';
 
-// Export types
-export {
-  type Result,
-  type Option,
-  type Either,
-  type Maybe,
-  type AsyncResult,
-  type AsyncOption,
-  type AsyncEither,
-  type AsyncMaybe,
-  type Logger,
-  type LoggerOptions,
-  type Config,
-  type ConfigOptions,
-  type ErrorWithCode,
-  type ErrorWithStack,
-  type Serializable,
-  type JSONValue,
-  type JSONObject,
-  type JSONArray,
-  type DeepReadonly,
-  type DeepPartial,
-  type DeepRequired,
-  type NonNullableProps,
-  type OptionalProps,
-  type RequiredProps,
+import type {
+  Result,
+  Option,
+  Either,
+  Maybe,
+  AsyncResult,
+  AsyncOption,
+  AsyncEither,
+  AsyncMaybe,
+  Logger,
+  LoggerOptions,
+  Config,
+  ConfigOptions,
+  ErrorWithCode,
+  ErrorWithStack,
+  Serializable,
+  JSONValue,
+  JSONObject,
+  JSONArray,
+  DeepReadonly,
+  DeepPartial,
+  DeepRequired,
+  NonNullableProps,
+  OptionalProps,
+  RequiredProps,
 } from './types';
 
-// Default export
+// 2. Export named values
+export {
+  VERSION,
+  NAME,
+  PACKAGE_NAME,
+  DEFAULT_PORT,
+  DEFAULT_HOST,
+  DEFAULT_DEBUG_PORT,
+  CDN_URL,
+  REPO_URL,
+  DOCS_URL,
+  SUPPORT_URL,
+  FILE_EXTENSIONS,
+  DIRECTIVES,
+  EVENT_MODIFIERS,
+  BUILTIN_FILTERS,
+  ERROR_CODES,
+  LOG_LEVELS,
+
+  FileSystem,
+  createFileSystem,
+  readFile,
+  writeFile,
+  exists,
+  mkdir,
+  readdir,
+  remove,
+  copy,
+  move,
+  resolve,
+  dirname,
+  basename,
+  extname,
+  join,
+  normalize,
+  isAbsolute,
+  relative,
+  glob,
+  watch,
+};
+
+// 3. Export types
+export type {
+  FileSystemOptions,
+  FileEntry,
+  FileStats,
+  WatchEvent,
+  WatchOptions,
+  GlobOptions,
+
+  Result,
+  Option,
+  Either,
+  Maybe,
+  AsyncResult,
+  AsyncOption,
+  AsyncEither,
+  AsyncMaybe,
+  Logger,
+  LoggerOptions,
+  Config,
+  ConfigOptions,
+  ErrorWithCode,
+  ErrorWithStack,
+  Serializable,
+  JSONValue,
+  JSONObject,
+  JSONArray,
+  DeepReadonly,
+  DeepPartial,
+  DeepRequired,
+  NonNullableProps,
+  OptionalProps,
+  RequiredProps,
+};
+
+// 4. Default export using local references
 export default {
   // Constants
   VERSION,

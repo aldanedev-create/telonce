@@ -12,8 +12,17 @@ export interface RegistryOptions {
   strictVersions?: boolean;
 }
 
+interface PluginRegistrationSnapshot {
+  directives: string[];
+  filters: string[];
+  components: string[];
+  transforms: string[];
+  helpers: string[];
+}
+
 export class PluginRegistry {
   private plugins: Map<string, Plugin> = new Map();
+  private pluginRegistrations: Map<string, PluginRegistrationSnapshot> = new Map();
   private directives: Map<string, Directive> = new Map();
   private filters: Map<string, Filter> = new Map();
   private components: Map<string, Component> = new Map();
@@ -44,10 +53,19 @@ export class PluginRegistry {
 
     this.plugins.set(plugin.name, plugin);
 
+    const snapshot: PluginRegistrationSnapshot = {
+      directives: [],
+      filters: [],
+      components: [],
+      transforms: [],
+      helpers: [],
+    };
+
     // Register directives
     if (plugin.directives) {
       for (const directive of plugin.directives) {
         this.registerDirective(directive);
+        snapshot.directives.push(directive.name);
       }
     }
 
@@ -55,6 +73,7 @@ export class PluginRegistry {
     if (plugin.filters) {
       for (const filter of plugin.filters) {
         this.registerFilter(filter);
+        snapshot.filters.push(filter.name);
       }
     }
 
@@ -62,6 +81,7 @@ export class PluginRegistry {
     if (plugin.components) {
       for (const component of plugin.components) {
         this.registerComponent(component);
+        snapshot.components.push(component.name);
       }
     }
 
@@ -69,6 +89,7 @@ export class PluginRegistry {
     if (plugin.transforms) {
       for (const transform of plugin.transforms) {
         this.registerTransform(transform);
+        snapshot.transforms.push(transform.name);
       }
     }
 
@@ -76,46 +97,43 @@ export class PluginRegistry {
     if (plugin.helpers) {
       for (const [key, value] of Object.entries(plugin.helpers)) {
         this.registerHelper(key, value);
+        snapshot.helpers.push(key);
       }
     }
+
+    this.pluginRegistrations.set(plugin.name, snapshot);
   }
 
   /**
-   * Unregister a plugin with full cleanup for directives, filters, components, transforms, and helpers
+   * Unregister a plugin with full cleanup using its registration snapshot
    */
   unregister(name: string): boolean {
     const plugin = this.plugins.get(name);
     if (!plugin) return false;
 
-    // Remove all registered directives
-    if (plugin.directives) {
-      for (const directive of plugin.directives) {
-        this.directives.delete(directive.name);
+    const snapshot = this.pluginRegistrations.get(name);
+    if (snapshot) {
+      // Remove all registered directives from snapshot
+      for (const directiveName of snapshot.directives) {
+        this.directives.delete(directiveName);
       }
-    }
-    // Remove all registered filters
-    if (plugin.filters) {
-      for (const filter of plugin.filters) {
-        this.filters.delete(filter.name);
+      // Remove all registered filters from snapshot
+      for (const filterName of snapshot.filters) {
+        this.filters.delete(filterName);
       }
-    }
-    // Remove all registered components
-    if (plugin.components) {
-      for (const component of plugin.components) {
-        this.components.delete(component.name);
+      // Remove all registered components from snapshot
+      for (const componentName of snapshot.components) {
+        this.components.delete(componentName);
       }
-    }
-    // Remove all registered transforms
-    if (plugin.transforms) {
-      for (const transform of plugin.transforms) {
-        this.transforms.delete(transform.name);
+      // Remove all registered transforms from snapshot
+      for (const transformName of snapshot.transforms) {
+        this.transforms.delete(transformName);
       }
-    }
-    // Remove all registered helpers
-    if (plugin.helpers) {
-      for (const key of Object.keys(plugin.helpers)) {
-        this.helpers.delete(key);
+      // Remove all registered helpers from snapshot
+      for (const helperKey of snapshot.helpers) {
+        this.helpers.delete(helperKey);
       }
+      this.pluginRegistrations.delete(name);
     }
 
     this.plugins.delete(name);
@@ -289,6 +307,7 @@ export class PluginRegistry {
    */
   clear(): void {
     this.plugins.clear();
+    this.pluginRegistrations.clear();
     this.directives.clear();
     this.filters.clear();
     this.components.clear();

@@ -3,13 +3,12 @@
  */
 
 import type {
-  PluginAPI,
+  PluginAPI as IPluginAPI,
   Directive,
   Filter,
   Component,
   Transform,
   HookHandler,
-  PluginContext,
 } from './types';
 import type { PluginRegistry } from './registry';
 import type { HookSystem } from './hooks';
@@ -21,7 +20,7 @@ export interface APIOptions {
   config?: Record<string, any>;
 }
 
-export class PluginAPI implements PluginAPI {
+export class PluginAPI implements IPluginAPI {
   private registry: PluginRegistry;
   private hooks: HookSystem;
   private pluginName: string;

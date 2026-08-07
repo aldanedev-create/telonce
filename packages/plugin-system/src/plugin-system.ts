@@ -7,12 +7,11 @@ import type {
   PluginAPI,
   PluginSystem as IPluginSystem,
   PluginLifecycle,
-  PluginContext,
 } from './types';
 import { PluginRegistry, createPluginRegistry } from './registry';
 import { HookSystem, createHookSystem, BuiltinHooks } from './hooks';
-import { PluginAPI as APIImpl, createPluginAPI } from './api';
-import { PluginLoader, createPluginLoader, type LoaderOptions } from './loader';
+import { createPluginAPI } from './api';
+import { PluginLoader, createPluginLoader } from './loader';
 
 export interface PluginSystemOptions {
   /** Enable debug logging */
@@ -37,7 +36,7 @@ export class PluginSystem implements IPluginSystem {
   private loader: PluginLoader;
   private config: Record<string, any> = {};
   private initialized: boolean = false;
-  private state: PluginLifecycle = 'unloaded';
+  public state: PluginLifecycle = 'unloaded';
   private debug: boolean;
 
   constructor(options: PluginSystemOptions = {}) {
@@ -274,195 +273,3 @@ export class PluginSystem implements IPluginSystem {
 export function createPluginSystem(options: PluginSystemOptions = {}): PluginSystem {
   return new PluginSystem(options);
 }
-
-
- @teloce/plugin-system
-
-> Core plugin system for Teloce - extend the template engine with custom directives, filters, components, and more
-
-The Teloce Plugin System is a **small-scale, tech-neutral** plugin architecture that allows developers to extend the template engine's functionality.
-
----
-
-## Features
-
-- **🔌 Tech-Neutral** - Works with CDN, npm, and build tools
-- **📦 Small Footprint** - Lightweight plugin API
-- **🧩 Composable** - Multiple plugins work together
-- **📋 Versioned** - Plugins declare compatibility
-- **🔄 Lifecycle Hooks** - Before/after compile, render, etc.
-- **📝 TypeScript Support** - Full type definitions
-
----
-
-## Installation
-
-```bash
-npm install @teloce/plugin-system
-Quick Start
-Define a Plugin
-javascript
-// my-plugin.js
-export default {
-  name: 'my-plugin',
-  version: '1.0.0',
-  description: 'Adds custom directives and filters',
-  
-  // Custom directives
-  directives: [
-    {
-      name: 'custom',
-      transform: (node, context) => {
-        // Transform the node
-        return node;
-      }
-    }
-  ],
-  
-  // Custom filters
-  filters: [
-    {
-      name: 'reverse',
-      transform: (value) => value.split('').reverse().join('')
-    }
-  ],
-  
-  // Lifecycle hooks
-  hooks: {
-    init: (api) => {
-      console.log('Plugin initialized!');
-      api.registerHelper('hello', () => 'Hello from plugin!');
-    },
-    beforeCompile: (ast, context) => {
-      // Modify AST before compilation
-      return ast;
-    }
-  }
-};
-Use the Plugin
-javascript
-import { createPluginSystem } from '@teloce/plugin-system';
-import myPlugin from './my-plugin';
-
-const system = createPluginSystem({
-  debug: true,
-  plugins: [myPlugin]
-});
-
-// Initialize
-await system.init();
-
-// Use the plugin
-const api = system.getAPI();
-console.log(api.getHelpers().hello()); // Hello from plugin!
-Plugin Capabilities
-Custom Directives
-javascript
-directives: [
-  {
-    name: 'animate',
-    priority: 10,
-    transform: (node, context) => {
-      // Add animation logic
-      return node;
-    },
-    render: (node, context) => {
-      // Render with animation
-      return node;
-    }
-  }
-]
-Custom Filters
-javascript
-filters: [
-  {
-    name: 'markdown',
-    transform: (value) => {
-      // Convert Markdown to HTML
-      return marked(value);
-    }
-  }
-]
-Custom Components
-javascript
-components: [
-  {
-    name: 'Chart',
-    component: ChartComponent,
-    description: 'Data visualization component'
-  }
-]
-AST Transforms
-javascript
-transforms: [
-  {
-    name: 'auto-import',
-    priority: 5,
-    transform: (ast) => {
-      // Add imports to AST
-      return ast;
-    }
-  }
-]
-Helpers
-javascript
-helpers: {
-  formatDate: (date) => date.toLocaleDateString(),
-  sum: (a, b) => a + b
-}
-Lifecycle Hooks
-Hook	When It Runs
-init	Plugin is first loaded
-destroy	Plugin is removed
-beforeCompile	Before template compilation
-afterCompile	After template compilation
-beforeRender	Before DOM rendering
-afterRender	After DOM rendering
-transformNode	For each AST node
-complete	Compilation complete
-API Reference
-PluginSystem
-Method	Description
-use(plugin)	Register a plugin
-unuse(name)	Unregister a plugin
-get(name)	Get a plugin by name
-getAll()	Get all plugins
-has(name)	Check if plugin exists
-getAPI()	Get plugin API
-init()	Initialize all plugins
-destroy()	Destroy all plugins
-PluginAPI
-Method	Description
-registerDirective(directive)	Register a custom directive
-registerFilter(filter)	Register a custom filter
-registerComponent(component)	Register a custom component
-registerHelper(name, value)	Register a helper
-registerHook(name, handler)	Register a lifecycle hook
-getConfig(key)	Get plugin configuration
-setConfig(key, value)	Set plugin configuration
-hasDirective(name)	Check if directive exists
-hasFilter(name)	Check if filter exists
-hasComponent(name)	Check if component exists
-Plugin Loading
-From npm Package
-json
-// package.json
-{
-  "name": "@teloce/plugin-markdown",
-  "version": "1.0.0",
-  "teloce": {
-    "plugin": true
-  }
-}
-From CDN
-html
-<script src="https://cdn.teloce.dev/plugins/markdown.min.js"></script>
-Programmatically
-javascript
-system.use({
-  name: 'my-plugin',
-  version: '1.0.0',
-  // ...
-});
-License
-MIT

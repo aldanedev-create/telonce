@@ -17,9 +17,9 @@ export enum ASTNodeType {
 }
 
 /**
- * Base AST node
+ * Base AST node properties shared by all nodes
  */
-export interface ASTNode {
+export interface BaseASTNode {
   type: ASTNodeType;
   position: number;
   line: number;
@@ -29,7 +29,7 @@ export interface ASTNode {
 /**
  * Element node
  */
-export interface ElementNode extends ASTNode {
+export interface ElementNode extends BaseASTNode {
   type: ASTNodeType.Element;
   tag: string;
   attributes: Record<string, string>;
@@ -39,7 +39,7 @@ export interface ElementNode extends ASTNode {
 /**
  * Text node
  */
-export interface TextNode extends ASTNode {
+export interface TextNode extends BaseASTNode {
   type: ASTNodeType.Text;
   value: string;
 }
@@ -47,7 +47,7 @@ export interface TextNode extends ASTNode {
 /**
  * Interpolation node ({{ }})
  */
-export interface InterpolationNode extends ASTNode {
+export interface InterpolationNode extends BaseASTNode {
   type: ASTNodeType.Interpolation;
   value: string;
 }
@@ -55,7 +55,7 @@ export interface InterpolationNode extends ASTNode {
 /**
  * For loop node
  */
-export interface ForNode extends ASTNode {
+export interface ForNode extends BaseASTNode {
   type: ASTNodeType.For;
   item: string;
   collection: string;
@@ -66,7 +66,7 @@ export interface ForNode extends ASTNode {
 /**
  * If condition node
  */
-export interface IfNode extends ASTNode {
+export interface IfNode extends BaseASTNode {
   type: ASTNodeType.If;
   condition: string;
   children: ASTNode[];
@@ -76,7 +76,7 @@ export interface IfNode extends ASTNode {
 /**
  * Show/Hide node
  */
-export interface ShowHideNode extends ASTNode {
+export interface ShowHideNode extends BaseASTNode {
   type: ASTNodeType.Show | ASTNodeType.Hide;
   condition: string;
   children: ASTNode[];
@@ -85,7 +85,7 @@ export interface ShowHideNode extends ASTNode {
 /**
  * Directive node
  */
-export interface DirectiveNode extends ASTNode {
+export interface DirectiveNode extends BaseASTNode {
   type: ASTNodeType.Element;
   tag: string;
   attributes: Record<string, string>;
@@ -93,3 +93,15 @@ export interface DirectiveNode extends ASTNode {
   isDirective: true;
   directiveType: 'for' | 'if' | 'show' | 'hide';
 }
+
+/**
+ * Union type representing any valid AST node
+ */
+export type ASTNode =
+  | ElementNode
+  | TextNode
+  | InterpolationNode
+  | ForNode
+  | IfNode
+  | ShowHideNode
+  | DirectiveNode;

@@ -6,9 +6,7 @@
  * for common use cases in templates.
  */
 
-// Export filters
-export {
-  // String filters
+import {
   capitalize,
   uppercase,
   lowercase,
@@ -21,8 +19,6 @@ export {
   startCase,
   escape,
   unescape,
-
-  // Number filters
   currency,
   percent,
   number,
@@ -31,14 +27,10 @@ export {
   floor,
   ceil,
   abs,
-
-  // Date filters
   dateFormat,
   timeAgo,
   dateFromISO,
   relativeTime,
-
-  // Array filters
   join,
   first,
   last,
@@ -46,54 +38,50 @@ export {
   where,
   orderBy,
   groupBy,
-
-  // Object filters
   keys,
   values,
   entries,
   pick,
   omit,
   size,
-
-  // Create custom filter
   createFilter,
   registerFilter,
   getFilter,
   hasFilter,
-  type Filter,
-  type FilterMap,
 } from './filters';
 
-// Export transitions
-export {
-  // Transition helpers
+import {
   transition,
   animate,
   createTransition,
   createAnimation,
-
-  // Built-in transitions
   fade,
   slide,
   scale,
   zoom,
   flip,
   collapse,
-
-  // Transition utilities
   waitForTransition,
   waitForAnimation,
   getTransitionDuration,
   setTransitionStyles,
   withTransition,
-  type Transition,
-  type TransitionOptions,
-  type Animation,
-  type AnimationOptions,
-  type TransitionManager,
+  createTransitionManager,
+  createCustomTransition,
+  createKeyframeAnimation,
+  pulse,
+  shake,
+  bounce,
+  spin,
+  fadeIn,
+  fadeOut,
 } from './transitions';
 
-// Default export
+// Export all named values and types
+export * from './filters';
+export * from './transitions';
+
+// Default export containing all library runtime values
 export default {
   // Filters
   capitalize,
@@ -138,7 +126,7 @@ export default {
   getFilter,
   hasFilter,
 
-  // Transitions
+  // Transitions & Animations
   transition,
   animate,
   createTransition,
@@ -154,4 +142,13 @@ export default {
   getTransitionDuration,
   setTransitionStyles,
   withTransition,
+  createTransitionManager,
+  createCustomTransition,
+  createKeyframeAnimation,
+  pulse,
+  shake,
+  bounce,
+  spin,
+  fadeIn,
+  fadeOut,
 };

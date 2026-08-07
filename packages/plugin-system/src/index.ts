@@ -9,15 +9,8 @@
  * Plugins work with CDN, npm, and build tools.
  */
 
-// Import values locally so they are available in scope for the default export
-import { PluginRegistry, createPluginRegistry } from './registry.js';
-import { HookSystem, createHookSystem } from './hooks.js';
-import { PluginAPI, createPluginAPI } from './api.js';
-import { PluginLoader, createPluginLoader } from './loader.js';
-import { createPluginSystem } from './plugin-system.js';
-
-// Export types
-export type {
+// 1. Import everything locally so it is available in scope
+import type {
   Plugin,
   PluginConfig,
   PluginContext,
@@ -33,15 +26,13 @@ export type {
   PluginDependency,
 } from './types.js';
 
-// Export registry
-export {
+import {
   PluginRegistry,
   createPluginRegistry,
   type RegistryOptions,
 } from './registry.js';
 
-// Export hooks
-export {
+import {
   HookSystem,
   createHookSystem,
   type Hook,
@@ -49,29 +40,69 @@ export {
   type HookRegistration,
 } from './hooks.js';
 
-// Export API
-export {
+import {
   PluginAPI,
   createPluginAPI,
   type APIOptions,
 } from './api.js';
 
-// Export loader
-export {
+import {
   PluginLoader,
   createPluginLoader,
   type LoaderOptions,
   type LoaderResult,
 } from './loader.js';
 
-// Export main functions
-export {
+import {
   createPluginSystem,
   type PluginSystem,
   type PluginSystemOptions,
 } from './plugin-system.js';
 
-// Default export
+// 2. Export types
+export type {
+  Plugin,
+  PluginConfig,
+  PluginContext,
+  Directive,
+  Filter,
+  Component,
+  Transform,
+  Helpers,
+  Hooks,
+  HookHandler,
+  PluginLifecycle,
+  PluginManifest,
+  PluginDependency,
+};
+
+// 3. Export named values and module types
+export {
+  PluginRegistry,
+  createPluginRegistry,
+  type RegistryOptions,
+
+  HookSystem,
+  createHookSystem,
+  type Hook,
+  type HookContext,
+  type HookRegistration,
+
+  PluginAPI,
+  createPluginAPI,
+  type APIOptions,
+
+  PluginLoader,
+  createPluginLoader,
+  type LoaderOptions,
+  type LoaderResult,
+
+  createPluginSystem,
+  type PluginSystem,
+  type PluginSystemOptions,
+};
+
+// 4. Default export using the locally scoped references
 export default {
   PluginRegistry,
   createPluginRegistry,

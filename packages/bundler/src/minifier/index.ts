@@ -97,7 +97,7 @@ export interface MinifierPlugin {
 }
 
 /**
- * Minify JavaScript code safely without corrupting property access
+ * Minify JavaScript code safely without corrupting property access or scopes
  */
 export function minifyJavaScript(
   code: string,
@@ -106,13 +106,41 @@ export function minifyJavaScript(
   const originalSize = code.length;
   let minified = code;
 
-  // Remove comments
+  // 1. Remove comments
   if (options.removeComments !== false) {
     minified = minified.replace(/\/\*[\s\S]*?\*\//g, '');
     minified = minified.replace(/\/\/.*/gm, '');
   }
 
-  // Collapse whitespace
+  // 2. Remove unused variables safely (conservative check for unreferenced pure declarations)
+  if (options.removeUnused) {
+    const declRegex = /\b(let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*([^;]+);?/g;
+    let match;
+    const declarations: { full: string; name: string; init: string }[] = [];
+    while ((match = declRegex.exec(minified)) !== null) {
+      declarations.push({ full: match[0], name: match[2], init: match[3].trim() });
+    }
+
+    for (const decl of declarations) {
+      if (options.preserve && options.preserve.includes(decl.name)) continue;
+      
+      // Check if initializer is side-effect free (literals, numbers, booleans, strings)
+      const isPureLiteral = /^(['"`][^'"`]*['"`]|\d+(\.\d+)?|true|false|null|undefined)$/.test(decl.init);
+      if (!isPureLiteral) continue;
+
+      // Count occurrences of the variable as a whole word
+      const wordRegex = new RegExp(`\\b${decl.name}\\b`, 'g');
+      const matches = minified.match(wordRegex);
+      
+      // If it appears only once (the declaration itself), remove it safely
+      if (matches && matches.length === 1) {
+        const stmtRegex = new RegExp(`\\b(?:let|const|var)\\s+${decl.name}\\s*=\\s*[^;]+;?`, 'g');
+        minified = minified.replace(stmtRegex, '');
+      }
+    }
+  }
+
+  // 3. Collapse whitespace
   if (options.collapseWhitespace !== false) {
     minified = minified
       .replace(/\s+/g, ' ')
@@ -123,30 +151,33 @@ export function minifyJavaScript(
       .replace(/\s+\)/g, ')');
   }
 
-  // Shorten variable names safely avoiding property accesses (e.g. foo.data -> foo.a)
+  // 4. Shorten variable names safely avoiding property accesses and scope collisions
   if (options.shortenNames) {
     const varRegex = /(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
     const vars: string[] = [];
     let match: RegExpExecArray | null;
     while ((match = varRegex.exec(minified)) !== null) {
-      if (!vars.includes(match[1])) {
+      if (!vars.includes(match[1]) && !vars.includes(match[1])) {
         vars.push(match[1]);
       }
     }
     
+    let counter = 0;
     for (let i = 0; i < vars.length; i++) {
-      const short = String.fromCharCode(97 + (i % 26)) + (Math.floor(i / 26) || '');
       const varName = vars[i];
       if (options.preserve && options.preserve.includes(varName)) continue;
+      
+      const short = String.fromCharCode(97 + (counter % 26)) + (Math.floor(counter / 26) || '');
+      counter++;
 
       try {
-        // Negative lookbehind ensures we don't match after a dot (.)
+        // Negative lookbehind ensures we don't match after a dot (.) or object property key
         const safeRegex = new RegExp(`(?<!\\.)\\b${varName}\\b`, 'g');
         minified = minified.replace(safeRegex, short);
       } catch {
         const wordRegex = new RegExp(`\\b${varName}\\b`, 'g');
         minified = minified.replace(wordRegex, (m, offset, str) => {
-          if (offset > 0 && str[offset - 1] === '.') {
+          if (offset > 0 && (str[offset - 1] === '.' || str[offset - 1] === ':')) {
             return m;
           }
           return short;
@@ -288,10 +319,13 @@ export function minify(
   let type: 'js' | 'css' | 'html' = options.type || 'js';
 
   if (!options.type) {
-    // Robust detection avoiding false positives from JS object literals
-    if (combined.includes('<!DOCTYPE') || (combined.includes('<html') && combined.includes('</html>')) || (combined.includes('<template') && combined.includes('</template>'))) {
+    // Robust detection avoiding false positives from JS object literals or TypeScript definitions
+    if (/^\s*(<!DOCTYPE|<html|<template|<div|<span|<section)/i.test(combined) || (combined.includes('<html') && combined.includes('</html>'))) {
       type = 'html';
-    } else if (/^\s*[a-zA-Z0-9#class_.-]+\s*\{[^}]*:[^}]*\}/.test(combined) && !combined.includes('function') && !combined.includes('=>') && !combined.includes('const ') && !combined.includes('let ')) {
+    } else if (
+      (/^\s*([a-zA-Z0-9#class_.-]+\s*\{[^}]*:[^}]*\})/.test(combined) || combined.includes('@media') || combined.includes('@keyframes')) &&
+      !/\b(function|const|let|var|import|export|return|class|interface|type)\b/.test(combined)
+    ) {
       type = 'css';
     } else {
       type = 'js';
@@ -309,7 +343,11 @@ export function minify(
 
   let finalCode: string | string[] = minifiedResult.code;
   if (isArray && typeof minifiedResult.code === 'string') {
-    finalCode = codes.map(c => minifyJavaScript(c, options).code as string);
+    finalCode = codes.map((c) => {
+      if (type === 'html') return minifyHTML(c, options).code as string;
+      if (type === 'css') return minifyCSS(c, options).code as string;
+      return minifyJavaScript(c, options).code as string;
+    });
   }
 
   const minifiedSize = typeof finalCode === 'string' ? finalCode.length : finalCode.reduce((acc, s) => acc + s.length, 0);

@@ -30,34 +30,59 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
     config: fullConfig,
 
     reactive(obj) {
-      // Wrap each property as a signal
-      const signals: Record<string, unknown> = {};
-      for (const key in obj) {
-        const signal = createSignal(obj[key]);
-        signals[key] = {
-          get: () => signal(),
-          set: (value: any) => signal.set(value),
-          // For direct access (state.key)
-          value: signal(),
-        };
+      const signals = new Map<string | symbol, ReturnType<typeof createSignal>>();
+      const raw = { ...(obj || {}) };
+
+      for (const key in raw) {
+        signals.set(key, createSignal(raw[key]));
       }
-      // Create proxy for reactive access
-      return new Proxy({}, {
-        get(_target, prop: string) {
-          const signal = (signals as Record<string, any>)[prop];
-          if (signal && typeof signal === 'object' && 'get' in signal) {
-            return (signal as any).get();
+
+      // Create proxy with full property traps for iteration, spread, JSON.stringify, and dynamic properties
+      return new Proxy(raw, {
+        get(target, prop, receiver) {
+          if (prop === '__isReactive') return true;
+          if (prop === '__raw') return target;
+
+          let sig = signals.get(prop);
+          if (!sig && (prop in target || typeof prop === 'string')) {
+            sig = createSignal(Reflect.get(target, prop, receiver));
+            signals.set(prop, sig);
           }
-          return signal;
+
+          return sig ? sig() : Reflect.get(target, prop, receiver);
         },
-        set(_target, prop: string, value) {
-          const signal = (signals as Record<string, any>)[prop];
-          if (signal && typeof signal === 'object' && 'set' in signal) {
-            (signal as any).set(value);
-            return true;
+
+        set(target, prop, value, receiver) {
+          let sig = signals.get(prop);
+          if (!sig) {
+            sig = createSignal(value);
+            signals.set(prop, sig);
+          } else {
+            sig.set(value);
           }
-          (signals as Record<string, any>)[prop] = value;
+          Reflect.set(target, prop, value, receiver);
           return true;
+        },
+
+        has(target, prop) {
+          return signals.has(prop) || Reflect.has(target, prop);
+        },
+
+        ownKeys(target) {
+          return Array.from(signals.keys());
+        },
+
+        getOwnPropertyDescriptor(target, prop) {
+          if (signals.has(prop) || prop in target) {
+            const val = signals.has(prop) ? signals.get(prop)!() : Reflect.get(target, prop);
+            return {
+              configurable: true,
+              enumerable: true,
+              value: val,
+              writable: true,
+            };
+          }
+          return Reflect.getOwnPropertyDescriptor(target, prop);
         },
       });
     },
@@ -93,16 +118,15 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
       state = this.reactive(data || {});
       isMounted = true;
 
-      // Mount components
-      // Implementation depends on runtime-dom
+      // Mount components logic (runtime-dom integration)
       return this;
     },
 
     unmount() {
       isMounted = false;
       effects.forEach(effect => {
-        if (typeof effect === 'function') {
-          // Clean up effect
+        if (effect && typeof (effect as any).stop === 'function') {
+          (effect as any).stop();
         }
       });
       effects = [];

@@ -83,7 +83,11 @@ function hashString(str: string): string {
 }
 
 function generateScopeId(filename?: string, source?: string): string {
-  const input = `${filename || 'component.vel'}:${source || ''}`;
+  // Normalize filename to its basename to ensure SSR hydration stability across different environments/paths
+  const normalizedFilename = filename
+    ? filename.replace(/\\/g, '/').split('/').pop() || 'component.vel'
+    : 'component.vel';
+  const input = `${normalizedFilename}:${source || ''}`;
   const hash = hashString(input);
   return `teloce-${hash}`;
 }
@@ -144,21 +148,69 @@ export function compileStyle(
 function scopeCSS(css: string, scope: CSSScope): string {
   const { attribute } = scope;
 
+  // Helper to split comma-separated selectors safely respecting parentheses (e.g., :not())
+  function splitSelectors(selectorStr: string): string[] {
+    const selectors: string[] = [];
+    let current = '';
+    let depth = 0;
+    let inString = false;
+    let quoteChar = '';
+
+    for (let i = 0; i < selectorStr.length; i++) {
+      const char = selectorStr[i];
+      if (inString) {
+        current += char;
+        if (char === quoteChar && selectorStr[i - 1] !== '\\') {
+          inString = false;
+        }
+      } else if (char === '"' || char === "'") {
+        inString = true;
+        quoteChar = char;
+        current += char;
+      } else if (char === '(') {
+        depth++;
+        current += char;
+      } else if (char === ')') {
+        depth--;
+        current += char;
+      } else if (char === ',' && depth === 0) {
+        selectors.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    if (current.trim()) {
+      selectors.push(current.trim());
+    }
+    return selectors;
+  }
+
   // Helper to scope a comma-separated list of selectors
   function processSelectors(selectorStr: string, isKeyframe = false): string {
     if (isKeyframe) return selectorStr; // Do not scope keyframe percentages (0%, 100%, from, to)
 
-    return selectorStr
-      .split(',')
+    return splitSelectors(selectorStr)
       .map((sel) => {
         const trimmed = sel.trim();
         if (!trimmed) return '';
 
-        // Handle pseudo-classes (e.g., a:hover, input:focus -> a[data-v-xxx]:hover)
-        if (trimmed.includes(':')) {
-          const colonIndex = trimmed.indexOf(':');
-          const element = trimmed.slice(0, colonIndex).trim();
-          const pseudo = trimmed.slice(colonIndex); // includes leading colon(s)
+        // Handle pseudo-classes / pseudo-elements safely by locating the root-level colon
+        let colonIdx = -1;
+        let depth = 0;
+        for (let i = 0; i < trimmed.length; i++) {
+          const char = trimmed[i];
+          if (char === '(') depth++;
+          else if (char === ')') depth--;
+          else if (char === ':' && depth === 0) {
+            colonIdx = i;
+            break;
+          }
+        }
+
+        if (colonIdx !== -1) {
+          const element = trimmed.slice(0, colonIdx).trim();
+          const pseudo = trimmed.slice(colonIdx); // includes leading colon(s)
           
           if (element === '') {
             return `[${attribute}]${pseudo}`;

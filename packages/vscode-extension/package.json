@@ -27,10 +27,7 @@
     "django",
     "fastapi"
   ],
-  "activationEvents": [
-    "onLanguage:teloce",
-    "onLanguage:html"
-  ],
+  
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [

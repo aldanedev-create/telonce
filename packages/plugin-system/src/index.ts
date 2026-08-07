@@ -9,30 +9,36 @@
  * Plugins work with CDN, npm, and build tools.
  */
 
+// Import values locally so they are available in scope for the default export
+import { PluginRegistry, createPluginRegistry } from './registry.js';
+import { HookSystem, createHookSystem } from './hooks.js';
+import { PluginAPI, createPluginAPI } from './api.js';
+import { PluginLoader, createPluginLoader } from './loader.js';
+import { createPluginSystem } from './plugin-system.js';
+
 // Export types
-export {
-  type Plugin,
-  type PluginConfig,
-  type PluginAPI,
-  type PluginContext,
-  type Directive,
-  type Filter,
-  type Component,
-  type Transform,
-  type Helpers,
-  type Hooks,
-  type HookHandler,
-  type PluginLifecycle,
-  type PluginManifest,
-  type PluginDependency,
-} from './types';
+export type {
+  Plugin,
+  PluginConfig,
+  PluginContext,
+  Directive,
+  Filter,
+  Component,
+  Transform,
+  Helpers,
+  Hooks,
+  HookHandler,
+  PluginLifecycle,
+  PluginManifest,
+  PluginDependency,
+} from './types.js';
 
 // Export registry
 export {
   PluginRegistry,
   createPluginRegistry,
   type RegistryOptions,
-} from './registry';
+} from './registry.js';
 
 // Export hooks
 export {
@@ -41,14 +47,14 @@ export {
   type Hook,
   type HookContext,
   type HookRegistration,
-} from './hooks';
+} from './hooks.js';
 
 // Export API
 export {
   PluginAPI,
   createPluginAPI,
   type APIOptions,
-} from './api';
+} from './api.js';
 
 // Export loader
 export {
@@ -56,14 +62,14 @@ export {
   createPluginLoader,
   type LoaderOptions,
   type LoaderResult,
-} from './loader';
+} from './loader.js';
 
 // Export main functions
 export {
   createPluginSystem,
   type PluginSystem,
   type PluginSystemOptions,
-} from './plugin-system';
+} from './plugin-system.js';
 
 // Default export
 export default {

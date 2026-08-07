@@ -3,9 +3,27 @@
  */
 
 import { TokenType, type Token } from '../lexer';
-import { ASTNodeType, type ASTNode, type ElementNode, type TextNode, type InterpolationNode, type ForNode, type IfNode, type DirectiveNode } from './ast';
+import { 
+  ASTNodeType, 
+  type ASTNode, 
+  type ElementNode, 
+  type TextNode, 
+  type InterpolationNode, 
+  type ForNode, 
+  type IfNode, 
+  type DirectiveNode 
+} from './ast';
 
-export { ASTNodeType, type ASTNode, type ElementNode, type TextNode, type InterpolationNode, type ForNode, type IfNode, type DirectiveNode };
+export { 
+  ASTNodeType, 
+  type ASTNode, 
+  type ElementNode, 
+  type TextNode, 
+  type InterpolationNode, 
+  type ForNode, 
+  type IfNode, 
+  type DirectiveNode 
+};
 
 export interface ParseOptions {
   filename?: string;
@@ -87,19 +105,40 @@ function parseElement(
         index++;
       }
     } else if (token.type === TokenType.AttributeValue) {
-      // Shouldn't happen without attribute name
       index++;
     } else {
       break;
     }
   }
 
-  // Skip > if present
-  if (tokens[index] && tokens[index].type === TokenType.CloseTag) {
+  // Check for self-closing or void tags
+  const isVoidElement = ['img', 'br', 'hr', 'input', 'meta', 'link'].includes(tagName);
+  let isSelfClosing = isVoidElement;
+
+  if (tokens[index] && tokens[index].type === TokenType.SelfCloseTag) {
+    isSelfClosing = true;
+    index++;
+  } else if (tokens[index] && tokens[index].type === TokenType.CloseTag) {
     index++;
   }
 
-  // Parse children until closing tag
+  // If self-closing, return immediately without parsing children
+  if (isSelfClosing) {
+    return {
+      node: {
+        type: ASTNodeType.Element,
+        tag: tagName,
+        attributes,
+        children,
+        position: tagToken.position,
+        line: tagToken.line,
+        column: tagToken.column,
+      },
+      index,
+    };
+  }
+
+  // Parse children until matching closing tag
   while (index < tokens.length) {
     const token = tokens[index];
     
@@ -108,16 +147,9 @@ function parseElement(
         index++;
         break;
       }
-      // Different closing tag - treat as self-closing
+      // Mismatched closing tag - consume and break to prevent infinite loops
+      index++;
       break;
-    }
-
-    if (token.type === TokenType.SelfCloseTag) {
-      // Self-closing tag
-      const child = parseElement(tokens, index, options);
-      children.push(child.node);
-      index = child.index;
-      continue;
     }
 
     if (token.type === TokenType.OpenTag) {

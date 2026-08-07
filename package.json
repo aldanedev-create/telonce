@@ -3,6 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "description": "A TypeScript template engine for Python web developers",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aldanedev-create/telonce.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aldanedev-create/telonce/issues"
+  },
+  "homepage": "https://telonce-website.vercel.app",
   "scripts": {
     "build": "turbo run build",
     "build:packages": "turbo run build --filter=./packages/*",

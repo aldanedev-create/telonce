@@ -50,6 +50,69 @@ export interface SFCParserOptions {
 }
 
 /**
+ * Helper to extract content and attributes of a SFC block
+ */
+function parseBlock(source: string, tag: string): { content: string; lang?: string } | null {
+  const regex = new RegExp(`<${tag}([^>]*)>([\\s\\S]*?)<\\/${tag}>`, 'i');
+  const match = source.match(regex);
+  if (!match) return null;
+
+  const attrs = match[1];
+  const content = match[2].trim();
+
+  let lang: string | undefined;
+  const langMatch = attrs.match(/lang\s*=\s*(["'])([^"']+)\1/i);
+  if (langMatch) {
+    lang = langMatch[2];
+  }
+
+  return { content, lang };
+}
+
+/**
+ * Extract component name safely from export default object using brace balancing
+ */
+function extractComponentName(script: string): string | undefined {
+  const exportIdx = script.search(/export\s+default/);
+  if (exportIdx === -1) {
+    // Fallback search anywhere in script
+    const nameMatch = script.match(/name\s*:\s*(['"])([^'"]+)\1/);
+    return nameMatch ? nameMatch[2] : undefined;
+  }
+
+  const scriptFromExport = script.slice(exportIdx);
+  let braceCount = 0;
+  let startIndex = -1;
+  let endIndex = -1;
+
+  for (let i = 0; i < scriptFromExport.length; i++) {
+    const char = scriptFromExport[i];
+    if (char === '{') {
+      if (startIndex === -1) startIndex = i;
+      braceCount++;
+    } else if (char === '}') {
+      braceCount--;
+      if (braceCount === 0 && startIndex !== -1) {
+        endIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (startIndex !== -1 && endIndex !== -1) {
+    const objContent = scriptFromExport.slice(startIndex, endIndex + 1);
+    const nameMatch = objContent.match(/name\s*:\s*(['"])([^'"]+)\1/);
+    if (nameMatch) {
+      return nameMatch[2];
+    }
+  }
+
+  // Fallback search in entire script
+  const fallbackMatch = script.match(/name\s*:\s*(['"])([^'"]+)\1/);
+  return fallbackMatch ? fallbackMatch[2] : undefined;
+}
+
+/**
  * Parse a .vel Single File Component
  */
 export function parseSFC(source: string, options: SFCParserOptions = {}): SFCResult {
@@ -67,53 +130,29 @@ export function parseSFC(source: string, options: SFCParserOptions = {}): SFCRes
   let scriptLang: string | undefined;
   let name: string | undefined;
 
-  // Find sections using regex
-  const templateMatch = source.match(/<template[^>]*>([\s\S]*?)<\/template>/);
-  if (templateMatch) {
-    template = templateMatch[1].trim();
+  // Parse Template Section
+  const templateBlock = parseBlock(source, 'template');
+  if (templateBlock) {
+    template = templateBlock.content;
   } else {
     diagnostics.errors.push(`${errorPrefix}Missing <template> section`);
   }
 
-  const scriptMatch = source.match(/<script[^>]*>([\s\S]*?)<\/script>/);
-  if (scriptMatch) {
-    script = scriptMatch[1].trim();
-    // Extract lang attribute
-    const langMatch = scriptMatch[0].match(/lang=["']([^"']+)["']/);
-    if (langMatch) {
-      scriptLang = langMatch[1];
-    }
-    // Extract component name. Prefer a `name:` found inside the actual
-    // `export default {...}` object; only fall back to searching the whole
-    // script if that fails, so an unrelated `name:` on some other object
-    // literal elsewhere in the file (e.g. `const config = { name: 'x' }`)
-    // can't be mistaken for the component's name.
-    const exportMatch = script.match(/export\s+default\s+({[\s\S]*})/);
-    if (exportMatch) {
-      const objStr = exportMatch[1];
-      const nameInObj = objStr.match(/name:\s*['"]([^'"]+)['"]/);
-      if (nameInObj) {
-        name = nameInObj[1];
-      }
-    }
-    if (!name) {
-      const nameMatch = script.match(/name:\s*['"]([^'"]+)['"]/);
-      if (nameMatch) {
-        name = nameMatch[1];
-      }
-    }
+  // Parse Script Section
+  const scriptBlock = parseBlock(source, 'script');
+  if (scriptBlock) {
+    script = scriptBlock.content;
+    scriptLang = scriptBlock.lang;
+    name = extractComponentName(script);
   } else {
     diagnostics.warnings.push(`${errorPrefix}No <script> section found`);
   }
 
-  const styleMatch = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
-  if (styleMatch) {
-    style = styleMatch[1].trim();
-    // Extract lang attribute
-    const langMatch = styleMatch[0].match(/lang=["']([^"']+)["']/);
-    if (langMatch) {
-      styleLang = langMatch[1];
-    }
+  // Parse Style Section
+  const styleBlock = parseBlock(source, 'style');
+  if (styleBlock) {
+    style = styleBlock.content;
+    styleLang = styleBlock.lang;
   }
 
   return {

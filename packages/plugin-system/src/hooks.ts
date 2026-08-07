@@ -1,5 +1,5 @@
 /**
- * Hook System - Manages plugin hooks
+ * Hook System - Manages plugin hooks with standardized error handling and safe unregistration
  */
 
 import type { HookHandler, PluginContext } from './types';
@@ -49,26 +49,25 @@ export class HookSystem {
   }
 
   /**
-   * Unregister a hook
+   * Unregister a hook (requires a plugin reference to prevent accidental mass deletion)
    */
   unregister(name: string, plugin?: string): void {
+    if (!plugin) {
+      throw new Error(`Plugin reference is required to unregister hook "${name}" to prevent accidental mass deletion.`);
+    }
+
     const hooks = this.hooks.get(name);
     if (!hooks) return;
 
-    if (plugin) {
-      // Remove hooks from specific plugin
-      this.hooks.set(
-        name,
-        hooks.filter(h => h.plugin !== plugin)
-      );
-    } else {
-      // Remove all hooks with this name
-      this.hooks.delete(name);
-    }
+    // Remove hooks from specific plugin
+    this.hooks.set(
+      name,
+      hooks.filter(h => h.plugin !== plugin)
+    );
   }
 
   /**
-   * Run hooks in sequence (waterfall)
+   * Run hooks in sequence (waterfall) with standardized error handling
    */
   async runWaterfall<T>(
     name: string,
@@ -79,10 +78,10 @@ export class HookSystem {
     let result = value;
 
     for (const hook of hooks) {
+      if (this.debug) {
+        console.log(`[hooks] Running ${name} from ${hook.plugin}`);
+      }
       try {
-        if (this.debug) {
-          console.log(`[hooks] Running ${name} from ${hook.plugin}`);
-        }
         result = await hook.handler(result, context);
       } catch (error) {
         console.error(`[hooks] Error in ${name} from ${hook.plugin}:`, error);
@@ -94,7 +93,7 @@ export class HookSystem {
   }
 
   /**
-   * Run hooks in parallel
+   * Run hooks in parallel with standardized error handling
    */
   async runParallel<T>(
     name: string,
@@ -102,28 +101,24 @@ export class HookSystem {
     context: PluginContext = { plugin: 'system' }
   ): Promise<T[]> {
     const hooks = this.hooks.get(name) || [];
-    const results: T[] = [];
 
     const promises = hooks.map(async (hook) => {
+      if (this.debug) {
+        console.log(`[hooks] Running ${name} from ${hook.plugin}`);
+      }
       try {
-        if (this.debug) {
-          console.log(`[hooks] Running ${name} from ${hook.plugin}`);
-        }
         return await hook.handler(value, context);
       } catch (error) {
         console.error(`[hooks] Error in ${name} from ${hook.plugin}:`, error);
-        return value;
+        throw error;
       }
     });
 
-    const hookResults = await Promise.all(promises);
-    results.push(...hookResults);
-
-    return results;
+    return await Promise.all(promises);
   }
 
   /**
-   * Run hooks for each item in an array
+   * Run hooks for each item in an array with standardized error handling
    */
   async runEach<T>(
     name: string,
@@ -134,13 +129,14 @@ export class HookSystem {
     let results = [...items];
 
     for (const hook of hooks) {
+      if (this.debug) {
+        console.log(`[hooks] Running ${name} from ${hook.plugin}`);
+      }
       try {
-        if (this.debug) {
-          console.log(`[hooks] Running ${name} from ${hook.plugin}`);
-        }
         results = await hook.handler(results, context);
       } catch (error) {
         console.error(`[hooks] Error in ${name} from ${hook.plugin}:`, error);
+        throw error;
       }
     }
 
@@ -148,7 +144,7 @@ export class HookSystem {
   }
 
   /**
-   * Run hooks with side effects (no return value)
+   * Run hooks with side effects with standardized error handling
    */
   async runSideEffect(
     name: string,
@@ -157,13 +153,14 @@ export class HookSystem {
     const hooks = this.hooks.get(name) || [];
 
     for (const hook of hooks) {
+      if (this.debug) {
+        console.log(`[hooks] Running ${name} from ${hook.plugin}`);
+      }
       try {
-        if (this.debug) {
-          console.log(`[hooks] Running ${name} from ${hook.plugin}`);
-        }
         await hook.handler(...args);
       } catch (error) {
         console.error(`[hooks] Error in ${name} from ${hook.plugin}:`, error);
+        throw error;
       }
     }
   }

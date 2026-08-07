@@ -89,6 +89,8 @@ export interface SFCCompileResult {
   };
 }
 
+const DEFAULT_COMPONENT_NAME = 'Component';
+
 /**
  * Compile a Single File Component (.vel)
  */
@@ -102,7 +104,7 @@ export function compile(
     warnings: [] as string[],
   };
 
-  // 1. Parse the SFC
+  // 1. Parse the SFC with matching options signature
   const sfc = parseSFC(source, { filename });
   
   // 2. Compile the template
@@ -131,7 +133,7 @@ export function compile(
       sourceMap: options.sourceMap,
       minify: options.minify,
       scoped,
-      componentName: sfc.name || 'component',
+      componentName: sfc.name || DEFAULT_COMPONENT_NAME,
     });
   }
 
@@ -158,7 +160,7 @@ export function compile(
   return {
     code,
     css,
-    name: sfc.name || 'component',
+    name: sfc.name || DEFAULT_COMPONENT_NAME,
     sfc,
     script,
     template,
@@ -175,7 +177,7 @@ export function compile(
 function toValidIdentifier(name: string): string {
   const cleaned = name.replace(/[^a-zA-Z0-9_$]/g, '');
   const safe = /^[0-9]/.test(cleaned) ? `_${cleaned}` : cleaned;
-  return safe || 'Component';
+  return safe || DEFAULT_COMPONENT_NAME;
 }
 
 /**
@@ -188,15 +190,10 @@ function generateCode(
   style: StyleCompileResult | undefined,
   options: SFCCompileOptions
 ): string {
-  const { name: rawName = 'Component' } = sfc;
+  const { name: rawName = DEFAULT_COMPONENT_NAME } = sfc;
   const { dev = false } = options;
 
-  // `rawName` comes from user-authored source (a `name:` field extracted
-  // from the component's <script> block) and was previously spliced
-  // directly into both a JS identifier position (`export const ${name}`)
-  // and a quoted string literal (`name: '${name}'`) with no validation or
-  // escaping - a name containing a space/hyphen/quote would produce
-  // invalid or, worse, injectable generated code. Sanitize both uses.
+  // Sanitize and escape component names for safe identifier usage
   const name = toValidIdentifier(rawName);
   const nameLiteral = JSON.stringify(rawName);
 
@@ -222,7 +219,7 @@ function generateCode(
     code += `\nconst styles = ${JSON.stringify(style.css)};\n`;
   }
 
-  // Define component
+  // Define component securely with escaped identifier and string literal
   code += `\nexport const ${name} = defineComponent({\n`;
   code += `  name: ${nameLiteral},\n`;
   code += `  template,\n`;

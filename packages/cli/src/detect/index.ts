@@ -1,5 +1,5 @@
 /**
- * Framework detection - auto-detects Python frameworks
+ * Framework detection - auto-detects Python frameworks using precise import parsing
  */
 
 import * as fs from 'fs-extra';
@@ -17,52 +17,55 @@ export interface FrameworkInfo {
 }
 
 /**
- * Detect the Python framework in the current directory
+ * Helper to check for valid Python import statements (import framework / from framework import)
+ */
+function hasPythonImport(content: string, framework: string): boolean {
+  const regex = new RegExp(`(?:^|\\n)\\s*(?:import\\s+${framework}\\b|from\\s+${framework}\\b)`, 'i');
+  return regex.test(content);
+}
+
+/**
+ * Detect the Python framework in the current directory with correct execution priority
  */
 export async function detectFramework(): Promise<Framework | null> {
   const cwd = process.cwd();
 
-  // Check for Flask
-  if (await fs.pathExists(path.join(cwd, 'app.py'))) {
-    const content = await fs.readFile(path.join(cwd, 'app.py'), 'utf-8');
-    if (content.includes('flask') || content.includes('Flask')) {
-      return 'flask';
-    }
-  }
-
-  // Check for Django
-  if (await fs.pathExists(path.join(cwd, 'manage.py'))) {
-    const content = await fs.readFile(path.join(cwd, 'manage.py'), 'utf-8');
-    if (content.includes('django')) {
+  // 1. Check for Django (manage.py)
+  const managePath = path.join(cwd, 'manage.py');
+  if (await fs.pathExists(managePath)) {
+    const content = await fs.readFile(managePath, 'utf-8');
+    if (hasPythonImport(content, 'django')) {
       return 'django';
     }
   }
 
-  // Check for FastAPI
-  if (await fs.pathExists(path.join(cwd, 'main.py'))) {
-    const content = await fs.readFile(path.join(cwd, 'main.py'), 'utf-8');
-    if (content.includes('fastapi') || content.includes('FastAPI')) {
+  // 2. Check for FastAPI (main.py)
+  const mainPath = path.join(cwd, 'main.py');
+  if (await fs.pathExists(mainPath)) {
+    const content = await fs.readFile(mainPath, 'utf-8');
+    if (hasPythonImport(content, 'fastapi')) {
       return 'fastapi';
     }
   }
 
-  // Check for Quart
-  if (await fs.pathExists(path.join(cwd, 'app.py'))) {
-    const content = await fs.readFile(path.join(cwd, 'app.py'), 'utf-8');
-    if (content.includes('quart') || content.includes('Quart')) {
+  // 3. Check for app.py-based frameworks (Quart, Flaxon, Flask) in correct specificity order
+  const appPath = path.join(cwd, 'app.py');
+  if (await fs.pathExists(appPath)) {
+    const content = await fs.readFile(appPath, 'utf-8');
+
+    // Check specialized / async frameworks before generic Flask to fix early-return shadowing
+    if (hasPythonImport(content, 'quart')) {
       return 'quart';
     }
-  }
-
-  // Check for Flaxon
-  if (await fs.pathExists(path.join(cwd, 'app.py'))) {
-    const content = await fs.readFile(path.join(cwd, 'app.py'), 'utf-8');
-    if (content.includes('flaxon') || content.includes('Flaxon')) {
+    if (hasPythonImport(content, 'flaxon')) {
       return 'flaxon';
+    }
+    if (hasPythonImport(content, 'flask')) {
+      return 'flask';
     }
   }
 
-  // Check for templates folder (could be any framework)
+  // 4. Check for templates folder (fallback unknown framework)
   if (await fs.pathExists(path.join(cwd, 'templates'))) {
     return 'unknown';
   }

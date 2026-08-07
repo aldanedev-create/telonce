@@ -1,5 +1,5 @@
 /**
- * Minifier - minifies JavaScript, CSS, and HTML
+ * Minifier - minifies JavaScript, CSS, and HTML safely
  */
 
 export interface MinifyOptions {
@@ -34,16 +34,21 @@ export interface MinifyOptions {
   target?: 'browser' | 'node' | 'esm';
 
   /**
-   * Preserve certain functions
+   * Preserve certain functions or variables
    */
   preserve?: string[];
+
+  /**
+   * Force file type ('js' | 'css' | 'html')
+   */
+  type?: 'js' | 'css' | 'html';
 }
 
 export interface MinifyResult {
   /**
    * Minified code
    */
-  code: string;
+  code: string | string[];
 
   /**
    * Original size
@@ -92,7 +97,7 @@ export interface MinifierPlugin {
 }
 
 /**
- * Minify JavaScript code
+ * Minify JavaScript code safely without corrupting property access
  */
 export function minifyJavaScript(
   code: string,
@@ -104,45 +109,61 @@ export function minifyJavaScript(
   // Remove comments
   if (options.removeComments !== false) {
     minified = minified.replace(/\/\*[\s\S]*?\*\//g, '');
-    minified = minified.replace(/\/\/.*$/gm, '');
+    minified = minified.replace(/\/\/.*/gm, '');
   }
 
   // Collapse whitespace
   if (options.collapseWhitespace !== false) {
-    minified = minified.replace(/\s+/g, ' ');
-    minified = minified.replace(/;\s*;/g, ';');
-    minified = minified.replace(/{\s+/g, '{');
-    minified = minified.replace(/\s+}/g, '}');
-    minified = minified.replace(/\(\s+/g, '(');
-    minified = minified.replace(/\s+\)/g, ')');
+    minified = minified
+      .replace(/\s+/g, ' ')
+      .replace(/;\s*;/g, ';')
+      .replace(/{\s+/g, '{')
+      .replace(/\s+}/g, '}')
+      .replace(/\(\s+/g, '(')
+      .replace(/\s+\)/g, ')');
   }
 
-  // Shorten variable names
+  // Shorten variable names safely avoiding property accesses (e.g. foo.data -> foo.a)
   if (options.shortenNames) {
-    // Simple variable shortening
-    const varRegex = /(?:let|const|var)\s+(\w+)/g;
+    const varRegex = /(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
     const vars: string[] = [];
     let match: RegExpExecArray | null;
     while ((match = varRegex.exec(minified)) !== null) {
-      vars.push(match[1]);
+      if (!vars.includes(match[1])) {
+        vars.push(match[1]);
+      }
     }
     
-    // Replace with shorter names
     for (let i = 0; i < vars.length; i++) {
       const short = String.fromCharCode(97 + (i % 26)) + (Math.floor(i / 26) || '');
-      minified = minified.replace(new RegExp(`\\b${vars[i]}\\b`, 'g'), short);
+      const varName = vars[i];
+      if (options.preserve && options.preserve.includes(varName)) continue;
+
+      try {
+        // Negative lookbehind ensures we don't match after a dot (.)
+        const safeRegex = new RegExp(`(?<!\\.)\\b${varName}\\b`, 'g');
+        minified = minified.replace(safeRegex, short);
+      } catch {
+        const wordRegex = new RegExp(`\\b${varName}\\b`, 'g');
+        minified = minified.replace(wordRegex, (m, offset, str) => {
+          if (offset > 0 && str[offset - 1] === '.') {
+            return m;
+          }
+          return short;
+        });
+      }
     }
   }
 
   const minifiedSize = minified.length;
-  const reduction = ((originalSize - minifiedSize) / originalSize) * 100;
+  const reduction = originalSize > 0 ? ((originalSize - minifiedSize) / originalSize) * 100 : 0;
 
   return {
     code: minified,
     originalSize,
     minifiedSize,
     reduction,
-    ratio: minifiedSize / originalSize,
+    ratio: originalSize > 0 ? minifiedSize / originalSize : 1,
   };
 }
 
@@ -163,23 +184,24 @@ export function minifyCSS(
 
   // Collapse whitespace
   if (options.collapseWhitespace !== false) {
-    minified = minified.replace(/\s+/g, ' ');
-    minified = minified.replace(/;\s*/g, ';');
-    minified = minified.replace(/{\s+/g, '{');
-    minified = minified.replace(/\s+}/g, '}');
-    minified = minified.replace(/:\s+/g, ':');
-    minified = minified.replace(/,\s+/g, ',');
+    minified = minified
+      .replace(/\s+/g, ' ')
+      .replace(/;\s*/g, ';')
+      .replace(/{\s+/g, '{')
+      .replace(/\s+}/g, '}')
+      .replace(/:\s+/g, ':')
+      .replace(/,\s+/g, ',');
   }
 
   const minifiedSize = minified.length;
-  const reduction = ((originalSize - minifiedSize) / originalSize) * 100;
+  const reduction = originalSize > 0 ? ((originalSize - minifiedSize) / originalSize) * 100 : 0;
 
   return {
     code: minified,
     originalSize,
     minifiedSize,
     reduction,
-    ratio: minifiedSize / originalSize,
+    ratio: originalSize > 0 ? minifiedSize / originalSize : 1,
   };
 }
 
@@ -204,7 +226,7 @@ export function minifyHTML(
     minified = minified.replace(/>\s+</g, '><');
   }
 
-  // Remove unnecessary quotes
+  // Remove unnecessary quotes safely
   minified = minified.replace(/="([^"]*?)"/g, (match, content) => {
     if (/^[a-zA-Z0-9_-]+$/.test(content)) {
       return `=${content}`;
@@ -213,19 +235,19 @@ export function minifyHTML(
   });
 
   const minifiedSize = minified.length;
-  const reduction = ((originalSize - minifiedSize) / originalSize) * 100;
+  const reduction = originalSize > 0 ? ((originalSize - minifiedSize) / originalSize) * 100 : 0;
 
   return {
     code: minified,
     originalSize,
     minifiedSize,
     reduction,
-    ratio: minifiedSize / originalSize,
+    ratio: originalSize > 0 ? minifiedSize / originalSize : 1,
   };
 }
 
 /**
- * General code optimization
+ * General code optimization (safely avoiding destructive variable removal)
  */
 export function optimizeCode(
   code: string,
@@ -233,53 +255,71 @@ export function optimizeCode(
 ): string {
   let result = code;
 
-  // Apply all optimizations
   if (options.removeComments) {
     result = result.replace(/\/\*[\s\S]*?\*\//g, '');
-    result = result.replace(/\/\/.*$/gm, '');
+    result = result.replace(/\/\/.*/gm, '');
   }
 
   if (options.collapseWhitespace) {
-    result = result.replace(/\s+/g, ' ');
-    result = result.replace(/;\s*;/g, ';');
-    result = result.replace(/{\s+/g, '{');
-    result = result.replace(/\s+}/g, '}');
-    result = result.replace(/\(\s+/g, '(');
-    result = result.replace(/\s+\)/g, ')');
-  }
-
-  if (options.removeUnused) {
-    // Remove unused variables (simplified)
-    result = result.replace(/(?:let|const|var)\s+\w+\s*=\s*[^;]+;/g, '');
+    result = result
+      .replace(/\s+/g, ' ')
+      .replace(/;\s*;/g, ';')
+      .replace(/{\s+/g, '{')
+      .replace(/\s+}/g, '}')
+      .replace(/\(\s+/g, '(')
+      .replace(/\s+\)/g, ')');
   }
 
   return result;
 }
 
 /**
- * Minify code with auto-detection
+ * Minify code with robust auto-detection
  */
 export function minify(
   code: string | string[],
   options: MinifyOptions = {}
 ): MinifyResult {
-  const codes = Array.isArray(code) ? code : [code];
-  let combined = codes.join('\n');
-  let type: 'js' | 'css' | 'html' = 'js';
+  const isArray = Array.isArray(code);
+  const codes = isArray ? code : [code];
+  const combined = codes.join('\n');
+  const originalSize = combined.length;
 
-  // Detect type
-  if (combined.includes('</') || combined.includes('<!DOCTYPE')) {
-    type = 'html';
-  } else if (combined.includes('{') && combined.includes('}') && combined.includes(':')) {
-    type = 'css';
+  let type: 'js' | 'css' | 'html' = options.type || 'js';
+
+  if (!options.type) {
+    // Robust detection avoiding false positives from JS object literals
+    if (combined.includes('<!DOCTYPE') || (combined.includes('<html') && combined.includes('</html>')) || (combined.includes('<template') && combined.includes('</template>'))) {
+      type = 'html';
+    } else if (/^\s*[a-zA-Z0-9#class_.-]+\s*\{[^}]*:[^}]*\}/.test(combined) && !combined.includes('function') && !combined.includes('=>') && !combined.includes('const ') && !combined.includes('let ')) {
+      type = 'css';
+    } else {
+      type = 'js';
+    }
   }
 
-  switch (type) {
-    case 'html':
-      return minifyHTML(combined, options);
-    case 'css':
-      return minifyCSS(combined, options);
-    default:
-      return minifyJavaScript(combined, options);
+  let minifiedResult: MinifyResult;
+  if (type === 'html') {
+    minifiedResult = minifyHTML(combined, options);
+  } else if (type === 'css') {
+    minifiedResult = minifyCSS(combined, options);
+  } else {
+    minifiedResult = minifyJavaScript(combined, options);
   }
+
+  let finalCode: string | string[] = minifiedResult.code;
+  if (isArray && typeof minifiedResult.code === 'string') {
+    finalCode = codes.map(c => minifyJavaScript(c, options).code as string);
+  }
+
+  const minifiedSize = typeof finalCode === 'string' ? finalCode.length : finalCode.reduce((acc, s) => acc + s.length, 0);
+  const reduction = originalSize > 0 ? ((originalSize - minifiedSize) / originalSize) * 100 : 0;
+
+  return {
+    code: finalCode,
+    originalSize,
+    minifiedSize,
+    reduction,
+    ratio: originalSize > 0 ? minifiedSize / originalSize : 1,
+  };
 }

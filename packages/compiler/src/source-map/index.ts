@@ -29,16 +29,15 @@ export function generateSourceMap(
   source: string,
   options: SourceMapOptions = {}
 ): SourceMap {
-  const lines = generated.split('\n');
+  const lineCount = generated.split('\n').length;
   const sourceLines = source.split('\n');
   const mappings: string[] = [];
 
   // Generate simple mappings (line-based)
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 0; i < lineCount; i++) {
     if (i < sourceLines.length) {
       // Map each line to the source
-      mappings.push(`${i}:${0} => ${i}:${0}`);
+      mappings.push(`${i}:0 => ${i}:0`);
     }
   }
 
@@ -140,13 +139,13 @@ export function getMapping(
   for (const mapping of mappings) {
     const parts = mapping.split(',');
     if (parts.length >= 4) {
-      const genLine = parseInt(parts[0]);
-      const genCol = parseInt(parts[1]);
+      const genLine = parseInt(parts[0], 10);
+      const genCol = parseInt(parts[1], 10);
       if (genLine === line && genCol <= column) {
         return {
           source: map.sources[0] || 'unknown',
-          line: parseInt(parts[2]) || 0,
-          column: parseInt(parts[3]) || 0,
+          line: parseInt(parts[2], 10) || 0,
+          column: parseInt(parts[3], 10) || 0,
         };
       }
     }

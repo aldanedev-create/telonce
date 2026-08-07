@@ -237,3 +237,12 @@ export interface SourceMap {
   names: string[];
   mappings: string;
 }
+
+/**
+ * Diagnostic result
+ */
+export interface DiagnosticResult {
+  diagnostics: Diagnostic[];
+  hasErrors: boolean;
+  hasWarnings: boolean;
+}

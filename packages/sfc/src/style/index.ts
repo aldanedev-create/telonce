@@ -72,12 +72,20 @@ export interface StyleCompileOptions {
 }
 
 /**
- * Generate a unique scope ID
+ * Generate a deterministic scope ID using DJB2 content hashing on filename and source
  */
-function generateScopeId(componentName?: string): string {
-  const prefix = componentName ? componentName.toLowerCase() : 'component';
-  const random = Math.random().toString(36).substring(2, 8);
-  return `teloce-${prefix}-${random}`;
+function hashString(str: string): string {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function generateScopeId(filename?: string, source?: string): string {
+  const input = `${filename || 'component.vel'}:${source || ''}`;
+  const hash = hashString(input);
+  return `teloce-${hash}`;
 }
 
 /**
@@ -95,29 +103,30 @@ export function compileStyle(
   let css = source;
   let scope: CSSScope | undefined;
 
-  // Generate scope ID
+  // Generate scope ID and scope CSS if requested
   if (options.scoped) {
-    const scopeId = generateScopeId(options.componentName);
+    const scopeId = generateScopeId(options.filename, source);
     scope = {
       id: scopeId,
       className: `_${scopeId}`,
       attribute: `data-${scopeId}`,
     };
 
-    // Scope the CSS
-    css = scopeCSS(css, scope);
+    try {
+      css = scopeCSS(css, scope);
+    } catch (error) {
+      diagnostics.errors.push(
+        `Failed to scope CSS: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
-  // Minify if requested
+  // Minify if requested safely
   if (options.minify) {
     css = css
-      .replace(/\s+/g, ' ')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/;\s*/g, ';')
-      .replace(/{\s*/g, '{')
-      .replace(/}\s*/g, '}')
-      .replace(/:\s*/g, ':')
-      .replace(/,\s*/g, ',')
+      .replace(/\/\*[\s\S]*?\*\//g, '') // Remove comments
+      .replace(/\s+/g, ' ')             // Collapse whitespace
+      .replace(/\s*([{}:;,])\s*/g, '$1') // Remove spaces around delimiters
       .trim();
   }
 
@@ -129,51 +138,143 @@ export function compileStyle(
 }
 
 /**
- * Scope CSS with component-specific selectors
+ * Scope CSS with component-specific selectors, handling at-rules (@media, @supports, @keyframes)
+ * and correctly constraining ID, class, and element selectors.
  */
 function scopeCSS(css: string, scope: CSSScope): string {
   const { attribute } = scope;
 
-  // Add scope attribute to selectors
-  return css.replace(
-    /([^{]+)(\{[^}]*\})/g,
-    (_match, selector, rules) => {
-      // Split selectors
-      const scopedSelectors = selector.split(',').map((sel: string) => {
-        const trimmed = sel.trim();
-        // Handle pseudo-classes and combinators
-        if (trimmed.includes(':')) {
-          // Add data attribute to the element before pseudo-class
-          const parts = trimmed.split(':');
-          const element = parts[0].trim();
-          const pseudo = parts.slice(1).join(':');
-          if (element === '') {
-            return `[${attribute}]:${pseudo}`;
-          }
-          return `${element}[${attribute}]:${pseudo}`;
-        }
-        if (trimmed.includes('>') || trimmed.includes('+') || trimmed.includes('~')) {
-          // Add attribute to the last element in complex selector
-          const parts = trimmed.split(/\s*(?=[>+~])/);
-          const lastPart = parts[parts.length - 1].trim();
-          if (lastPart.startsWith('.')) {
-            return `${parts.slice(0, -1).join(' ')} ${lastPart}[${attribute}]`;
-          }
-          return `${trimmed}[${attribute}]`;
-        }
-        if (trimmed.startsWith('.')) {
-          return `${trimmed}[${attribute}]`;
-        }
-        if (trimmed.startsWith('#')) {
-          return trimmed;
-        }
-        if (trimmed === '') {
-          return `[${attribute}]`;
-        }
-        return `${trimmed}[${attribute}]`;
-      });
+  // Helper to scope a comma-separated list of selectors
+  function processSelectors(selectorStr: string, isKeyframe = false): string {
+    if (isKeyframe) return selectorStr; // Do not scope keyframe percentages (0%, 100%, from, to)
 
-      return `${scopedSelectors.join(', ')} ${rules}`;
+    return selectorStr
+      .split(',')
+      .map((sel) => {
+        const trimmed = sel.trim();
+        if (!trimmed) return '';
+
+        // Handle pseudo-classes (e.g., a:hover, input:focus -> a[data-v-xxx]:hover)
+        if (trimmed.includes(':')) {
+          const colonIndex = trimmed.indexOf(':');
+          const element = trimmed.slice(0, colonIndex).trim();
+          const pseudo = trimmed.slice(colonIndex); // includes leading colon(s)
+          
+          if (element === '') {
+            return `[${attribute}]${pseudo}`;
+          }
+          return `${element}[${attribute}]${pseudo}`;
+        }
+
+        // Handle ID selectors (#header -> #header[data-v-xxx]), classes, and combinators
+        return `${trimmed}[${attribute}]`;
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  // Robust CSS parser that handles strings, comments, nested at-rules, and @keyframes
+  function parseAndScope(ruleText: string): string {
+    let result = '';
+    let i = 0;
+
+    while (i < ruleText.length) {
+      // Skip whitespace
+      while (i < ruleText.length && /\s/.test(ruleText[i])) {
+        i++;
+      }
+      if (i >= ruleText.length) break;
+
+      // Handle comments
+      if (ruleText.startsWith('/*', i)) {
+        const endComment = ruleText.indexOf('*/', i + 2);
+        if (endComment === -1) {
+          result += ruleText.slice(i);
+          break;
+        }
+        result += ruleText.slice(i, endComment + 2);
+        i = endComment + 2;
+        continue;
+      }
+
+      // Check for At-Rules (@media, @supports, @keyframes, etc.)
+      if (ruleText[i] === '@') {
+        const braceIdx = ruleText.indexOf('{', i);
+        if (braceIdx === -1) {
+          result += ruleText.slice(i);
+          break;
+        }
+
+        const atRuleHeader = ruleText.slice(i, braceIdx).trim();
+        const isKeyframes = /@(-webkit-)?keyframes/i.test(atRuleHeader);
+
+        // Find matching closing brace taking nested braces and strings into account
+        let depth = 1;
+        let curr = braceIdx + 1;
+        while (curr < ruleText.length && depth > 0) {
+          const char = ruleText[curr];
+          if (char === '"' || char === "'") {
+            const quote = char;
+            curr++;
+            while (curr < ruleText.length && ruleText[curr] !== quote) {
+              if (ruleText[curr] === '\\') curr++;
+              curr++;
+            }
+          } else if (char === '{') {
+            depth++;
+          } else if (char === '}') {
+            depth--;
+          }
+          curr++;
+        }
+
+        const atRuleBody = ruleText.slice(braceIdx + 1, curr - 1);
+        const scopedBody = isKeyframes ? atRuleBody : parseAndScope(atRuleBody);
+
+        result += `${atRuleHeader} { ${scopedBody} } `;
+        i = curr;
+      } else {
+        // Standard rule block
+        const braceIdx = ruleText.indexOf('{', i);
+        if (braceIdx === -1) {
+          result += ruleText.slice(i);
+          break;
+        }
+
+        const selectorPart = ruleText.slice(i, braceIdx).trim();
+
+        // Find matching closing brace taking strings and nested braces into account
+        let depth = 1;
+        let curr = braceIdx + 1;
+        while (curr < ruleText.length && depth > 0) {
+          const char = ruleText[curr];
+          if (char === '"' || char === "'") {
+            const quote = char;
+            curr++;
+            while (curr < ruleText.length && ruleText[curr] !== quote) {
+              if (ruleText[curr] === '\\') curr++;
+              curr++;
+            }
+          } else if (char === '{') {
+            depth++;
+          } else if (char === '}') {
+            depth--;
+          }
+          curr++;
+        }
+
+        const ruleBody = ruleText.slice(braceIdx + 1, curr - 1).trim();
+        const scopedSelector = processSelectors(selectorPart);
+
+        if (scopedSelector) {
+          result += `${scopedSelector} { ${ruleBody} } `;
+        }
+        i = curr;
+      }
     }
-  );
+
+    return result.trim();
+  }
+
+  return parseAndScope(css);
 }

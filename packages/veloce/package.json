@@ -9,9 +9,9 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/teloce.esm.js",
       "require": "./dist/teloce.global.js",
-      "types": "./dist/index.d.ts",
       "default": "./dist/teloce.global.js"
     },
     "./package.json": "./package.json"
@@ -57,11 +57,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/telocejs/teloce.git",
+    "url": "https://github.com/aldanedev-create/telonce.git",
     "directory": "packages/veloce"
   },
   "bugs": {
-    "url": "https://github.com/telocejs/teloce/issues"
+    "url": "https://github.com/aldanedev-create/telonce/issues"
   },
-  "homepage": "https://teloce.dev"
+  "homepage": "https://telonce-website.vercel.app"
 }

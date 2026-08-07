@@ -1,8 +1,8 @@
 /**
- * Plugin Registry - Manages registered plugins
+ * Plugin Registry - Manages registered plugins safely with complete cleanup and encapsulation
  */
 
-import type { Plugin, Directive, Filter, Component, Transform, Helpers } from './types';
+import type { Plugin, Directive, Filter, Component, Transform } from './types';
 
 export interface RegistryOptions {
   /** Allow duplicate plugin names */
@@ -81,26 +81,40 @@ export class PluginRegistry {
   }
 
   /**
-   * Unregister a plugin
+   * Unregister a plugin with full cleanup for directives, filters, components, transforms, and helpers
    */
   unregister(name: string): boolean {
     const plugin = this.plugins.get(name);
     if (!plugin) return false;
 
-    // Remove all registered items from this plugin
+    // Remove all registered directives
     if (plugin.directives) {
       for (const directive of plugin.directives) {
         this.directives.delete(directive.name);
       }
     }
+    // Remove all registered filters
     if (plugin.filters) {
       for (const filter of plugin.filters) {
         this.filters.delete(filter.name);
       }
     }
+    // Remove all registered components
     if (plugin.components) {
       for (const component of plugin.components) {
         this.components.delete(component.name);
+      }
+    }
+    // Remove all registered transforms
+    if (plugin.transforms) {
+      for (const transform of plugin.transforms) {
+        this.transforms.delete(transform.name);
+      }
+    }
+    // Remove all registered helpers
+    if (plugin.helpers) {
+      for (const key of Object.keys(plugin.helpers)) {
+        this.helpers.delete(key);
       }
     }
 
@@ -134,8 +148,6 @@ export class PluginRegistry {
    */
   registerDirective(directive: Directive): void {
     if (this.directives.has(directive.name)) {
-      // Check if it's from a plugin that should override
-      // For now, just warn
       console.warn(`Directive "${directive.name}" is already registered. Overwriting.`);
     }
     this.directives.set(directive.name, directive);
@@ -266,10 +278,10 @@ export class PluginRegistry {
   }
 
   /**
-   * Get all helpers
+   * Get all helpers as a cloned Map view to protect internal state
    */
   getHelpers(): Map<string, any> {
-    return this.helpers;
+    return new Map(this.helpers);
   }
 
   /**

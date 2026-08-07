@@ -1,25 +1,43 @@
 /**
- * Watch command - watches for changes and rebuilds
+ * Watch command - watches for changes and rebuilds with real SFC compilation
  */
 
 import chalk from 'chalk';
 import ora from 'ora';
-import { createDevServer } from '@teloce/server';
 import { loadConfig } from '../config';
 import { logger } from '../logger';
+import { compile } from '@teloce/compiler';
 import * as fs from 'fs-extra';
 import * as path from 'path';
-import { glob } from 'fs';
-import { promisify } from 'util';
-
-const globAsync = promisify(glob);
 
 export interface WatchOptions {
   outDir?: string;
   hmr?: boolean;
 }
 
-export async function watchCommand(options: WatchOptions, command: any): Promise<void> {
+/**
+ * Recursively find all .vel files while ignoring node_modules and dist
+ */
+async function getVelFiles(dir: string): Promise<string[]> {
+  let results: string[] = [];
+  if (!(await fs.pathExists(dir))) return results;
+  
+  const list = await fs.readdir(dir);
+  for (const file of list) {
+    const filePath = path.join(dir, file);
+    const stat = await fs.stat(filePath);
+    if (stat && stat.isDirectory()) {
+      if (file !== 'node_modules' && file !== 'dist') {
+        results = results.concat(await getVelFiles(filePath));
+      }
+    } else if (filePath.endsWith('.vel')) {
+      results.push(filePath);
+    }
+  }
+  return results;
+}
+
+export async function watchCommand(options: WatchOptions, _command: any): Promise<void> {
   const spinner = ora('Starting watch mode...').start();
 
   try {
@@ -39,11 +57,10 @@ export async function watchCommand(options: WatchOptions, command: any): Promise
       console.log(chalk.gray(`   HMR: Enabled`));
     }
 
-    // Watch for changes
-    const watchPaths = ['src/**/*', '*.teloce'];
     let isBuilding = false;
     let buildQueue = false;
 
+    // Real rebuild logic compiling .vel files
     async function rebuild() {
       if (isBuilding) {
         buildQueue = true;
@@ -51,17 +68,37 @@ export async function watchCommand(options: WatchOptions, command: any): Promise
       }
 
       isBuilding = true;
-      const buildSpinner = ora('Rebuilding...').start();
+      const buildSpinner = ora('Rebuilding SFCs...').start();
 
       try {
-        // Simulate build
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const files = await getVelFiles('src');
+        
+        for (const file of files) {
+          const source = await fs.readFile(file, 'utf-8');
+          const result = compile(source, {
+            filename: file,
+            scoped: (config.build as any)?.scoped ?? true,
+            dev: true,
+          } as any) as any;
 
-        buildSpinner.succeed('Rebuilt successfully');
+          // Determine output paths
+          const relativePath = file.replace(/^src[/\\]/, '');
+          const jsOutPath = path.join(outDir, relativePath.replace(/\.vel$/, '.js'));
+          
+          await fs.ensureDir(path.dirname(jsOutPath));
+          await fs.outputFile(jsOutPath, result.code);
+
+          if (result.css) {
+            const cssOutPath = path.join(outDir, relativePath.replace(/\.vel$/, '.css'));
+            await fs.outputFile(cssOutPath, result.css);
+          }
+        }
+
+        buildSpinner.succeed(`Rebuilt successfully (${files.length} component${files.length === 1 ? '' : 's'})`);
 
         // Notify HMR
         if (hmr) {
-          console.log(chalk.green('   🔄 Hot reload triggered'));
+          console.log(chalk.green(`   🔄 Hot reload triggered`));
         }
 
       } catch (error) {
@@ -80,27 +117,30 @@ export async function watchCommand(options: WatchOptions, command: any): Promise
     // Initial build
     await rebuild();
 
-    console.log(chalk.gray('\n   Press Ctrl+C to stop\n'));
+    console.log(chalk.gray(`\n   Press Ctrl+C to stop\n`));
 
-    // Watch files
+    // Watch directories recursively to track newly created files automatically
     const watchers: fs.FSWatcher[] = [];
+    const watchDirs = ['src'];
 
-    for (const pattern of watchPaths) {
-      const files = await globAsync(pattern, { ignore: ['node_modules/**', 'dist/**'] });
-      for (const file of files) {
-        const watcher = fs.watch(file, (eventType) => {
-          if (eventType === 'change') {
-            console.log(chalk.gray(`   File changed: ${path.basename(file)}`));
-            rebuild();
-          }
-        });
-        watchers.push(watcher);
+    for (const dir of watchDirs) {
+      if (await fs.pathExists(dir)) {
+        try {
+          const watcher = fs.watch(dir, { recursive: true }, (_eventType, filename) => {
+            if (filename && filename.endsWith('.vel')) {
+              rebuild();
+            }
+          });
+          watchers.push(watcher);
+        } catch (err) {
+          logger.warn(`Failed to set up recursive watcher for directory "${dir}": ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
     }
 
     // Handle graceful shutdown
     process.on('SIGINT', async () => {
-      console.log(chalk.yellow('\nShutting down watcher...'));
+      console.log(chalk.yellow(`\nShutting down watcher...`));
       for (const watcher of watchers) {
         watcher.close();
       }

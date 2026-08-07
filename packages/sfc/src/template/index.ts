@@ -2,7 +2,13 @@
  * Template compiler - hands off to @teloce/compiler
  */
 
-import { compile as compileTemplate, type CompileOptions } from '@teloce/compiler';
+// NOTE: this used to import `compile` aliased to the name `compileTemplate`,
+// which collided with the `compileTemplate` function declared below in this
+// same module (a duplicate identifier - TS2440). That meant this file could
+// not build, and if a looser transpiler had let it through, the call inside
+// compileTemplate() below would have resolved to itself, recursing forever.
+// Renamed the import to avoid the collision.
+import { compile as compileWithCompiler, type CompileOptions } from '@teloce/compiler';
 
 export interface TemplateCompileResult {
   /**
@@ -68,13 +74,14 @@ export function compileTemplate(
 
   try {
     // Compile the template using the main compiler
-    const result = compileTemplate(source, {
+    const compileOptions: CompileOptions = {
       filename: options.filename,
       sourceMap: options.sourceMap,
       minify: options.minify,
       dev: options.dev,
       target: options.target,
-    });
+    };
+    const result = compileWithCompiler(source, compileOptions);
 
     // Extract diagnostics
     diagnostics.errors = result.diagnostics.errors;

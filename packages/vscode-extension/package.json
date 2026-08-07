@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/telocejs/teloce.git",
+    "url": "https://github.com/aldanedev-create/telonce.git",
     "directory": "packages/vscode-extension"
   },
   "engines": {
@@ -35,8 +35,14 @@
     "languages": [
       {
         "id": "teloce",
-        "aliases": ["Teloce", "teloce"],
-        "extensions": [".vel", ".teloce"],
+        "aliases": [
+          "Teloce",
+          "teloce"
+        ],
+        "extensions": [
+          ".vel",
+          ".teloce"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],

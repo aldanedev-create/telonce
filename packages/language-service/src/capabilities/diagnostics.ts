@@ -1,5 +1,5 @@
 /**
- * Hover - Provides hover information for Teloce templates
+ * Hover and Diagnostics - Provides hover information and template diagnostics for Teloce templates
  */
 
 export interface Diagnostic {
@@ -317,53 +317,71 @@ function isComponentName(
   return componentRegex.test(content);
 }
 
-export function getDiagnostics(content: string, uri = 'inline.teloce'): Diagnostic[] {
-  const unmatched = countUnmatchedDelimiters(content);
-  if (unmatched > 0) {
-    return [
-      {
-        message: 'Unmatched template expression delimiters.',
-        severity: 'error',
-        range: {
-          start: { line: 0, character: 0 },
-          end: { line: 0, character: Math.min(content.length, 1) },
-        },
-        code: 'teloce-template-error',
-        source: 'teloce-language-service',
-        fix: 'Close the expression with }}.',
-      },
-    ];
+/**
+ * Get accurate diagnostics tracking both unclosed {{ and unmatched }} with precise line/column coordinates
+ */
+export function getDiagnostics(content: string, _uri = 'inline.teloce'): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  let line = 0;
+  let character = 0;
+
+  const openStack: { line: number; character: number }[] = [];
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+
+    if (char === '\n') {
+      line++;
+      character = 0;
+      continue;
+    }
+
+    if (content.startsWith('{{', i)) {
+      openStack.push({ line, character });
+      i++;
+      character++;
+    } else if (content.startsWith('}}', i)) {
+      if (openStack.length > 0) {
+        openStack.pop();
+      } else {
+        diagnostics.push({
+          message: 'Unmatched closing delimiter "}}".',
+          severity: 'error',
+          range: {
+            start: { line, character },
+            end: { line, character: character + 2 },
+          },
+          code: 'teloce-template-error',
+          source: 'teloce-language-service',
+          fix: 'Remove extra "}}" or add opening "{{".',
+        });
+      }
+      i++;
+      character++;
+    }
+    character++;
   }
 
-  return [];
+  // Handle unclosed opening delimiters
+  for (const openPos of openStack) {
+    diagnostics.push({
+      message: 'Unmatched opening delimiter "{{".',
+      severity: 'error',
+      range: {
+        start: openPos,
+        end: { line: openPos.line, character: openPos.character + 2 },
+      },
+      code: 'teloce-template-error',
+      source: 'teloce-language-service',
+      fix: 'Close the expression with "}}".',
+    });
+  }
+
+  return diagnostics;
 }
 
 export function validateTemplate(content: string, uri = 'inline.teloce'): Diagnostic[] {
   return getDiagnostics(content, uri);
-}
-
-function countUnmatchedDelimiters(content: string): number {
-  let opens = 0;
-  let inExpression = false;
-
-  for (let i = 0; i < content.length; i += 1) {
-    const char = content[i];
-    if (char === '{' && content[i + 1] === '{') {
-      opens += 1;
-      inExpression = true;
-      i += 1;
-      continue;
-    }
-
-    if (char === '}' && content[i + 1] === '}' && inExpression) {
-      opens = Math.max(0, opens - 1);
-      inExpression = false;
-      i += 1;
-      continue;
-    }
-  }
-
-  return opens;
 }
 
 /**

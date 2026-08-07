@@ -10,9 +10,9 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
-      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
@@ -65,11 +65,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/telocejs/teloce.git",
+    "url": "https://github.com/aldanedev-create/telonce.git",
     "directory": "packages/cli"
   },
   "bugs": {
-    "url": "https://github.com/telocejs/teloce/issues"
+    "url": "https://github.com/aldanedev-create/telonce/issues"
   },
-  "homepage": "https://teloce.dev"
+  "homepage": "https://telonce-website.vercel.app"
 }

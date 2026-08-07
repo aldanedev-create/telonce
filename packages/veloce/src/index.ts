@@ -1,8 +1,13 @@
 // Import all core packages
 import { createApp, defineComponent, mount, createConfig, createPlugin } from '@teloce/core';
 import { createSignal, createEffect, createComputed, createMemo, batch, untracked } from '@teloce/reactivity';
-import { createRenderer, reconcileList, For, If, Show, Switch, Match, createDirective, registerDirective } from '@teloce/runtime-dom';
-import { transition, animate, filter, format, createFilter, createTransition } from '@teloce/std';
+import { createRenderer, reconcileList, For, If, Show } from '@teloce/runtime-dom';
+import { createDirective, registerDirective } from '@teloce/runtime-core';
+import { transition, animate, createFilter, createTransition } from '@teloce/std';
+import type { Filter } from '@teloce/std';
+import format from '@teloce/std';
+import { compile } from '@teloce/compiler';
+import { compileSFC, parse } from '@teloce/sfc';
 
 // Export everything for ESM/npm users
 export {
@@ -27,19 +32,26 @@ export {
   For,
   If,
   Show,
-  Switch,
-  Match,
+
+  // Runtime Core
   createDirective,
   registerDirective,
+
+  // Compiler & SFC
+  compile,
+  compileSFC,
+  parse,
 
   // Standard library
   transition,
   animate,
-  filter,
   format,
   createFilter,
   createTransition,
 };
+
+// Export types separately for verbatimModuleSyntax compliance
+export type { Filter };
 
 // Attach to window for CDN users (IIFE build)
 if (typeof window !== 'undefined') {
@@ -65,15 +77,19 @@ if (typeof window !== 'undefined') {
     For,
     If,
     Show,
-    Switch,
-    Match,
+
+    // Runtime Core
     createDirective,
     registerDirective,
+
+    // Compiler & SFC
+    compile,
+    compileSFC,
+    parse,
 
     // Standard library
     transition,
     animate,
-    filter,
     format,
     createFilter,
     createTransition,
@@ -101,13 +117,13 @@ export default {
   For,
   If,
   Show,
-  Switch,
-  Match,
   createDirective,
   registerDirective,
+  compile,
+  compileSFC,
+  parse,
   transition,
   animate,
-  filter,
   format,
   createFilter,
   createTransition,

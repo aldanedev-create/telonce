@@ -54,12 +54,6 @@ export function formatTemplate(
   const indent = useTabs ? '\t' : ' '.repeat(indentSize);
   let result = '';
   let depth = 0;
-  let inTag = false;
-  let inInterpolation = false;
-  let inString = false;
-  let stringChar = '';
-  let word = '';
-  let lastChar = '';
 
   const lines = content.split('\n');
   
@@ -154,7 +148,6 @@ function formatAttributes(line: string, maxLength: number): string {
     if (remaining.trim()) {
       lines.push(`${indent}${remaining.trim()}`);
     }
-    const closingLine = closing === '/>' ? '/>' : '>';
     lines[lines.length - 1] = lines[lines.length - 1] + (lines.length === 1 ? closing : ` ${closing}`);
     return lines.join('\n');
   }

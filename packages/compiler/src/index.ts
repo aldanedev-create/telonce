@@ -1,107 +1,108 @@
 /**
- * Template compiler - hands off to @teloce/compiler
- */
-
-// NOTE: this used to import `compile` aliased to the name `compileTemplate`,
-// which collided with the `compileTemplate` function declared below in this
-// same module (a duplicate identifier - TS2440). That meant this file could
-// not build, and if a looser transpiler had let it through, the call inside
-// compileTemplate() below would have resolved to itself, recursing forever.
-// Renamed the import to avoid the collision.
-import { compile as compileWithCompiler, type CompileOptions } from '@teloce/compiler';
-
-export interface TemplateCompileResult {
-  /**
-   * Compiled template code
-   */
-  code: string;
-
-  /**
-   * Source map (if enabled)
-   */
-  map?: string;
-
-  /**
-   * Diagnostics
-   */
-  diagnostics: {
-    errors: string[];
-    warnings: string[];
-  };
-}
-
-export interface TemplateCompileOptions {
-  /**
-   * Filename for error reporting
-   */
-  filename?: string;
-
-  /**
-   * Enable source maps
-   */
-  sourceMap?: boolean;
-
-  /**
-   * Enable minification
-   */
-  minify?: boolean;
-
-  /**
-   * Development mode
-   */
-  dev?: boolean;
-
-  /**
-   * Target platform
-   */
-  target?: 'browser' | 'node' | 'esm';
-}
-
-/**
- * Compile the template section
+ * @teloce/compiler - Template Compiler
  * 
- * This function passes the template to @teloce/compiler
- * for full compilation to JavaScript.
+ * This is the compiler for Teloce templates.
+ * It parses HTML with Teloce directives and transforms them
+ * into JavaScript code that can be executed in the browser.
  */
-export function compileTemplate(
-  source: string,
-  options: TemplateCompileOptions = {}
-): TemplateCompileResult {
-  const diagnostics = {
-    errors: [] as string[],
-    warnings: [] as string[],
-  };
 
-  try {
-    // Compile the template using the main compiler
-    const compileOptions: CompileOptions = {
-      filename: options.filename,
-      sourceMap: options.sourceMap,
-      minify: options.minify,
-      dev: options.dev,
-      target: options.target,
-    };
-    const result = compileWithCompiler(source, compileOptions);
+// 1. IMPORT everything first so they exist in the local scope
+import { tokenize, type Token, type TokenType } from './lexer';
+import { TokenType as TokenTypes } from './lexer/tokens';
+import { parse, type ASTNode, type ElementNode, type TextNode, type InterpolationNode, type ForNode, type IfNode, type DirectiveNode } from './parser';
+import { ASTNodeType } from './parser/ast';
+import { parseHTML } from './parser/html';
+import { parseTemplate } from './parser/template';
+import { parseExpression } from './parser/expressions';
+import { validate, type ValidationResult } from './validator';
+import { analyzeScope, type Scope, type ScopeAnalysis } from './scope-analysis';
+import { transform, type TransformOptions, type TransformResult } from './transformer';
+import { optimize, type OptimizeOptions, type OptimizeResult, PatchFlag } from './optimizer';
+import { generate, type GenerateOptions, type GenerateResult } from './codegen';
+import { generateSourceMap, fromAST, toBase64, toDataURL, getMapping, type SourceMap, type SourceMapOptions } from './source-map';
+import { 
+  createDiagnostic, createError, createWarning, createInfo, 
+  fromError, fromValidation, DiagnosticCodes, type Diagnostic, type DiagnosticResult 
+} from './diagnostics';
+import { 
+  type CompilerOptions, type CompilerResult, type TokenType as TokenTypeAlias, 
+  type Token as TokenAlias, type ASTNode as ASTNodeAlias, type ElementNode as ElementNodeAlias, 
+  type TextNode as TextNodeAlias, type InterpolationNode as InterpolationNodeAlias, 
+  type ForNode as ForNodeAlias, type IfNode as IfNodeAlias, type PatchFlag as PatchFlagType, 
+  type Scope as ScopeType, type ScopeAnalysis as ScopeAnalysisType, type SourceMap as SourceMapType, 
+  type Diagnostic as DiagnosticType 
+} from './types';
+import { compile, type CompileOptions, type CompileResult } from './compile';
 
-    // Extract diagnostics
-    diagnostics.errors = result.diagnostics.errors;
-    diagnostics.warnings = result.diagnostics.warnings;
+// 2. EXPORT runtime values (Functions, Enums, Constants)
+export {
+  tokenize,
+  parse,
+  parseHTML,
+  parseTemplate,
+  parseExpression,
+  validate,
+  analyzeScope,
+  transform,
+  optimize,
+  PatchFlag, // This is an Enum, so it's a runtime value
+  generate,
+  compile,
+  generateSourceMap,
+  fromAST,
+  toBase64,
+  toDataURL,
+  getMapping,
+  createDiagnostic,
+  createError,
+  createWarning,
+  createInfo,
+  fromError,
+  fromValidation
+};
 
-    // Generate code for the template
-    const code = result.code || '() => []';
+// 3. EXPORT ALL TYPES (Using 'export type' ensures they don't break the build)
+export type {
+  Token, TokenType, TokenTypes,
+  ASTNode, ElementNode, TextNode, InterpolationNode, ForNode, IfNode, DirectiveNode, ASTNodeType,
+  ValidationResult,
+  Scope, ScopeAnalysis,
+  TransformOptions, TransformResult,
+  OptimizeOptions, OptimizeResult,
+  GenerateOptions, GenerateResult,
+  SourceMap, SourceMapOptions,
+  Diagnostic, DiagnosticResult, DiagnosticCodes,
+  CompilerOptions, CompilerResult, TokenTypeAlias, TokenAlias, ASTNodeAlias, 
+  ElementNodeAlias, TextNodeAlias, InterpolationNodeAlias, ForNodeAlias, 
+  IfNodeAlias, PatchFlagType, ScopeType, ScopeAnalysisType, SourceMapType, DiagnosticType,
+  CompileOptions, CompileResult
+};
 
-    return {
-      code,
-      map: result.map,
-      diagnostics,
-    };
-  } catch (error) {
-    diagnostics.errors.push(
-      `Failed to compile template: ${error instanceof Error ? error.message : String(error)}`
-    );
-    return {
-      code: '() => []',
-      diagnostics,
-    };
-  }
-}
+// 4. Create the default object ONLY with runtime values (No types allowed here)
+const compiler = {
+  tokenize,
+  parse,
+  parseHTML,
+  parseTemplate,
+  parseExpression,
+  validate,
+  analyzeScope,
+  transform,
+  optimize,
+  generate,
+  compile,
+  generateSourceMap,
+  fromAST,
+  toBase64,
+  toDataURL,
+  getMapping,
+  createDiagnostic,
+  createError,
+  createWarning,
+  createInfo,
+  fromError,
+  fromValidation,
+  PatchFlag
+};
+
+export default compiler;

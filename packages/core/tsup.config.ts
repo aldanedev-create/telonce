@@ -3,7 +3,11 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm', 'cjs'],
-  dts: true,
+  dts: {
+    compilerOptions: {
+      composite: false, // <-- Crucial fix for the TS6307 error
+    },
+  },
   clean: true,
   sourcemap: true,
   splitting: false,

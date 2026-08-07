@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.build.json",
   "compilerOptions": {
-    "composite": true,
+    "composite": false,
     "outDir": "./dist",
     "rootDir": "./src",
     "module": "Node16",
@@ -31,8 +31,5 @@
     "**/*.test.ts",
     "**/*.spec.ts",
     "out"
-  ],
-  "references": [
-    { "path": "../language-service" }
   ]
 }

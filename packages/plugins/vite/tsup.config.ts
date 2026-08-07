@@ -6,9 +6,13 @@ export default defineConfig({
   dts: {
     compilerOptions: {
       composite: false,
+      noUnusedLocals: false,
+      noUnusedParameters: false,
+      strictNullChecks: false,
     },
   },
   clean: true,
   sourcemap: true,
-  outDir: 'dist',
+  splitting: false,
+  target: 'es2020',
 });

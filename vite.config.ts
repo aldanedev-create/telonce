@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import path from 'path';
+import path from 'node:path';
 
 export default defineConfig({
   test: {
@@ -35,6 +35,9 @@ export default defineConfig({
     clearMocks: true,
     mockReset: true,
     restoreMocks: true,
+  },
+  build: {
+    chunkSizeWarningLimit: 3500, // Moved to root level
   },
   resolve: {
     alias: {

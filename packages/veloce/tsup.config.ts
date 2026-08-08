@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig([
   // 1. CDN Global Build (IIFE) -> teloce.global.js
   {
-    entry: ['src/index.ts'],
+    entry: { teloce: 'src/index.ts' },
     format: ['iife'],
     globalName: 'Teloce',
     minify: true,
@@ -32,7 +32,7 @@ export default defineConfig([
   },
   // 2. ESM Build -> teloce.esm.js
   {
-    entry: ['src/index.ts'],
+    entry: { teloce: 'src/index.ts' },
     format: ['esm'],
     minify: true,
     sourcemap: true,
@@ -60,7 +60,7 @@ export default defineConfig([
   },
   // 3. TypeScript Declarations
   {
-    entry: ['src/index.ts'],
+    entry: { teloce: 'src/index.ts' },
     format: ['esm'],
     dts: true,
     clean: false,

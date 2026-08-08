@@ -1,5 +1,6 @@
 {
   "name": "teloce-vscode",
+  "private": true,
   "displayName": "Teloce",
   "description": "Teloce template language support for VS Code",
   "version": "0.1.1",

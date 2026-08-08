@@ -1,6 +1,6 @@
 {
   "name": "teloce",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": false,
   "publishConfig": {
     "access": "public"
@@ -10,10 +10,10 @@
   "module": "dist/teloce.esm.js",
   "unpkg": "dist/teloce.global.js",
   "jsdelivr": "dist/teloce.global.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/teloce.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/teloce.d.mts",
       "import": "./dist/teloce.esm.js",
       "require": "./dist/teloce.global.js",
       "default": "./dist/teloce.global.js"
@@ -31,16 +31,14 @@
     "test": "vitest",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
+  "devDependencies": {
     "@teloce/compiler": "workspace:*",
     "@teloce/core": "workspace:*",
     "@teloce/reactivity": "workspace:*",
     "@teloce/runtime-core": "workspace:*",
     "@teloce/runtime-dom": "workspace:*",
     "@teloce/sfc": "workspace:*",
-    "@teloce/std": "workspace:*"
-  },
-  "devDependencies": {
+    "@teloce/std": "workspace:*",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"

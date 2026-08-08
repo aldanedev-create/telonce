@@ -7,7 +7,8 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "playground"
+    "playground",
+    "teloce-vscode"
   ],
   "privatePackages": {
     "version": true,

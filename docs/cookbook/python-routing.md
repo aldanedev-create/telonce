@@ -32,27 +32,27 @@ from flask import Flask, render_template
 app = Flask(__name__)
 
 
-@app.route('/')
+@app.route("/")
 def home():
     return render_template(
-        'index.html',
-        title='Home'
+        "index.html",
+        title="Home"
     )
 
 
-@app.route('/about')
+@app.route("/about")
 def about():
     return render_template(
-        'about.html',
-        title='About'
+        "about.html",
+        title="About"
     )
 
 
-@app.route('/products')
+@app.route("/products")
 def products():
     return render_template(
-        'products.html',
-        title='Products'
+        "products.html",
+        title="Products"
     )
 ```
 
@@ -63,22 +63,22 @@ def products():
 Flask supports dynamic URL parameters using route converters.
 
 ```python
-@app.route('/product/<int:id>')
+@app.route("/product/<int:id>")
 def product_detail(id):
     product = get_product(id)
 
     return render_template(
-        'product.html',
+        "product.html",
         product=product
     )
 
 
-@app.route('/user/<username>')
+@app.route("/user/<username>")
 def user_profile(username):
     user = get_user(username)
 
     return render_template(
-        'profile.html',
+        "profile.html",
         user=user
     )
 ```
@@ -93,11 +93,11 @@ Use `request.args` to read query parameters.
 from flask import request
 
 
-@app.route('/search')
+@app.route("/search")
 def search():
-    query = request.args.get('q', '')
+    query = request.args.get("q", "")
     page = request.args.get(
-        'page',
+        "page",
         1,
         type=int
     )
@@ -108,7 +108,7 @@ def search():
     )
 
     return render_template(
-        'search.html',
+        "search.html",
         query=query,
         results=results,
         page=page
@@ -136,33 +136,33 @@ from . import views
 
 urlpatterns = [
     path(
-        '',
+        "",
         views.home,
-        name='home'
+        name="home"
     ),
 
     path(
-        'about/',
+        "about/",
         views.about,
-        name='about'
+        name="about"
     ),
 
     path(
-        'products/',
+        "products/",
         views.product_list,
-        name='products'
+        name="products"
     ),
 
     path(
-        'product/<int:id>/',
+        "product/<int:id>/",
         views.product_detail,
-        name='product_detail'
+        name="product_detail"
     ),
 
     path(
-        'user/<str:username>/',
+        "user/<str:username>/",
         views.user_profile,
-        name='user_profile'
+        name="user_profile"
     ),
 ]
 ```
@@ -172,18 +172,17 @@ urlpatterns = [
 ## Views
 
 ```python
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
 
 
 def home(request):
     return render(
         request,
-        'index.html',
+        "index.html",
         {
-            'title': 'Home',
-            'user': request.user,
+            "title": "Home",
+            "user": request.user,
         }
     )
 
@@ -196,9 +195,9 @@ def product_detail(request, id):
 
     return render(
         request,
-        'product.html',
+        "product.html",
         {
-            'product': product,
+            "product": product,
         }
     )
 ```
@@ -219,28 +218,28 @@ from fastapi.templating import Jinja2Templates
 app = FastAPI()
 
 templates = Jinja2Templates(
-    directory='templates'
+    directory="templates"
 )
 
 
-@app.get('/')
+@app.get("/")
 async def home(request: Request):
     return templates.TemplateResponse(
-        'index.html',
+        "index.html",
         {
-            'request': request,
-            'title': 'Home',
+            "request": request,
+            "title": "Home",
         }
     )
 
 
-@app.get('/products')
+@app.get("/products")
 async def products(request: Request):
     return templates.TemplateResponse(
-        'products.html',
+        "products.html",
         {
-            'request': request,
-            'title': 'Products',
+            "request": request,
+            "title": "Products",
         }
     )
 ```
@@ -250,7 +249,7 @@ async def products(request: Request):
 ## Dynamic Routes
 
 ```python
-@app.get('/product/{id}')
+@app.get("/product/{id}")
 async def product_detail(
     request: Request,
     id: int
@@ -258,10 +257,10 @@ async def product_detail(
     product = get_product(id)
 
     return templates.TemplateResponse(
-        'product.html',
+        "product.html",
         {
-            'request': request,
-            'product': product,
+            "request": request,
+            "product": product,
         }
     )
 ```
@@ -273,10 +272,10 @@ async def product_detail(
 FastAPI automatically parses typed query parameters.
 
 ```python
-@app.get('/search')
+@app.get("/search")
 async def search(
     request: Request,
-    q: str = '',
+    q: str = "",
     page: int = 1
 ):
     results = search_products(
@@ -285,12 +284,12 @@ async def search(
     )
 
     return templates.TemplateResponse(
-        'search.html',
+        "search.html",
         {
-            'request': request,
-            'query': q,
-            'results': results,
-            'page': page,
+            "request": request,
+            "query": q,
+            "results": results,
+            "page": page,
         }
     )
 ```
@@ -305,17 +304,17 @@ Teloce can provide client-side navigation without reloading the page.
 
 ```javascript
 const routes = {
-  '/': HomePage,
-  '/about': AboutPage,
-  '/products': ProductsPage,
-  '/product/:id': ProductDetail,
+  "/": HomePage,
+  "/about": AboutPage,
+  "/products": ProductsPage,
+  "/product/:id": ProductDetail,
 };
 
 const router = teloce.createRouter(routes);
 
 router.beforeEach((to, from) => {
   console.log(
-    'Navigating to:',
+    "Navigating to:",
     to.path
   );
 
@@ -324,13 +323,13 @@ router.beforeEach((to, from) => {
 
 router.afterEach((to, from) => {
   console.log(
-    'Navigated to:',
+    "Navigated to:",
     to.path
   );
 });
 
-const app = teloce.createApp('#app', {
-  currentRoute: '/',
+const app = teloce.createApp("#app", {
+  currentRoute: "/",
   router,
 });
 
@@ -345,7 +344,7 @@ Dynamic parameters can be defined using `:parameter`.
 
 ```javascript
 const routes = {
-  '/product/:id': {
+  "/product/:id": {
     component: ProductDetail,
 
     props: (route) => ({
@@ -353,7 +352,7 @@ const routes = {
     }),
   },
 
-  '/user/:username': {
+  "/user/:username": {
     component: UserProfile,
 
     props: (route) => ({
@@ -366,7 +365,7 @@ const routes = {
 For `/product/123`, the route parameter becomes:
 
 ```javascript
-route.params.id === '123';
+route.params.id === "123";
 ```
 
 ---
@@ -376,14 +375,14 @@ route.params.id === '123';
 ## Programmatic Navigation
 
 ```javascript
-router.push('/products');
+router.push("/products");
 
-router.push('/product/123');
+router.push("/product/123");
 
 router.push({
-  path: '/search',
+  path: "/search",
   query: {
-    q: 'laptop',
+    q: "laptop",
   },
 });
 ```
@@ -391,7 +390,7 @@ router.push({
 ## Replace Navigation
 
 ```javascript
-router.replace('/about');
+router.replace("/about");
 ```
 
 ## Browser History
@@ -421,28 +420,28 @@ from flask import jsonify
 app = Flask(__name__)
 
 
-@app.route('/')
+@app.route("/")
 def home():
     return render_template(
-        'index.html'
+        "index.html"
     )
 
 
-@app.route('/products')
+@app.route("/products")
 def products():
     return render_template(
-        'products.html'
+        "products.html"
     )
 
 
-@app.route('/api/products')
+@app.route("/api/products")
 def api_products():
     return jsonify(
         get_products()
     )
 
 
-@app.route('/api/product/<int:id>')
+@app.route("/api/product/<int:id>")
 def api_product(id):
     return jsonify(
         get_product(id)
@@ -478,12 +477,12 @@ def api_product(id):
 
 <script>
 const router = teloce.createRouter({
-  '/': HomePage,
-  '/products': ProductsPage,
+  "/": HomePage,
+  "/products": ProductsPage,
 });
 
-const app = teloce.createApp('#app', {
-  title: 'My App',
+const app = teloce.createApp("#app", {
+  title: "My App",
 
   navigate(path) {
     router.push(path);
@@ -499,33 +498,33 @@ app.mount();
 
 # Django + Teloce
 
-### URL Configuration
+## URL Configuration
 
 ```python
 # urls.py
 
 urlpatterns = [
     path(
-        '',
+        "",
         views.home,
-        name='home'
+        name="home"
     ),
 
     path(
-        'products/',
+        "products/",
         views.products,
-        name='products'
+        name="products"
     ),
 
     path(
-        'api/products/',
+        "api/products/",
         views.api_products,
-        name='api_products'
+        name="api_products"
     ),
 ]
 ```
 
-### Template
+## Template
 
 When server-rendering data into JavaScript, serialize the data safely.
 
@@ -560,7 +559,7 @@ When server-rendering data into JavaScript, serialize the data safely.
 </div>
 
 <script>
-const app = teloce.createApp('#app', {
+const app = teloce.createApp("#app", {
   products: {{ products|tojson }},
   cart: [],
 
@@ -584,9 +583,9 @@ Route guards allow applications to control navigation.
 ```javascript
 router.beforeEach((to, from) => {
   const publicRoutes = [
-    '/',
-    '/login',
-    '/register',
+    "/",
+    "/login",
+    "/register",
   ];
 
   if (publicRoutes.includes(to.path)) {
@@ -594,7 +593,7 @@ router.beforeEach((to, from) => {
   }
 
   if (!isAuthenticated()) {
-    return '/login';
+    return "/login";
   }
 
   return true;
@@ -608,17 +607,17 @@ router.beforeEach((to, from) => {
 ```javascript
 router.beforeEach((to, from) => {
   if (
-    to.path.startsWith('/admin') &&
+    to.path.startsWith("/admin") &&
     !isAdmin()
   ) {
-    return '/forbidden';
+    return "/forbidden";
   }
 
   if (
-    to.path.startsWith('/profile') &&
+    to.path.startsWith("/profile") &&
     !isAuthenticated()
   ) {
-    return '/login';
+    return "/login";
   }
 
   return true;
@@ -633,14 +632,14 @@ Lazy loading allows pages to be loaded only when they are needed.
 
 ```javascript
 const router = teloce.createRouter({
-  '/': () =>
-    import('./pages/Home.vel'),
+  "/": () =>
+    import("./pages/Home.vel"),
 
-  '/products': () =>
-    import('./pages/Products.vel'),
+  "/products": () =>
+    import("./pages/Products.vel"),
 
-  '/product/:id': () =>
-    import('./pages/ProductDetail.vel'),
+  "/product/:id": () =>
+    import("./pages/ProductDetail.vel"),
 });
 ```
 
@@ -654,13 +653,13 @@ Nested routes are useful for dashboards and applications with shared layouts.
 
 ```javascript
 const router = teloce.createRouter({
-  '/dashboard': {
+  "/dashboard": {
     component: Dashboard,
 
     children: {
-      '/': Overview,
-      '/profile': Profile,
-      '/settings': Settings,
+      "/": Overview,
+      "/profile": Profile,
+      "/settings": Settings,
     },
   },
 });
@@ -685,7 +684,7 @@ A component can use route parameters to load server data.
 
 ```javascript
 const ProductDetail = {
-  props: ['id'],
+  props: ["id"],
 
   data() {
     return {
@@ -741,18 +740,18 @@ const page =
   query.page || 1;
 
 const search =
-  query.search || '';
+  query.search || "";
 ```
 
 ## Setting Query Parameters
 
 ```javascript
 router.push({
-  path: '/products',
+  path: "/products",
 
   query: {
     page: 2,
-    search: 'laptop',
+    search: "laptop",
   },
 });
 ```
@@ -769,12 +768,15 @@ A URL might become:
 
 Teloce routing can be combined with CSS animations to create smooth page transitions.
 
+> **Important:** GitHub Markdown displays CSS examples as code. It does **not** execute the CSS. Copy these styles into your application's `.css` stylesheet.
+
 ## Fade Transition
+
+Add the following CSS to your stylesheet:
 
 ```css
 .route-page {
-  animation:
-    route-fade-in 250ms ease-out;
+  animation: route-fade-in 250ms ease-out;
 }
 
 @keyframes route-fade-in {
@@ -800,6 +802,8 @@ Use the class on a route container:
 
 ## Slide Transition
 
+Add the following CSS to your stylesheet:
+
 ```css
 .route-slide {
   animation:
@@ -820,11 +824,19 @@ Use the class on a route container:
 }
 ```
 
+Example:
+
+```html
+<div class="route-slide">
+  <router-view></router-view>
+</div>
+```
+
 ---
 
 ## Loading Indicator
 
-For applications that load routes or API data asynchronously:
+For applications that load routes or API data asynchronously, add the following CSS to your stylesheet:
 
 ```css
 .route-loading {
@@ -867,6 +879,8 @@ Example:
 
 ## Navigation Button Animation
 
+Add the following CSS to your stylesheet:
+
 ```css
 .nav-link {
   transition:
@@ -884,11 +898,24 @@ Example:
 }
 ```
 
+Example:
+
+```html
+<a
+  href="/products"
+  class="nav-link"
+>
+  Products
+</a>
+```
+
 ---
 
 ## Respect Reduced Motion
 
 Always provide a reduced-motion fallback.
+
+Add the following CSS to your stylesheet:
 
 ```css
 @media (prefers-reduced-motion: reduce) {
@@ -902,6 +929,8 @@ Always provide a reduced-motion fallback.
   }
 }
 ```
+
+This allows users who prefer reduced motion to browse without unnecessary animations.
 
 ---
 

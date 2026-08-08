@@ -11,9 +11,11 @@ A comprehensive catalog of Teloce errors with explanations, common causes, and f
 **Error Message:** `Missing <template> section in .vel file`
 
 **Explanation:**
+
 A `.vel` file must contain a `<template>` section.
 
 **Fix:**
+
 Add a `<template>` section to the `.vel` file.
 
 ```html
@@ -29,9 +31,11 @@ Add a `<template>` section to the `.vel` file.
 **Error Message:** `Unclosed <for> directive`
 
 **Explanation:**
+
 Every `<for>` directive must have a corresponding `</for>` closing tag.
 
 **Fix:**
+
 Add the missing closing tag.
 
 **Bad:**
@@ -56,9 +60,11 @@ Add the missing closing tag.
 **Error Message:** `For loop missing "key" attribute`
 
 **Explanation:**
+
 Dynamic lists should provide a stable key so Teloce can efficiently track items.
 
 **Fix:**
+
 Add a key to the loop.
 
 **Bad:**
@@ -84,9 +90,11 @@ Add a key to the loop.
 **Error Message:** `Empty interpolation found`
 
 **Explanation:**
+
 Interpolation expressions must contain a variable or valid expression.
 
 **Fix:**
+
 Add an expression inside `{{ }}`.
 
 **Bad:**
@@ -108,9 +116,11 @@ Add an expression inside `{{ }}`.
 **Error Message:** `Unknown directive: "@unknown"`
 
 **Explanation:**
+
 The directive does not exist or has not been registered.
 
 **Fix:**
+
 Check the directive name or register a custom directive.
 
 **Bad:**
@@ -131,16 +141,18 @@ Check the directive name or register a custom directive.
 
 ---
 
-# Runtime Errors
+## Runtime Errors
 
-## R001: Undefined Variable
+### R001: Undefined Variable
 
 **Error Message:** `Cannot read property 'name' of undefined`
 
 **Explanation:**
+
 Code is attempting to access a property on an undefined value.
 
 **Fix:**
+
 Ensure the object exists before accessing its properties.
 
 **Bad:**
@@ -159,14 +171,16 @@ if (user) {
 
 ---
 
-## R002: Type Mismatch
+### R002: Type Mismatch
 
 **Error Message:** `Type 'string' is not assignable to type 'number'`
 
 **Explanation:**
+
 A string was provided where a number is expected.
 
 **Fix:**
+
 Use the correct data type.
 
 **Bad:**
@@ -185,14 +199,16 @@ total(count);
 
 ---
 
-## R003: Function Not Found
+### R003: Function Not Found
 
 **Error Message:** `"saveUser" is not a function`
 
 **Explanation:**
+
 A template or component is calling a function that does not exist.
 
 **Fix:**
+
 Define the function in the component methods.
 
 ```javascript
@@ -215,19 +231,21 @@ Use it in the template:
 
 ---
 
-## R004: Component Not Found
+### R004: Component Not Found
 
 **Error Message:** `Component "MyComponent" is not registered`
 
 **Explanation:**
+
 The application is attempting to render an unregistered component.
 
 **Fix:**
+
 Register the component before using it.
 
 ```javascript
 app.component(
-  'MyComponent',
+  "MyComponent",
   MyComponent
 );
 ```
@@ -240,14 +258,16 @@ Then:
 
 ---
 
-## R005: Prop Validation Failed
+### R005: Prop Validation Failed
 
 **Error Message:** `Prop "title" failed validation`
 
 **Explanation:**
+
 A component prop did not satisfy its validation rules.
 
 **Fix:**
+
 Pass a valid value or update the validation rules.
 
 ```javascript
@@ -267,13 +287,14 @@ const MyComponent = teloce.defineComponent({
 
 ---
 
-# API Errors
+## API Errors
 
-## A001: Network Error
+### A001: Network Error
 
 **Error Message:** `Network request failed`
 
 **Explanation:**
+
 The API request could not be completed.
 
 **Fix:**
@@ -285,7 +306,7 @@ The API request could not be completed.
 
 ```javascript
 try {
-  const response = await fetch('/api/data');
+  const response = await fetch("/api/data");
 
   if (!response.ok) {
     throw new Error(
@@ -294,7 +315,7 @@ try {
   }
 } catch (error) {
   console.error(
-    'Network error:',
+    "Network error:",
     error
   );
 }
@@ -302,65 +323,71 @@ try {
 
 ---
 
-## A002: 404 Not Found
+### A002: 404 Not Found
 
 **Error Message:** `404: /api/users not found`
 
 **Explanation:**
+
 The requested API endpoint does not exist.
 
 **Fix:**
+
 Check the endpoint path.
 
 **Bad:**
 
 ```javascript
-fetch('/api/user');
+fetch("/api/user");
 ```
 
 **Good:**
 
 ```javascript
-fetch('/api/users');
+fetch("/api/users");
 ```
 
 ---
 
-## A003: 500 Server Error
+### A003: 500 Server Error
 
 **Error Message:** `500: Internal Server Error`
 
 **Explanation:**
+
 The server encountered an unexpected error while processing the request.
 
 **Fix:**
+
 Check server logs and fix the backend exception.
 
 Example Python backend:
 
 ```python
-@app.route('/api/users')
+@app.route("/api/users")
 def get_users():
     try:
         return jsonify(users)
     except Exception as error:
         return jsonify({
-            'error': str(error)
+            "error": str(error)
         }), 500
 ```
 
 ---
 
-# Reactivity Errors
+## Reactivity Errors
 
-## RE001: Signal Called as Function
+### RE001: Signal Called as Function
 
 **Error Message:** `count is not a function`
 
 **Explanation:**
+
 A normal value is being called as though it were a signal.
 
 **Fix:**
+
 Create and use a signal correctly.
 
 **Bad:**
@@ -382,14 +409,16 @@ console.log(count());
 
 ---
 
-## RE002: Effect Cleanup Error
+### RE002: Effect Cleanup Error
 
 **Error Message:** `Effect cleanup failed`
 
 **Explanation:**
+
 An effect's cleanup function threw an error.
 
 **Fix:**
+
 Handle cleanup failures safely.
 
 ```javascript
@@ -404,7 +433,7 @@ createEffect(() => {
       clearInterval(timer);
     } catch (error) {
       console.warn(
-        'Cleanup failed:',
+        "Cleanup failed:",
         error
       );
     }
@@ -414,11 +443,12 @@ createEffect(() => {
 
 ---
 
-## RE003: Computed Cycle
+### RE003: Computed Cycle
 
 **Error Message:** `Computed property cycle detected`
 
 **Explanation:**
+
 A computed value directly or indirectly depends on itself.
 
 **Bad:**
@@ -444,16 +474,18 @@ const b = createComputed(
 
 ---
 
-# Debugger Errors
+## Debugger Errors
 
-## D001: Debugger Not Found
+### D001: Debugger Not Found
 
 **Error Message:** `Debugger server not running`
 
 **Explanation:**
+
 The Teloce debugger server is not running.
 
 **Fix:**
+
 Start the debugger:
 
 ```bash
@@ -462,11 +494,12 @@ teloce debug
 
 ---
 
-## D002: WebSocket Connection Failed
+### D002: WebSocket Connection Failed
 
 **Error Message:** `WebSocket connection failed`
 
 **Explanation:**
+
 The debugger client could not establish a WebSocket connection.
 
 **Fix:**
@@ -478,28 +511,30 @@ The debugger client could not establish a WebSocket connection.
 
 ```javascript
 const ws = new WebSocket(
-  'ws://localhost:9000/__teloce_debug'
+  "ws://localhost:9000/__teloce_debug"
 );
 
 ws.onerror = () => {
   console.log(
-    'Debugger connection failed'
+    "Debugger connection failed"
   );
 };
 ```
 
 ---
 
-# Plugin Errors
+## Plugin Errors
 
-## P001: Plugin Not Found
+### P001: Plugin Not Found
 
 **Error Message:** `Plugin "my-plugin" not found`
 
 **Explanation:**
+
 The requested plugin could not be loaded.
 
 **Fix:**
+
 Install the plugin:
 
 ```bash
@@ -510,35 +545,37 @@ Then register it:
 
 ```javascript
 import myPlugin from
-  '@teloce/plugin-my-plugin';
+  "@teloce/plugin-my-plugin";
 
 teloce.use(myPlugin);
 ```
 
 ---
 
-## P002: Plugin Version Mismatch
+### P002: Plugin Version Mismatch
 
 **Error Message:** `Plugin "my-plugin" requires teloce@^0.1.0`
 
 **Explanation:**
+
 The plugin requires a different version of Teloce.
 
 **Fix:**
+
 Update Teloce or the plugin:
 
 ```bash
-npm update teloce \
-  @teloce/plugin-my-plugin
+npm update teloce @teloce/plugin-my-plugin
 ```
 
 ---
 
-## P003: Plugin Conflict
+### P003: Plugin Conflict
 
 **Error Message:** `Plugin "my-plugin" conflicts with "another-plugin"`
 
 **Explanation:**
+
 Two installed plugins are incompatible or attempt to modify the same functionality.
 
 **Fix:**
@@ -550,7 +587,7 @@ Two installed plugins are incompatible or attempt to modify the same functionali
 
 ---
 
-# Error Severity Levels
+## Error Severity Levels
 
 | Level           | Description                                                     |
 | --------------- | --------------------------------------------------------------- |
@@ -565,7 +602,11 @@ Two installed plugins are incompatible or attempt to modify the same functionali
 
 Teloce applications can use CSS animations to make errors easier to notice without adding animation logic to JavaScript.
 
+> **Note:** GitHub Markdown does not execute CSS inside fenced code blocks. The CSS examples below are intended to be copied into your application's stylesheet.
+
 ## Error Shake
+
+Add the following CSS to your stylesheet:
 
 ```css
 .error-shake {
@@ -596,7 +637,7 @@ Teloce applications can use CSS animations to make errors easier to notice witho
 }
 ```
 
-Use it on an error message:
+Then apply the class to an element:
 
 ```html
 <div class="error-shake">
@@ -607,6 +648,8 @@ Use it on an error message:
 ---
 
 ## Error Fade In
+
+Add the following CSS to your stylesheet:
 
 ```css
 .error-message {
@@ -626,6 +669,8 @@ Use it on an error message:
 }
 ```
 
+Then use the class in your template:
+
 ```html
 <div class="error-message">
   Invalid email address.
@@ -635,6 +680,8 @@ Use it on an error message:
 ---
 
 ## Severity Indicator
+
+Add the following CSS to your stylesheet:
 
 ```css
 .error-indicator {
@@ -691,6 +738,8 @@ Example:
 
 A debugger connection indicator can use a simple pulse animation.
 
+Add the following CSS to your stylesheet:
+
 ```css
 .debugger-status {
   display: inline-flex;
@@ -723,11 +772,21 @@ A debugger connection indicator can use a simple pulse animation.
 }
 ```
 
+Example:
+
+```html
+<div class="debugger-status debugger-connected">
+  Connected
+</div>
+```
+
 ---
 
 ## Respect Reduced Motion
 
-Error animations should not interfere with accessibility.
+Error animations should respect the user's accessibility preferences.
+
+Add the following CSS to your stylesheet:
 
 ```css
 @media (prefers-reduced-motion: reduce) {
@@ -740,6 +799,8 @@ Error animations should not interfere with accessibility.
   }
 }
 ```
+
+This disables or minimizes animations for users who have enabled **Reduce Motion** in their operating system or browser.
 
 ---
 

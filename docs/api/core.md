@@ -51,12 +51,12 @@ function createApp(
 ### Example
 
 ```javascript
-const app = teloce.createApp('#app', {
+const app = teloce.createApp("#app", {
   count: 0,
-  name: 'Teloce',
+  name: "Teloce",
 });
 
-app.component('MyComponent', MyComponent);
+app.component("MyComponent", MyComponent);
 app.use(MyPlugin);
 app.mount();
 ```
@@ -97,7 +97,7 @@ function defineComponent<P = any, S = any>(
 
 ```javascript
 const MyComponent = teloce.defineComponent({
-  name: 'MyComponent',
+  name: "MyComponent",
 
   props: {
     title: {
@@ -163,11 +163,11 @@ function mount(
 
 ```javascript
 const app = createApp(
-  '#app',
+  "#app",
   {}
 );
 
-mount(app, '#app', {
+mount(app, "#app", {
   count: 0,
 });
 ```
@@ -229,12 +229,12 @@ function createPlugin(
 const MyPlugin = teloce.createPlugin(
   (app, options) => {
     app.component(
-      'MyComponent',
+      "MyComponent",
       MyComponent
     );
   },
-  'my-plugin',
-  '1.0.0'
+  "my-plugin",
+  "1.0.0"
 );
 
 app.use(MyPlugin);
@@ -262,27 +262,27 @@ Teloce components provide lifecycle hooks for controlling behavior during their 
 ```javascript
 const MyComponent = teloce.defineComponent({
   beforeMount() {
-    console.log('About to mount');
+    console.log("About to mount");
   },
 
   mounted() {
-    console.log('Mounted!');
+    console.log("Mounted!");
   },
 
   beforeUpdate() {
-    console.log('About to update');
+    console.log("About to update");
   },
 
   updated() {
-    console.log('Updated!');
+    console.log("Updated!");
   },
 
   beforeUnmount() {
-    console.log('About to unmount');
+    console.log("About to unmount");
   },
 
   unmounted() {
-    console.log('Unmounted!');
+    console.log("Unmounted!");
   },
 });
 ```
@@ -291,9 +291,13 @@ const MyComponent = teloce.defineComponent({
 
 # CSS Animations
 
-Teloce can work with normal CSS animations and transitions. CSS is useful for keeping visual effects outside JavaScript while Teloce controls state and DOM updates.
+Teloce works with standard CSS animations and transitions. CSS is useful for keeping visual effects outside JavaScript while Teloce controls state and DOM updates.
+
+> **Important:** GitHub Markdown displays CSS inside code blocks. It does **not execute CSS** on the Markdown page. To see these animations running, place the CSS in your application's `.css` stylesheet and load that stylesheet from your HTML application.
 
 ## Basic Fade Animation
+
+Add this CSS to your application's stylesheet:
 
 ```css
 .fade {
@@ -311,7 +315,7 @@ Teloce can work with normal CSS animations and transitions. CSS is useful for ke
 }
 ```
 
-Use it in a template:
+Use it in a Teloce template:
 
 ```html
 <div class="fade">
@@ -322,6 +326,8 @@ Use it in a template:
 ---
 
 ## Slide Animation
+
+Add this CSS to your application's stylesheet:
 
 ```css
 .slide-up {
@@ -341,6 +347,8 @@ Use it in a template:
 }
 ```
 
+Use it in a template:
+
 ```html
 <div class="slide-up">
   Animated content
@@ -351,9 +359,13 @@ Use it in a template:
 
 ## Scale Animation
 
+Add this CSS to your application's stylesheet:
+
 ```css
 .scale-in {
-  animation: scale-in 300ms cubic-bezier(0.2, 0.8, 0.2, 1)
+  animation:
+    scale-in 300ms
+    cubic-bezier(0.2, 0.8, 0.2, 1)
     forwards;
 }
 
@@ -376,6 +388,8 @@ Use it in a template:
 
 CSS transitions are useful for interactive components.
 
+Add this CSS to your application's stylesheet:
+
 ```css
 .button {
   transition:
@@ -393,6 +407,8 @@ CSS transitions are useful for interactive components.
 }
 ```
 
+Use it in a template:
+
 ```html
 <button class="button">
   Hover Me
@@ -405,11 +421,15 @@ CSS transitions are useful for interactive components.
 
 Teloce state can control CSS classes.
 
+### Teloce State
+
 ```javascript
-const app = teloce.createApp('#app', {
+const app = teloce.createApp("#app", {
   active: false,
 });
 ```
+
+### Template
 
 ```html
 <div :class="{ active: active }">
@@ -420,6 +440,8 @@ const app = teloce.createApp('#app', {
   Toggle
 </button>
 ```
+
+### CSS
 
 ```css
 .panel {
@@ -436,11 +458,24 @@ const app = teloce.createApp('#app', {
 }
 ```
 
+> **Note:** Make sure the element uses the `panel` class:
+>
+> ```html
+> <div
+>   class="panel"
+>   :class="{ active: active }"
+> >
+>   Animated panel
+> </div>
+> ```
+
 ---
 
 ## Advanced CSS Animation
 
 CSS custom properties can be controlled from application state.
+
+### CSS
 
 ```css
 .card {
@@ -448,20 +483,26 @@ CSS custom properties can be controlled from application state.
   --y: 0px;
 
   transform:
-    translate3d(var(--x), var(--y), 0);
+    translate3d(
+      var(--x),
+      var(--y),
+      0
+    );
 
   transition: transform 300ms ease;
 }
 ```
 
-Teloce can update the values:
+### Teloce State
 
 ```javascript
-const app = teloce.createApp('#app', {
+const app = teloce.createApp("#app", {
   x: 20,
   y: 10,
 });
 ```
+
+### Template
 
 ```html
 <div
@@ -475,13 +516,15 @@ const app = teloce.createApp('#app', {
 </div>
 ```
 
-This approach allows Teloce's reactive state to control complex CSS effects without putting the animation logic directly into JavaScript.
+This approach allows Teloce's reactive state to control complex CSS effects without putting animation logic directly into JavaScript.
 
 ---
 
 ## Reduced Motion
 
 Production applications should respect the user's motion preferences.
+
+Add this CSS to your application's stylesheet:
 
 ```css
 @media (prefers-reduced-motion: reduce) {
@@ -503,13 +546,13 @@ Production applications should respect the user's motion preferences.
 A typical Teloce application can combine the core APIs:
 
 ```javascript
-const app = teloce.createApp('#app', {
+const app = teloce.createApp("#app", {
   count: 0,
   visible: true,
 });
 
 const Counter = teloce.defineComponent({
-  name: 'Counter',
+  name: "Counter",
 
   methods: {
     increment() {
@@ -528,12 +571,14 @@ const Counter = teloce.defineComponent({
   `,
 });
 
-app.component('Counter', Counter);
+app.component("Counter", Counter);
 
 app.mount();
 ```
 
-CSS can then handle the visual layer:
+CSS can then handle the visual layer.
+
+> **Important:** This CSS is intended for your application's stylesheet. GitHub will display it as a code example rather than execute it.
 
 ```css
 .counter {

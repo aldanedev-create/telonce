@@ -2,193 +2,6 @@
 
 > Use Teloce as a lightweight reactive frontend layer with Flask, Django, FastAPI, and other Python web applications.
 
-<style>
-.teloce-python-hero {
-  position: relative;
-  overflow: hidden;
-  padding: 46px 28px;
-  margin: 20px 0 36px;
-  border-radius: 20px;
-  border: 1px solid rgba(99,102,241,.25);
-  background:
-    radial-gradient(circle at 15% 20%, rgba(99,102,241,.25), transparent 35%),
-    radial-gradient(circle at 85% 80%, rgba(6,182,212,.2), transparent 35%),
-    linear-gradient(135deg, #0f172a, #172554, #111827);
-  color: white;
-  text-align: center;
-}
-
-.teloce-python-hero::before,
-.teloce-python-hero::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(40px);
-  opacity: .35;
-  animation: python-float 7s ease-in-out infinite;
-}
-
-.teloce-python-hero::before {
-  width: 160px;
-  height: 160px;
-  background: #6366f1;
-  top: -70px;
-  left: -40px;
-}
-
-.teloce-python-hero::after {
-  width: 190px;
-  height: 190px;
-  background: #06b6d4;
-  right: -60px;
-  bottom: -90px;
-  animation-delay: -3.5s;
-}
-
-.teloce-python-content {
-  position: relative;
-  z-index: 1;
-}
-
-.teloce-python-badge {
-  display: inline-block;
-  padding: 6px 13px;
-  margin-bottom: 15px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.15);
-  font-size: .8rem;
-  animation: python-pulse 2.5s ease-in-out infinite;
-}
-
-.teloce-python-hero h2 {
-  margin: 0 0 10px;
-  font-size: 2.1rem;
-  letter-spacing: -.04em;
-}
-
-.teloce-python-hero p {
-  margin: 0;
-  opacity: .78;
-}
-
-.teloce-framework-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px;
-  margin: 24px 0 38px;
-}
-
-.teloce-framework {
-  padding: 20px;
-  border: 1px solid rgba(127,127,127,.2);
-  border-radius: 15px;
-  background: rgba(127,127,127,.05);
-  transition:
-    transform .25s ease,
-    box-shadow .25s ease,
-    border-color .25s ease;
-}
-
-.teloce-framework:hover {
-  transform: translateY(-6px);
-  border-color: rgba(99,102,241,.5);
-  box-shadow: 0 14px 35px rgba(0,0,0,.14);
-}
-
-.teloce-framework strong {
-  display: block;
-  margin-bottom: 7px;
-  font-size: 1.05rem;
-}
-
-.teloce-framework span {
-  opacity: .72;
-  font-size: .9rem;
-}
-
-.teloce-python-note {
-  padding: 16px 18px;
-  margin: 22px 0;
-  border-left: 4px solid #6366f1;
-  border-radius: 8px;
-  background: rgba(99,102,241,.08);
-}
-
-.teloce-python-code {
-  transition: transform .2s ease;
-}
-
-.teloce-python-code:hover {
-  transform: translateY(-2px);
-}
-
-@keyframes python-float {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-
-  50% {
-    transform: translate(25px, -18px) scale(1.12);
-  }
-}
-
-@keyframes python-pulse {
-  0%, 100% {
-    opacity: .7;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.04);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .teloce-python-hero::before,
-  .teloce-python-hero::after,
-  .teloce-python-badge {
-    animation: none;
-  }
-
-  .teloce-framework,
-  .teloce-python-code {
-    transition: none;
-  }
-}
-</style>
-
-<div class="teloce-python-hero">
-  <div class="teloce-python-content">
-    <div class="teloce-python-badge">🐍 Python + ⚡ Teloce</div>
-    <h2>Python on the Backend. Teloce in the Browser.</h2>
-    <p>Add reactive interfaces to your existing Python applications without replacing your backend.</p>
-  </div>
-</div>
-
-<div class="teloce-framework-grid">
-  <div class="teloce-framework">
-    <strong>🔥 Flask</strong>
-    <span>Simple and flexible Python applications.</span>
-  </div>
-
-  <div class="teloce-framework">
-    <strong>🎯 Django</strong>
-    <span>Full-featured applications with server-side rendering.</span>
-  </div>
-
-  <div class="teloce-framework">
-    <strong>⚡ FastAPI</strong>
-    <span>Modern async APIs with reactive frontend experiences.</span>
-  </div>
-
-  <div class="teloce-framework">
-    <strong>🚀 Other Python Apps</strong>
-    <span>Use Teloce with your existing HTML and static asset pipeline.</span>
-  </div>
-</div>
-
 ---
 
 ## Architecture
@@ -339,11 +152,7 @@ const app = teloce.createApp("#app", {
 </html>
 ```
 
-<div class="teloce-python-note">
-
-**Why this works:** Flask renders the initial data on the server, while Teloce takes over browser-side interactions and reactive updates.
-
-</div>
+> **Why this works:** Flask renders the initial data on the server, while Teloce takes over browser-side interactions and reactive updates.
 
 ---
 
@@ -783,7 +592,7 @@ const app = teloce.createApp("#app", {
 
 Python frameworks can serve compiled Teloce assets normally.
 
-### Flask
+## Flask
 
 ```python
 app = Flask(
@@ -801,7 +610,7 @@ app = Flask(
 ></script>
 ```
 
-### Django
+## Django
 
 Configure Django's static files and reference the generated asset:
 
@@ -811,7 +620,7 @@ Configure Django's static files and reference the generated asset:
 <script src="{% static 'js/app.js' %}"></script>
 ```
 
-### FastAPI
+## FastAPI
 
 Mount your static directory:
 
@@ -900,7 +709,7 @@ A typical production architecture looks like:
                          Browser
 ```
 
-### Recommended Production Practices
+## Recommended Production Practices
 
 * Build and minify Teloce assets before deployment.
 * Pin the Teloce version.
@@ -916,7 +725,7 @@ A typical production architecture looks like:
 # Which Python Framework Should I Use?
 
 | Framework   | Best For                            | Teloce Integration |
-| ----------- | ----------------------------------- | ------------------ |
+| :---------- | :---------------------------------- | :----------------- |
 | **Flask**   | Small and flexible applications     | Excellent          |
 | **Django**  | Full-featured applications          | Excellent          |
 | **FastAPI** | APIs and async backends             | Excellent          |
@@ -961,9 +770,9 @@ The Python backend handles application logic while Teloce assets are compiled in
 
 # Next Steps
 
-* [Cheatsheet](https://docs/guides/cheatsheet) — Quick Teloce reference
-* [Templates](https://docs/guides/templates) — Template syntax
-* [Reactivity](https://docs/guides/reactivity) — Signals and reactive updates
-* [Components](https://docs/guides/components) — Reusable components
-* [SFC (.vel)](https://docs/guides/sfc) — Single File Components
-* [Examples](https://docs/examples) — Complete applications
+* [Cheatsheet](cheatsheet.md) — Quick Teloce reference
+* [Templates](templates.md) — Template syntax
+* [Reactivity](reactivity.md) — Signals and reactive updates
+* [Components](components.md) — Reusable components
+* [SFC (`.vel`)](sfc.md) — Single File Components
+* [Examples](../examples/) — Complete applications

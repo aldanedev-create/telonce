@@ -586,7 +586,7 @@ const MyComponent = {
 
   data() {
     return {
-      isVisible: false,
+      isVisible: false
     };
   },
 
@@ -635,8 +635,8 @@ const MyComponent = {
       console.log(
         'Leave animation complete'
       );
-    },
-  },
+    }
+  }
 };
 ```
 
@@ -652,23 +652,23 @@ Teloce can use reusable animation helpers for more advanced effects.
 import {
   createAnimation,
   fadeIn,
-  fadeOut,
+  fadeOut
 } from '@teloce/std';
 
 const slideUp = createAnimation(
   [
     {
       transform: 'translateY(100%)',
-      opacity: 0,
+      opacity: 0
     },
     {
       transform: 'translateY(0)',
-      opacity: 1,
-    },
+      opacity: 1
+    }
   ],
   {
     duration: 500,
-    easing: 'ease',
+    easing: 'ease'
   }
 );
 
@@ -676,8 +676,8 @@ const MyComponent = {
   methods: {
     async animateElement(el) {
       await slideUp(el);
-    },
-  },
+    }
+  }
 };
 ```
 
@@ -688,7 +688,7 @@ const MyComponent = {
 ```javascript
 import {
   createAnimation,
-  withTransition,
+  withTransition
 } from '@teloce/std';
 
 const animations = {
@@ -696,15 +696,15 @@ const animations = {
     [
       {
         transform: 'scale(0.8)',
-        opacity: 0,
+        opacity: 0
       },
       {
         transform: 'scale(1)',
-        opacity: 1,
-      },
+        opacity: 1
+      }
     ],
     {
-      duration: 300,
+      duration: 300
     }
   ),
 
@@ -712,17 +712,17 @@ const animations = {
     [
       {
         transform: 'scale(1)',
-        opacity: 1,
+        opacity: 1
       },
       {
         transform: 'scale(0.8)',
-        opacity: 0,
-      },
+        opacity: 0
+      }
     ],
     {
-      duration: 200,
+      duration: 200
     }
-  ),
+  )
 };
 
 async function animateEnter(el) {
@@ -1025,7 +1025,7 @@ Always provide an accessibility fallback.
 export default {
   data() {
     return {
-      toasts: [],
+      toasts: []
     };
   },
 
@@ -1039,7 +1039,7 @@ export default {
       this.toasts.push({
         id,
         message,
-        type,
+        type
       });
 
       setTimeout(() => {
@@ -1053,8 +1053,8 @@ export default {
           (toast) =>
             toast.id !== id
         );
-    },
-  },
+    }
+  }
 };
 </script>
 
@@ -1300,7 +1300,7 @@ export default {
   data() {
     return {
       newTodo: '',
-      todos: [],
+      todos: []
     };
   },
 
@@ -1315,7 +1315,7 @@ export default {
 
       this.todos.push({
         id: Date.now(),
-        text,
+        text
       });
 
       this.newTodo = '';
@@ -1327,8 +1327,8 @@ export default {
           (todo) =>
             todo.id !== id
         );
-    },
-  },
+    }
+  }
 };
 </script>
 
@@ -1523,7 +1523,7 @@ li {
 ## Transition Classes
 
 | Class                 | Description                    |
-| --------------------- | ------------------------------ |
+| :-------------------- | :----------------------------- |
 | `[name]-enter-active` | Animation during enter         |
 | `[name]-enter-from`   | Starting state for enter       |
 | `[name]-enter-to`     | Ending state for enter         |
@@ -1537,7 +1537,7 @@ li {
 ## Transition Hooks
 
 | Hook            | Description                 |
-| --------------- | --------------------------- |
+| :-------------- | :-------------------------- |
 | `@before-enter` | Runs before enter animation |
 | `@enter`        | Runs during enter animation |
 | `@after-enter`  | Runs after enter animation  |
@@ -1550,7 +1550,7 @@ li {
 ## Animation Utilities
 
 | Utility             | Description                          |
-| ------------------- | ------------------------------------ |
+| :------------------ | :----------------------------------- |
 | `createAnimation`   | Creates a reusable animation         |
 | `withTransition`    | Combines logic with a transition     |
 | `waitForTransition` | Waits for a CSS transition to finish |
@@ -1561,7 +1561,7 @@ li {
 ## Animation Recommendations
 
 | Situation                | Recommended Approach       |
-| ------------------------ | -------------------------- |
+| :----------------------- | :------------------------- |
 | Simple hover effect      | CSS transition             |
 | Fade or slide            | CSS animation              |
 | Enter/leave DOM          | `<transition>`             |

@@ -1,0 +1,225 @@
+<!-- app.vel - Main Dashboard Component -->
+<template>
+    <div class="dashboard">
+        <header class="dashboard-header">
+            <h1>📦 <span>Product</span> Dashboard</h1>
+            <span style="color: var(--gray-500); font-size: 14px;">
+                {{ filteredProducts.length }} products • {{ cartCount }} in cart
+            </span>
+        </header>
+
+        <filter-bar
+            :categories="categories"
+            :results-count="filteredProducts.length"
+            @filter-change="onFilterChange"
+            @filter-reset="onFilterReset"
+        />
+
+        <div class="dashboard-grid">
+            <div class="products-section">
+                <div :show="loading" class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading products...</p>
+                </div>
+
+                <div :show="!loading && filteredProducts.length === 0" class="empty-state">
+                    <span class="emoji">🔍</span>
+                    <h3>No products found</h3>
+                    <p>Try adjusting your filters</p>
+                </div>
+
+                <div :show="!loading && filteredProducts.length > 0" class="product-grid">
+                    <product-card
+                        v-for="product in filteredProducts"
+                        :key="product.id"
+                        :product="product"
+                        :in-cart="isInCart(product.id)"
+                        @add-to-cart="addToCart"
+                    />
+                </div>
+            </div>
+
+            <cart-widget
+                :items="cart"
+                @remove-item="removeFromCart"
+                @clear-cart="clearCart"
+                @checkout="handleCheckout"
+            />
+        </div>
+    </div>
+</template>
+
+<script>
+import ProductCard from './components/ProductCard.vel';
+import CartWidget from './components/CartWidget.vel';
+import FilterBar from './components/FilterBar.vel';
+
+export default {
+    name: 'AppDashboard',
+    components: {
+        ProductCard,
+        CartWidget,
+        FilterBar
+    },
+    data: function() {
+        var initialState = window.__INITIAL_STATE__ || { products: [], categories: [] };
+        return {
+            products: initialState.products || [],
+            categories: initialState.categories || [],
+            cart: [],
+            loading: false,
+            filters: {
+                search: '',
+                category: '',
+                minPrice: '',
+                maxPrice: ''
+            }
+        };
+    },
+    computed: {
+        filteredProducts: function() {
+            var filtered = this.products;
+            var self = this;
+
+            if (this.filters.category) {
+                filtered = filtered.filter(function(p) {
+                    return p.category === self.filters.category;
+                });
+            }
+
+            if (this.filters.minPrice) {
+                filtered = filtered.filter(function(p) {
+                    return p.price >= Number(self.filters.minPrice);
+                });
+            }
+
+            if (this.filters.maxPrice) {
+                filtered = filtered.filter(function(p) {
+                    return p.price <= Number(self.filters.maxPrice);
+                });
+            }
+
+            if (this.filters.search) {
+                var searchLower = this.filters.search.toLowerCase();
+                filtered = filtered.filter(function(p) {
+                    return p.name.toLowerCase().indexOf(searchLower) !== -1;
+                });
+            }
+
+            return filtered;
+        },
+        cartCount: function() {
+            return this.cart.length;
+        }
+    },
+    methods: {
+        isInCart: function(productId) {
+            for (var i = 0; i < this.cart.length; i++) {
+                if (this.cart[i].id === productId) {
+                    return true;
+                }
+            }
+            return false;
+        },
+        onFilterChange: function(filters) {
+            this.filters = filters;
+        },
+        onFilterReset: function() {
+            this.filters = {
+                search: '',
+                category: '',
+                minPrice: '',
+                maxPrice: ''
+            };
+        },
+        addToCart: function(productId) {
+            var self = this;
+            fetch('/api/cart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    product_id: productId,
+                    action: 'add'
+                })
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var product = self.products.filter(function(p) {
+                        return p.id === productId;
+                    })[0];
+                    if (product && !self.isInCart(productId)) {
+                        self.cart.push({
+                            id: product.id,
+                            name: product.name,
+                            price: product.price,
+                            category: product.category,
+                            stock: product.stock,
+                            rating: product.rating
+                        });
+                    }
+                }
+            })
+            .catch(function(error) {
+                console.error('Failed to add to cart:', error);
+            });
+        },
+        removeFromCart: function(productId) {
+            var self = this;
+            fetch('/api/cart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    product_id: productId,
+                    action: 'remove'
+                })
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    self.cart = self.cart.filter(function(item) {
+                        return item.id !== productId;
+                    });
+                }
+            })
+            .catch(function(error) {
+                console.error('Failed to remove from cart:', error);
+            });
+        },
+        clearCart: function() {
+            var self = this;
+            fetch('/api/cart', {
+                method: 'DELETE'
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    self.cart = [];
+                }
+            })
+            .catch(function(error) {
+                console.error('Failed to clear cart:', error);
+            });
+        },
+        handleCheckout: function() {
+            if (this.cart.length === 0) return;
+            alert('Proceeding to checkout with ' + this.cartCount + ' items!');
+        },
+        loadCart: function() {
+            var self = this;
+            fetch('/api/cart')
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                self.cart = data.items || [];
+            })
+            .catch(function(error) {
+                console.error('Failed to load cart:', error);
+            });
+        }
+    },
+    mounted: function() {
+        this.loadCart();
+        console.log('🚀 Teloce .vel Dashboard initialized!');
+    }
+};
+</script>

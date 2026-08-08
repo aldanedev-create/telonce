@@ -1,0 +1,151 @@
+<!-- ProductCard.vel -->
+<template>
+    <div class="product-card">
+        <div class="product-name">{{ product.name }}</div>
+        <div class="product-category">{{ product.category }}</div>
+        <div class="product-price">${{ product.price | currency }}</div>
+        <div class="product-rating">
+            <span class="stars">{{ product.rating }} ★</span>
+            <span>({{ product.reviews || 0 }})</span>
+        </div>
+        <div class="product-stock" :class="stockClass">
+            {{ stockText }}
+        </div>
+        <button
+            class="btn btn-primary"
+            @click="addToCart"
+            :disabled="product.stock === 0 || inCart"
+        >
+            {{ inCart ? '✓ In Cart' : 'Add to Cart' }}
+        </button>
+    </div>
+</template>
+
+<script>
+export default {
+    name: 'ProductCard',
+    props: {
+        product: {
+            type: Object,
+            required: true
+        },
+        inCart: {
+            type: Boolean,
+            default: false
+        }
+    },
+    emits: ['add-to-cart'],
+    computed: {
+        stockText: function() {
+            if (this.product.stock === 0) return 'Out of Stock';
+            if (this.product.stock < 5) return 'Only ' + this.product.stock + ' left!';
+            return this.product.stock + ' in stock';
+        },
+        stockClass: function() {
+            if (this.product.stock === 0) return 'out-of-stock';
+            if (this.product.stock < 5) return 'low-stock';
+            return 'in-stock';
+        }
+    },
+    methods: {
+        addToCart: function() {
+            this.$emit('add-to-cart', this.product.id);
+        }
+    }
+};
+</script>
+
+<style scoped>
+.product-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--gray-200);
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+}
+
+.product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-light);
+}
+
+.product-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 4px;
+}
+
+.product-category {
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-bottom: 8px;
+}
+
+.product-price {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 8px 0;
+}
+
+.product-rating {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    color: var(--gray-600);
+    margin-bottom: 8px;
+}
+
+.product-rating .stars {
+    color: var(--warning);
+}
+
+.product-stock {
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.product-stock.in-stock {
+    color: var(--success);
+}
+
+.product-stock.out-of-stock {
+    color: var(--danger);
+}
+
+.product-stock.low-stock {
+    color: var(--warning);
+}
+
+.btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    width: 100%;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--primary-dark);
+    transform: scale(1.02);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+</style>

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+
+    <!-- Teloce CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/teloce@0.3.0/dist/teloce.global.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 24px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #6366f1;
+        }
+
+        .logo span {
+            color: #1e293b;
+        }
+
+        .cart-widget {
+            position: relative;
+            cursor: pointer;
+            padding: 8px 16px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cart-count {
+            background: #6366f1;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Product Grid */
+        .filters {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filters select,
+        .filters input {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .filters input {
+            width: 120px;
+        }
+
+        .filters button {
+            padding: 8px 20px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .filters button:hover {
+            background: #4f46e5;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .product-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #1e293b;
+        }
+
+        .product-category {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .product-price {
+            font-size: 22px;
+            font-weight: 700;
+            color: #6366f1;
+            margin: 8px 0;
+        }
+
+        .product-stock {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .product-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: auto;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+
+        .btn-primary:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* Cart Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 24px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #94a3b8;
+        }
+
+        .modal-close:hover {
+            color: #1e293b;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .cart-item:last-child {
+            border-bottom: none;
+        }
+
+        .cart-item-name {
+            font-weight: 500;
+        }
+
+        .cart-item-price {
+            color: #6366f1;
+            font-weight: 600;
+        }
+
+        .cart-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            margin-top: 16px;
+            border-top: 2px solid #e2e8f0;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0% {
+                content: '';
+            }
+            33% {
+                content: '.';
+            }
+            66% {
+                content: '..';
+            }
+            100% {
+                content: '...';
+            }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state .emoji {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .product-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filters input,
+            .filters select {
+                width: 100%;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <div class="container">
+            <header class="header">
+                <div class="logo">Teloce <span>+ Flask</span></div>
+                <div class="cart-widget" @click="toggleCart">
+                    🛒 Cart
+                    <span class="cart-count">{{ cartCount }}</span>
+                </div>
+            </header>
+
+            <!-- Filters -->
+            <div class="filters">
+                <select :model="filters.category" @change="applyFilters">
+                    <option value="">All Categories</option>
+                    <for key="cat" item="cat" in="categories">
+                        <option :value="cat">{{ cat }}</option>
+                    </for>
+                </select>
+
+                <input type="number" :model="filters.minPrice" placeholder="Min Price" @input="applyFilters" />
+                <input type="number" :model="filters.maxPrice" placeholder="Max Price" @input="applyFilters" />
+
+                <button @click="resetFilters">Reset Filters</button>
+                <span style="margin-left: auto; color: #94a3b8; font-size: 14px;">
+                    {{ filteredProducts.length }} products
+                </span>
+            </div>
+
+            <!-- Products -->
+            <div :show="loading" class="loading">Loading</div>
+
+            <div class="product-grid">
+                <for key="id" item="product" in="filteredProducts">
+                    <div class="product-card">
+                        <div class="product-name">{{ product.name }}</div>
+                        <div class="product-category">{{ product.category }}</div>
+                        <div class="product-price">${{ product.price | currency }}</div>
+                        <div class="product-stock">
+                            {{ product.stock > 0 ? product.stock + ' in stock' : 'Out of stock' }}
+                        </div>
+                        <div class="product-actions">
+                            <button
+                                class="btn btn-primary"
+                                @click="addToCart(product.id)"
+                                :disabled="product.stock === 0 || isInCart(product.id)"
+                            >
+                                {{ isInCart(product.id) ? '✓ In Cart' : 'Add to Cart' }}
+                            </button>
+                        </div>
+                    </div>
+                </for>
+            </div>
+
+            <!-- Empty State -->
+            <div :show="!loading && filteredProducts.length === 0" class="empty-state">
+                <div class="emoji">📦</div>
+                <h3>No products found</h3>
+                <p>Try adjusting your filters</p>
+            </div>
+        </div>
+
+        <!-- Cart Modal -->
+        <div :show="cartOpen" class="modal-backdrop" @click="toggleCart">
+            <div class="modal" @click.stop>
+                <div class="modal-header">
+                    <h2>Your Cart</h2>
+                    <button class="modal-close" @click="toggleCart">✕</button>
+                </div>
+
+                <div :show="cartItems.length === 0" class="empty-state" style="padding: 20px;">
+                    <div class="emoji">🛒</div>
+                    <p>Your cart is empty</p>
+                </div>
+
+                <div v-for="item in cartItems" :key="item.id" class="cart-item">
+                    <span class="cart-item-name">{{ item.name }}</span>
+                    <span class="cart-item-price">${{ item.price | currency }}</span>
+                </div>
+
+                <div :show="cartItems.length > 0" class="cart-total">
+                    <span>Total</span>
+                    <span>${{ cartTotal | currency }}</span>
+                </div>
+
+                <div :show="cartItems.length > 0" style="margin-top: 16px; display: flex; gap: 8px;">
+                    <button class="btn btn-danger" style="flex: 1;" @click="clearCart">
+                        Clear Cart
+                    </button>
+                    <button class="btn btn-primary" style="flex: 1;" @click="checkout">
+                        Checkout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Teloce app with data from Flask
+        const app = teloce.createApp('#app', {
+            // Data from Flask (via Jinja)
+            products: {{ products|tojson }},
+            categories: {{ products|map(attribute='category')|unique|list|tojson }},
+
+            // Reactive state
+            filters: {
+                category: '',
+                minPrice: '',
+                maxPrice: ''
+            },
+            cart: [],
+            cartOpen: false,
+            loading: false,
+
+            // Computed
+            computed: {
+                filteredProducts() {
+                    let filtered = this.products;
+
+                    if (this.filters.category) {
+                        filtered = filtered.filter(p => p.category === this.filters.category);
+                    }
+
+                    if (this.filters.minPrice) {
+                        filtered = filtered.filter(p => p.price >= Number(this.filters.minPrice));
+                    }
+
+                    if (this.filters.maxPrice) {
+                        filtered = filtered.filter(p => p.price <= Number(this.filters.maxPrice));
+                    }
+
+                    return filtered;
+                },
+                cartItems() {
+                    return this.cart;
+                },
+                cartCount() {
+                    return this.cart.length;
+                },
+                cartTotal() {
+                    return this.cart.reduce((sum, item) => sum + item.price, 0);
+                }
+            },
+
+            // Methods
+            methods: {
+                applyFilters() {
+                    // Filters are applied automatically via computed
+                },
+
+                resetFilters() {
+                    this.filters = {
+                        category: '',
+                        minPrice: '',
+                        maxPrice: ''
+                    };
+                },
+
+                isInCart(productId) {
+                    return this.cart.some(item => item.id === productId);
+                },
+
+                async addToCart(productId) {
+                    try {
+                        const response = await fetch('/api/cart', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                product_id: productId,
+                                action: 'add'
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            // Add product to local cart
+                            const product = this.products.find(p => p.id === productId);
+                            if (product && !this.isInCart(productId)) {
+                                this.cart.push({ ...product });
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to add to cart:', error);
+                    }
+                },
+
+                async removeFromCart(productId) {
+                    try {
+                        const response = await fetch('/api/cart', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                product_id: productId,
+                                action: 'remove'
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            this.cart = this.cart.filter(item => item.id !== productId);
+                        }
+                    } catch (error) {
+                        console.error('Failed to remove from cart:', error);
+                    }
+                },
+
+                async clearCart() {
+                    try {
+                        const response = await fetch('/api/cart', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'clear' })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            this.cart = [];
+                        }
+                    } catch (error) {
+                        console.error('Failed to clear cart:', error);
+                    }
+                },
+
+                toggleCart() {
+                    this.cartOpen = !this.cartOpen;
+                },
+
+                async checkout() {
+                    if (this.cart.length === 0) return;
+
+                    alert('Checkout functionality coming soon!');
+                    // In a real app, you would redirect to checkout
+                },
+
+                // Load cart on mount
+                async loadCart() {
+                    try {
+                        const response = await fetch('/api/cart');
+                        const data = await response.json();
+                        this.cart = data.items || [];
+                    } catch (error) {
+                        console.error('Failed to load cart:', error);
+                    }
+                }
+            },
+
+            // Lifecycle
+            mounted() {
+                this.loadCart();
+                console.log('🚀 Teloce + Flask app initialized!');
+                console.log('Products:', this.products);
+            }
+        });
+
+        // Add currency filter globally
+        app.filter('currency', (value) => {
+            return value.toFixed(2);
+        });
+    </script>
+</body>
+</html>

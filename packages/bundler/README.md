@@ -1,23 +1,34 @@
 # @teloce/bundler
 
-Production bundler for Teloce - tree-shaking, minification, and chunk splitting.
+
+ <p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+Production bundler for Teloce with **tree-shaking, minification, and chunk splitting**.
 
 ## Installation
 
 ```bash
 npm install @teloce/bundler
-What It Does
+```
+
+## What It Does
+
 The bundler optimizes your Teloce application for production by:
 
-Tree-shaking: Removes unused code from your bundle
+* **Tree-shaking** — Removes unused code from your bundle.
+* **Minification** — Compresses JavaScript, CSS, and HTML.
+* **Chunk splitting** — Splits your code into optimized chunks for faster loading.
 
-Minification: Compresses JavaScript, CSS, and HTML
+## Usage
 
-Chunk splitting: Splits your code into optimal chunks for faster loading
+### Basic Bundle
 
-Usage
-Basic Bundle
-javascript
+```javascript
 import { bundle } from '@teloce/bundler';
 
 const result = bundle({
@@ -29,9 +40,17 @@ const result = bundle({
 
 console.log('Bundled files:', result.files);
 console.log('Stats:', result.stats);
-With Tree-shaking
-javascript
-import { treeShake, analyzeImports, analyzeExports } from '@teloce/bundler';
+```
+
+### With Tree-shaking
+
+```javascript
+import {
+  treeShake,
+  analyzeImports,
+  analyzeExports,
+  removeUnused
+} from '@teloce/bundler';
 
 // Analyze imports in a module
 const imports = analyzeImports(code, 'module.js');
@@ -40,10 +59,21 @@ const imports = analyzeImports(code, 'module.js');
 const exports = analyzeExports(code, 'module.js');
 
 // Remove unused code
-const optimized = removeUnused(code, new Set(['usedFunction']));
-With Minification
-javascript
-import { minify, minifyJavaScript, minifyCSS, minifyHTML } from '@teloce/bundler';
+const optimized = removeUnused(
+  code,
+  new Set(['usedFunction'])
+);
+```
+
+### With Minification
+
+```javascript
+import {
+  minify,
+  minifyJavaScript,
+  minifyCSS,
+  minifyHTML
+} from '@teloce/bundler';
 
 // Minify JavaScript
 const result = minifyJavaScript(code, {
@@ -59,63 +89,82 @@ const cssResult = minifyCSS(cssCode);
 
 // Minify HTML
 const htmlResult = minifyHTML(htmlCode);
-With Chunk Splitting
-javascript
-import { createChunks, splitChunks, optimizeChunks } from '@teloce/bundler';
+```
+
+### With Chunk Splitting
+
+```javascript
+import {
+  createChunks,
+  splitChunks,
+  optimizeChunks
+} from '@teloce/bundler';
 
 // Create chunks from entry files
-const result = createChunks(['src/app.js', 'src/admin.js'], {
-  splitVendor: true,
-  targetSize: 50000
-});
+const result = createChunks(
+  ['src/app.js', 'src/admin.js'],
+  {
+    splitVendor: true,
+    targetSize: 50000
+  }
+);
 
 // Optimize chunks
 const optimized = optimizeChunks(result.chunks, {
   minSize: 10000
 });
-API Reference
-bundle(options)
+```
+
+## API Reference
+
+### `bundle(options)`
+
 Bundle a Teloce application.
 
-Options:
+**Options:**
 
-entry - Entry file(s)
+| Option      | Description             |
+| ----------- | ----------------------- |
+| `entry`     | Entry file or files     |
+| `outDir`    | Output directory        |
+| `treeShake` | Enable tree-shaking     |
+| `minify`    | Enable minification     |
+| `chunks`    | Enable chunk splitting  |
+| `sourceMap` | Generate source maps    |
+| `dev`       | Enable development mode |
 
-outDir - Output directory
+### `treeShake(entries, options)`
 
-treeShake - Enable tree-shaking
-
-minify - Enable minification
-
-chunks - Enable chunk splitting
-
-sourceMap - Generate source maps
-
-dev - Development mode
-
-treeShake(entries, options)
 Perform tree-shaking on modules.
 
-minify(code, options)
-Minify code with auto-detection.
+### `minify(code, options)`
 
-minifyJavaScript(code, options)
+Minify code with automatic format detection.
+
+### `minifyJavaScript(code, options)`
+
 Minify JavaScript code.
 
-minifyCSS(code, options)
+### `minifyCSS(code, options)`
+
 Minify CSS code.
 
-minifyHTML(code, options)
+### `minifyHTML(code, options)`
+
 Minify HTML code.
 
-createChunks(entries, options)
+### `createChunks(entries, options)`
+
 Create chunks from entry files.
 
-splitChunks(modules, options)
-Split code into chunks.
+### `splitChunks(modules, options)`
 
-optimizeChunks(chunks, options)
+Split modules into chunks.
+
+### `optimizeChunks(chunks, options)`
+
 Optimize chunk configuration.
 
-License
+## License
+
 MIT

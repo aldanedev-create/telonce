@@ -1,79 +1,424 @@
 # Teloce
 
-> A TypeScript template engine for Python web developers.
+
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+**Author:** Aldane Hutchinson
+
+A JavaScript template engine for Python web developers.
+* [Teloce Website](https://telonce-website.vercel.app/#/)
+
+
+---
 
 ## What is Teloce?
 
-Teloce is a modern, production-grade JavaScript template engine built in TypeScript, specifically designed for Python web developers using Flask, Django, FastAPI, and other Python frameworks.
+**Teloce** is a modern, production-grade JavaScript template engine built with TypeScript, specifically designed for Python web developers using Flask, Django, FastAPI, and other Python frameworks.
 
-### Key Features
+---
 
-- **Python-First Philosophy**: Write JavaScript, not TypeScript. No Node.js required.
-- **Signals-Based Reactivity**: Fine-grained updates without Virtual DOM.
-- **Keyed Loops**: Fast list rendering with node reuse.
-- **Human-Friendly Debugger**: Translates cryptic JavaScript errors into plain English.
-- **CDN First**: Start with one `<script>` tag, no build tools needed.
-- **Jinja/JinjaX Compatible**: Works seamlessly with your existing templates.
-- **14 npm Packages**: Modular architecture, install only what you need.
+## Key Features
 
-## Quick Start
+* **Python-First Philosophy** — Write JavaScript, not TypeScript. No Node.js required for browser usage.
+* **Signals-Based Reactivity** — Fine-grained updates without a Virtual DOM.
+* **Keyed Loops** — Fast list rendering with efficient DOM node reuse.
+* **Human-Friendly Debugger** — Translates cryptic JavaScript errors into plain English.
+* **CDN First** — Get started with a single `<script>` tag, with no build tools required.
+* **Jinja / JinjaX Compatible** — Works seamlessly with existing Python templates.
+* **Modular Packages** — Install only the packages you need.
+* **Plugin System** — Extend Teloce with custom directives, filters, components, and transforms.
 
-### CDN (No build tools)
+---
+
+## Python Framework Compatibility
+
+Teloce works with major Python web frameworks:
+
+| Framework   | Description                          | Integration                      |
+| ----------- | ------------------------------------ | -------------------------------- |
+| **Flask**   | Lightweight Python web framework     | `render_template()` + Teloce CDN |
+| **Django**  | High-level Python web framework      | Template tags + Teloce CDN       |
+| **FastAPI** | Modern Python web framework for APIs | `Jinja2Templates` + Teloce CDN   |
+| **Quart**   | Async Python web framework           | `render_template()` + Teloce CDN |
+| **Flaxon**  | Python web framework                 | `render_template()` + Teloce CDN |
+
+---
+
+## Jinja & JinjaX Compatibility
+
+### Jinja Compatibility
+
+Teloce works directly with **Jinja** templates. Python data can be passed from your backend to Teloce using Jinja's `|tojson` filter.
 
 ```html
-<script src="https://cdn.teloce.dev/teloce.min.js"></script>
+<!-- templates/index.html -->
+
+<div id="app">
+    <h1>Hello {{ user.name }}</h1>
+
+    <ul>
+        {% for product in products %}
+            <li>{{ product.name }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<script>
+    teloce.createApp('#app', {
+        user: {{ user|tojson }},
+        products: {{ products|tojson }}
+    });
+</script>
+```
+
+### JinjaX Compatibility
+
+Teloce also works with **JinjaX**, allowing you to embed Teloce inside component-based JinjaX templates.
+
+```jinja
+{# components/ProductList.jinja #}
+{#def title, products #}
+
+<div id="app">
+    <h2>{{ title }}</h2>
+
+    <ul>
+        {% for product in products %}
+            <li>{{ product.name }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<script>
+    teloce.createApp('#app', {
+        title: {{ title|tojson }},
+        products: {{ products|tojson }}
+    });
+</script>
+```
+
+### Using Jinja and JinjaX Together
+
+Teloce does not depend on which server-side template engine generates the HTML.
+
+It only needs:
+
+1. HTML to render.
+2. Data passed from the backend.
+3. A `<script>` tag to initialize Teloce.
+
+You can use Jinja, JinjaX, or even static HTML:
+
+```html
+<!-- templates/index.html -->
+
+{% from 'components/ProductList.jinja' import ProductList %}
+
+<header>
+    <h1>{{ page_title }}</h1>
+</header>
+
+<main id="app">
+    {{ ProductList(products=products) }}
+</main>
+
+<script>
+    teloce.createApp('#app', {
+        products: {{ products|tojson }},
+        cart: []
+    });
+</script>
+```
+
+### Jinja Filters
+
+Teloce supports Jinja-style filters and can work alongside server-side template filters.
+
+```html
+<div id="app">
+    <p>{{ product.price | currency }}</p>
+    <p>{{ product.name | uppercase }}</p>
+    <p>{{ date | dateFormat('YYYY-MM-DD') }}</p>
+</div>
+```
+
+### Keyed Loops
+
+Teloce provides keyed loops for efficient client-side rendering:
+
+```html
+<ul>
+    <for key="id" item="product" in="products">
+        <li>{{ product.name }}</li>
+    </for>
+</ul>
+```
+
+---
+
+## Why Teloce Works with Jinja and JinjaX
+
+| Feature             | Jinja       | JinjaX         | Teloce              |
+| ------------------- | ----------- | -------------- | ------------------- |
+| **Renders HTML**    | ✅           | ✅              | ✅                   |
+| **Passes Data**     | `{{ var }}` | `{#def var #}` | `{{ var\|tojson }}` |
+| **Reactivity**      | ❌           | ❌              | ✅ Signals           |
+| **Event Handling**  | ❌           | ❌              | ✅ `@click`          |
+| **Two-Way Binding** | ❌           | ❌              | ✅ `:model`          |
+| **Keyed Loops**     | ❌           | ❌              | ✅ `<for key="id">`  |
+| **Human Debugger**  | ❌           | ❌              | ✅ Human-friendly    |
+
+### The Key Idea
+
+Teloce only cares about the **client-side JavaScript layer**.
+
+It does not matter whether the HTML was generated by:
+
+* Jinja
+* JinjaX
+* Flask
+* Django
+* FastAPI
+* Static HTML
+* Another Python template system
+
+The server generates the HTML and data, while Teloce provides client-side reactivity and interaction.
+
+---
+
+# Quick Start
+
+## CDN — No Build Tools
+
+Add Teloce directly to your HTML:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/teloce@latest/dist/teloce.global.js"></script>
+
 <div id="app">
     <h1>Hello {{ name }}</h1>
     <button @click="count++">{{ count }}</button>
 </div>
+
 <script>
     teloce.create('#app', {
         name: 'Python Developer',
         count: 0
     });
 </script>
+```
+
+---
+
+## Flask + Jinja
+
+### Flask Application
+
+```python
+# app.py
+
+from flask import Flask, render_template
+
+app = Flask(__name__)
 
 
-npm
-bash
+@app.route("/")
+def home():
+    return render_template(
+        "index.html",
+        user={"name": "John"},
+        products=[
+            {"name": "Product A"},
+            {"name": "Product B"}
+        ]
+    )
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
+```
+
+### Jinja Template
+
+```html
+<!-- templates/index.html -->
+
+<div id="app">
+    <h1>Hello {{ user.name }}</h1>
+
+    <for key="id" item="product" in="products">
+        <div>{{ product.name }}</div>
+    </for>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/teloce@latest/dist/teloce.global.js"></script>
+
+<script>
+    teloce.createApp('#app', {
+        user: {{ user|tojson }},
+        products: {{ products|tojson }}
+    });
+</script>
+```
+
+---
+
+## JinjaX
+
+Example JinjaX component:
+
+```jinja
+{# components/UserCard.jinja #}
+{#def user #}
+
+<div class="card">
+    <h2>{{ user.name }}</h2>
+    <p>{{ user.email }}</p>
+</div>
+
+<script>
+    teloce.createApp('#app', {
+        user: {{ user|tojson }}
+    });
+</script>
+```
+
+---
+
+## npm
+
+Install Teloce using npm:
+
+```bash
 npm install teloce
-javascript
-import { createApp } from 'teloce';
+```
 
-createApp('#app', {
-    name: 'Python Developer',
+Then import and initialize it:
+
+```javascript
+import { createApp } from "teloce";
+
+createApp("#app", {
+    name: "Python Developer",
     count: 0
 });
-CLI
-bash
+```
+
+---
+
+## CLI
+
+Install the Teloce CLI globally:
+
+```bash
 npm install -g @teloce/cli
+```
+
+Create a new project:
+
+```bash
 teloce create my-app
+```
+
+Start the development server:
+
+```bash
 teloce dev
-Documentation
-Getting Started
+```
 
-API Reference
+Open the debugger:
 
-Examples
+```bash
+teloce debug
+```
 
-Packages
-Package	npm	Description
-teloce	teloce	Umbrella package (CDN + npm)
-core	@teloce/core	Core library
-compiler	@teloce/compiler	Template compiler
-reactivity	@teloce/reactivity	Signals system
-runtime-dom	@teloce/runtime-dom	DOM runtime
-cli	@teloce/cli	Command-line interface
-debugger	@teloce/debugger	Human-friendly debugger
-License
+---
+
+# Plugin System
+
+Teloce includes a **small-scale, technology-neutral plugin system** that allows developers to extend the template engine.
+
+## What Plugins Can Do
+
+| Feature               | Description                                        |
+| --------------------- | -------------------------------------------------- |
+| **Custom Directives** | Add directives such as `@animate` and `@validate`. |
+| **Custom Filters**    | Add filters such as `markdown` and `truncate`.     |
+| **Custom Components** | Register reusable components.                      |
+| **Transform Hooks**   | Modify the AST before or after compilation.        |
+| **Render Hooks**      | Intercept the rendering process.                   |
+| **Helpers**           | Add utility functions to templates.                |
+
+## Example Plugin
+
+```javascript
+const MarkdownPlugin = {
+    name: "markdown",
+    version: "1.0.0",
+
+    filters: [
+        {
+            name: "markdown",
+            transform: (value) => marked(value)
+        }
+    ],
+
+    directives: [
+        {
+            name: "markdown",
+            render: (el, binding) => {
+                el.innerHTML = marked(binding.value);
+            }
+        }
+    ]
+};
+
+// Register the plugin
+teloce.use(MarkdownPlugin);
+```
+
+---
+
+# Packages
+
+| Package           | npm                     | Description                             |
+| ----------------- | ----------------------- | --------------------------------------- |
+| **teloce**        | `teloce`                | Umbrella package for CDN and npm usage  |
+| **core**          | `@teloce/core`          | Core library                            |
+| **compiler**      | `@teloce/compiler`      | Template compiler                       |
+| **reactivity**    | `@teloce/reactivity`    | Signals-based reactivity system         |
+| **runtime-dom**   | `@teloce/runtime-dom`   | DOM runtime                             |
+| **cli**           | `@teloce/cli`           | Command-line interface                  |
+| **debugger**      | `@teloce/debugger`      | Human-friendly debugger                 |
+| **bundler**       | `@teloce/bundler`       | Production bundler and optimizer        |
+| **sfc**           | `@teloce/sfc`           | Single File Component (`.vel`) compiler |
+| **server**        | `@teloce/server`        | Development server with HMR             |
+| **plugin-system** | `@teloce/plugin-system` | Plugin system                           |
+
+> **Note:** Teloce is composed of multiple modular npm packages. The table above lists the primary packages.
+
+---
+
+# License
+
 MIT
 
-Contributing
-Please read CONTRIBUTING.md for details on our code of conduct and the process for submitting pull requests.
+---
 
-Support
-GitHub Issues
+# Contributing
 
-Discord
+Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for information about the code of conduct and the process for submitting pull requests.
 
-Twitter
+---
+
+# Support
+
+* **GitHub Issues** — Report bugs and request features.
+* **Discord** — Join the community and get help.
+* **Twitter / X** — Follow Teloce updates.

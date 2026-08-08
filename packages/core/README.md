@@ -1,14 +1,23 @@
 # @teloce/core
 
-Core library for Teloce - composable API for bundler/tree-shaking users.
+Core library for Teloce — provides a composable API for applications, bundlers, and tree-shaking users.
 
 ## Installation
 
 ```bash
 npm install @teloce/core
-Usage
-javascript
-import { createApp, defineComponent, createSignal } from '@teloce/core';
+```
+
+## Usage
+
+```javascript
+import {
+  createApp,
+  defineComponent,
+  createSignal,
+  createEffect,
+  createComputed
+} from '@teloce/core';
 
 // Create an app
 const app = createApp('#app', {
@@ -19,11 +28,13 @@ const app = createApp('#app', {
 // Define a component
 const MyComponent = defineComponent({
   name: 'MyComponent',
+
   data() {
     return {
       message: 'Hello World'
     };
   },
+
   methods: {
     greet() {
       console.log(this.message);
@@ -41,48 +52,75 @@ createEffect(() => {
 
 // Create a computed value
 const double = createComputed(() => count() * 2);
-API
-createApp
+```
+
+## API Reference
+
+### `createApp()`
+
 Creates a new Teloce application.
 
-javascript
+```javascript
 const app = createApp('#app', {
   count: 0,
   name: 'Teloce'
 });
-defineComponent
-Defines a component.
+```
 
-javascript
+### `defineComponent()`
+
+Defines a reusable Teloce component.
+
+```javascript
 const MyComponent = defineComponent({
   name: 'MyComponent',
+
   data() {
     return {
       message: 'Hello World'
     };
   },
+
   methods: {
     greet() {
       console.log(this.message);
     }
   }
 });
-createSignal
+```
+
+### `createSignal()`
+
 Creates a reactive signal.
 
-javascript
+```javascript
 const [count, setCount] = createSignal(0);
-createEffect
-Creates an effect that runs when dependencies change.
 
-javascript
+console.log(count());
+
+setCount(10);
+
+console.log(count());
+```
+
+### `createEffect()`
+
+Creates a reactive effect that automatically runs whenever its dependencies change.
+
+```javascript
 createEffect(() => {
   console.log('Count changed:', count());
 });
-createComputed
-Creates a computed value.
+```
 
-javascript
+### `createComputed()`
+
+Creates a computed reactive value based on other signals.
+
+```javascript
 const double = createComputed(() => count() * 2);
-License
+```
+
+## License
+
 MIT

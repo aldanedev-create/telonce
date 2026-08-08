@@ -1,23 +1,34 @@
 # @teloce/runtime-dom
 
-DOM runtime for Teloce - reconciler, directives, keyed loops, and events.
+> DOM runtime for Teloce — reconciler, directives, keyed loops, and event handling.
+
+---
 
 ## Installation
 
 ```bash
 npm install @teloce/runtime-dom
-Keyed Loops
-Efficient list rendering with Map-cache and insertBefore moves:
+```
 
-javascript
-import { For, createFor } from '@teloce/runtime-dom';
+---
 
-// Template syntax
+## Keyed Loops
+
+Efficient list rendering using a `Map` cache and `insertBefore` moves.
+
+### Template Syntax
+
+```html
 <for key="id" item="product" in="products">
   <div>{{ product.name }}</div>
 </for>
+```
 
-// JavaScript API
+### JavaScript API
+
+```javascript
+import { For, createFor } from '@teloce/runtime-dom';
+
 const { update, unmount } = createFor(
   container,
   productsSignal,
@@ -28,59 +39,121 @@ const { update, unmount } = createFor(
   },
   (item) => item.id
 );
-Conditional Rendering
-javascript
-import { If, createIf } from '@teloce/runtime-dom';
+```
 
-// Template syntax
+---
+
+## Conditional Rendering
+
+Render different content based on a reactive condition.
+
+### Template Syntax
+
+```html
 <if loggedIn>
   <h1>Welcome back!</h1>
   <else>
     <button>Login</button>
+  </else>
 </if>
+```
 
-// JavaScript API
+### JavaScript API
+
+```javascript
+import { If, createIf } from '@teloce/runtime-dom';
+
 const { update } = createIf(
   container,
   loggedInSignal,
   () => document.createElement('h1'),
   () => document.createElement('button')
 );
-Two-Way Binding
-javascript
-import { Model, createModel } from '@teloce/runtime-dom';
+```
 
-// Template syntax
+---
+
+## Two-Way Binding
+
+Bind form controls to reactive signals using `:model`.
+
+### Template Syntax
+
+```html
 <input :model="username">
 <h2>Hello {{ username }}</h2>
+```
 
-// JavaScript API
+### JavaScript API
+
+```javascript
+import { Model, createModel } from '@teloce/runtime-dom';
+
 const { update, unmount } = createModel(
   inputElement,
   usernameSignal
 );
-Dynamic Classes
-javascript
+```
+
+---
+
+## Dynamic Classes
+
+Apply classes dynamically based on reactive state.
+
+### Template Syntax
+
+```html
+<div :class="{ active: isActive, 'text-bold': isBold }"></div>
+```
+
+### JavaScript API
+
+```javascript
 import { Class, createClass } from '@teloce/runtime-dom';
 
-// Template syntax
-<div :class="{ active: isActive, 'text-bold': isBold }">
-
-// JavaScript API
 const { update } = createClass(
   divElement,
   classSignal
 );
-Events
-javascript
-import { bindEvents, createEventHandlerWithModifiers } from '@teloce/runtime-dom';
+```
 
-// Template syntax
-<button @click.prevent="handleClick">Click</button>
+---
 
-// JavaScript API
+## Events
+
+Bind DOM events with support for event modifiers.
+
+### Template Syntax
+
+```html
+<button @click.prevent="handleClick">
+  Click
+</button>
+```
+
+### JavaScript API
+
+```javascript
+import {
+  bindEvents,
+  createEventHandlerWithModifiers,
+} from '@teloce/runtime-dom';
+
 const unbind = bindEvents(button, [
-  createEventHandlerWithModifiers(button, 'click.prevent', handleClick)
+  createEventHandlerWithModifiers(
+    button,
+    'click.prevent',
+    handleClick
+  ),
 ]);
-License
+```
+
+---
+
+## License
+
 MIT
+
+```
+```

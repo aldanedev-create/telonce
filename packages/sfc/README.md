@@ -1,15 +1,24 @@
 # @teloce/sfc
 
-Single File Component (SFC) compiler for Teloce. Compiles `.vel` files into JavaScript.
+> Single File Component (SFC) compiler for Teloce. Compiles `.vel` files into JavaScript and CSS.
+
+---
 
 ## Installation
 
 ```bash
 npm install @teloce/sfc
-What is a .vel File?
-A .vel file is a Single File Component that contains all parts of a component in one file:
+```
 
-html
+---
+
+## What Is a `.vel` File?
+
+A `.vel` file is a **Single File Component (SFC)** that keeps the template, script, and styles together in one file.
+
+### Example
+
+```html
 <!-- Component.vel -->
 <template>
   <div class="component">
@@ -22,17 +31,19 @@ html
 <script>
 export default {
   name: 'MyComponent',
+
   data() {
     return {
       title: 'Hello World',
-      message: 'This is a SFC'
+      message: 'This is a SFC',
     };
   },
+
   methods: {
     handleClick() {
       this.message = 'Clicked!';
-    }
-  }
+    },
+  },
 };
 </script>
 
@@ -41,98 +52,164 @@ export default {
   padding: 20px;
   border: 1px solid #ccc;
 }
+
 h1 {
   color: blue;
 }
 </style>
-Usage
-Compile a .vel file
-javascript
+```
+
+---
+
+## Usage
+
+### Compile a `.vel` File
+
+```javascript
+import fs from 'node:fs';
 import { compile } from '@teloce/sfc';
 
 const source = fs.readFileSync('Component.vel', 'utf-8');
+
 const result = compile(source, {
   filename: 'Component.vel',
   sourceMap: true,
   minify: true,
-  scoped: true
+  scoped: true,
 });
 
 console.log(result.code);
 console.log(result.css);
-Parse only
-javascript
+```
+
+---
+
+### Parse Only
+
+Use `parseSFC()` when you only need to extract the sections of an SFC without compiling them.
+
+```javascript
 import { parseSFC } from '@teloce/sfc';
 
 const result = parseSFC(source);
+
 console.log('Template:', result.template);
 console.log('Script:', result.script);
 console.log('Style:', result.style);
-API
-compile(source, options)
-Compiles a complete .vel file.
+console.log('Name:', result.name);
+console.log('Diagnostics:', result.diagnostics);
+```
 
-Options:
+---
 
-filename - Filename for error reporting
+## API Reference
 
-sourceMap - Enable source maps
+### `compile(source, options)`
 
-minify - Enable minification
+Compiles a complete `.vel` file.
 
-dev - Development mode
+#### Options
 
-target - Target platform ('browser', 'node', 'esm')
+| Option      | Type      | Description                                  |
+| ----------- | --------- | -------------------------------------------- |
+| `filename`  | `string`  | Filename used for error reporting            |
+| `sourceMap` | `boolean` | Enable source maps                           |
+| `minify`    | `boolean` | Enable minification                          |
+| `dev`       | `boolean` | Enable development mode                      |
+| `target`    | `string`  | Target platform: `browser`, `node`, or `esm` |
+| `scoped`    | `boolean` | Enable scoped CSS                            |
 
-scoped - Enable scoped CSS
+#### Returns
 
-Returns:
+| Property      | Description                     |
+| ------------- | ------------------------------- |
+| `code`        | Compiled JavaScript             |
+| `css`         | Compiled CSS                    |
+| `name`        | Component name                  |
+| `sfc`         | Parsed SFC result               |
+| `script`      | Script compilation result       |
+| `style`       | Style compilation result        |
+| `template`    | Template compilation result     |
+| `diagnostics` | Compilation errors and warnings |
 
-code - Compiled JavaScript
+---
 
-css - Compiled CSS
+### `parseSFC(source, options)`
 
-name - Component name
+Parses a `.vel` file into its individual sections.
 
-sfc - Parsed SFC result
+#### Options
 
-script - Script compile result
+| Option     | Type     | Description                       |
+| ---------- | -------- | --------------------------------- |
+| `filename` | `string` | Filename used for error reporting |
 
-style - Style compile result
+#### Returns
 
-template - Template compile result
+| Property      | Description                 |
+| ------------- | --------------------------- |
+| `template`    | Template section            |
+| `script`      | Script section              |
+| `style`       | Style section               |
+| `name`        | Component name              |
+| `diagnostics` | Parsing errors and warnings |
 
-diagnostics - Errors and warnings
+---
 
-parseSFC(source, options)
-Parses a .vel file into sections.
+## Scoped CSS
 
-Options:
+When `scoped: true` is enabled, CSS selectors are automatically scoped to the component.
 
-filename - Filename for error reporting
+### Original CSS
 
-Returns:
+```css
+.component {
+  padding: 20px;
+}
 
-template - Template section
+h1 {
+  color: blue;
+}
+```
 
-script - Script section
+### Compiled Scoped CSS
 
-style - Style section
+```css
+.component[data-teloce-component-abc123] {
+  padding: 20px;
+}
 
-name - Component name
+h1[data-teloce-component-abc123] {
+  color: blue;
+}
+```
 
-diagnostics - Errors and warnings
+The compiler adds a unique `data-teloce-component-*` attribute to component elements so that styles remain isolated from other components.
 
-Scoped CSS
-When scoped: true is enabled, CSS selectors are automatically scoped to the component:
+---
 
-css
-/* Original */
-.component { padding: 20px; }
-h1 { color: blue; }
+## Compilation Flow
 
-/* Scoped */
-.component[data-teloce-component-abc123] { padding: 20px; }
-h1[data-teloce-component-abc123] { color: blue; }
-License
+A `.vel` file is processed through the following stages:
+
+```text
+.vel file
+   │
+   ├── Template ──> Teloce Template Compiler ──> JavaScript
+   │
+   ├── Script ───> JavaScript Compiler ────────> JavaScript
+   │
+   └── Style ────> CSS Processor ──────────────> CSS
+                              │
+                              ▼
+                     Compiled SFC Output
+```
+
+---
+
+## License
+
 MIT
+
+```
+```

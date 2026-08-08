@@ -1,18 +1,37 @@
 # @teloce/reactivity
 
-Reactivity system for Teloce - Signals, Effects, and Computed values.
+> Reactivity system for Teloce — Signals, Effects, and Computed values.
+
+---
 
 ## Installation
 
 ```bash
 npm install @teloce/reactivity
-What is Reactivity?
-Teloce uses a Signals-based reactivity system. Signals are reactive values that automatically track dependencies and update the DOM when they change.
+```
 
-Signals
-A signal is a reactive value that can be read and written:
+---
 
-javascript
+## What Is Reactivity?
+
+Teloce uses a **Signals-based reactivity system**. Signals are reactive values that automatically track dependencies and trigger updates when their values change.
+
+The reactivity package provides:
+
+* **Signals** — Reactive state values
+* **Effects** — Automatically run code when dependencies change
+* **Computed Values** — Derived reactive values
+* **Batching** — Group multiple updates together
+* **Untracked Reads** — Read values without creating dependencies
+* **Dependency Tracking** — Low-level dependency management utilities
+
+---
+
+## Signals
+
+A signal is a reactive value that can be read and written.
+
+```javascript
 import { createSignal } from '@teloce/reactivity';
 
 // Create a signal
@@ -23,33 +42,45 @@ console.log(count()); // 0
 
 // Write the value
 setCount(10);
+
 console.log(count()); // 10
 
-// Update based on current value
-count.update(prev => prev + 1);
-console.log(count()); // 11
-Effects
-An effect runs automatically whenever its dependencies change:
+// Update based on the current value
+count.update((prev) => prev + 1);
 
-javascript
+console.log(count()); // 11
+```
+
+---
+
+## Effects
+
+An effect runs automatically whenever one of its dependencies changes.
+
+```javascript
 import { createSignal, createEffect } from '@teloce/reactivity';
 
 const [count, setCount] = createSignal(0);
 
 createEffect(() => {
   console.log('Count is:', count());
-  // This runs whenever count changes
+  // Runs whenever count changes
 });
 
 setCount(1); // Logs: Count is: 1
 setCount(2); // Logs: Count is: 2
-Computed Values
-A computed value is derived from other signals and updates automatically:
+```
 
-javascript
+---
+
+## Computed Values
+
+A computed value is derived from other signals and updates automatically when its dependencies change.
+
+```javascript
 import { createSignal, createComputed } from '@teloce/reactivity';
 
-const [firstName] = createSignal('John');
+const [firstName, setFirstName] = createSignal('John');
 const [lastName] = createSignal('Doe');
 
 const fullName = createComputed(() => {
@@ -58,127 +89,287 @@ const fullName = createComputed(() => {
 
 console.log(fullName()); // John Doe
 
-firstName.set('Jane');
-console.log(fullName()); // Jane Doe
-Batch Updates
-Batch multiple updates together to prevent unnecessary re-renders:
+setFirstName('Jane');
 
-javascript
+console.log(fullName()); // Jane Doe
+```
+
+---
+
+## Batch Updates
+
+Use `batch()` to group multiple updates together and prevent unnecessary intermediate reactions.
+
+```javascript
 import { createSignal, batch } from '@teloce/reactivity';
 
 const [count, setCount] = createSignal(0);
 const [name, setName] = createSignal('John');
 
-// Both updates trigger only one re-render
 batch(() => {
   setCount(10);
   setName('Jane');
 });
-Untracked
-Read values without creating dependencies:
+```
 
-javascript
-import { createSignal, untracked } from '@teloce/reactivity';
+---
+
+## Untracked Reads
+
+Use `untracked()` to read a reactive value without creating a dependency.
+
+```javascript
+import { createSignal, createEffect, untracked } from '@teloce/reactivity';
 
 const [count, setCount] = createSignal(0);
 
 createEffect(() => {
   // This effect depends on count
   console.log('Count:', count());
-  
-  // But this read is untracked
+
+  // This read does not create an additional dependency
   const current = untracked(() => count());
+
   console.log('Untracked:', current);
 });
-API Reference
-createSignal(initial)
-Creates a new signal.
+```
 
-typescript
-function createSignal<T>(initial: T): Signal<T>
-Returns:
+---
 
-get(): T - Read the current value
+# API Reference
 
-set(value: T | ((prev: T) => T)): void - Set the value
+## `createSignal(initial)`
 
-update(fn: (prev: T) => T): void - Update based on current value
+Creates a new reactive signal.
 
-peek(): T - Read without tracking dependencies
+```typescript
+function createSignal<T>(initial: T): Signal<T>;
+```
 
-createEffect(fn)
-Creates an effect that runs whenever dependencies change.
+### Signal Methods
 
-typescript
-function createEffect(fn: () => void): Effect
-Returns:
+| Method       | Description                                  |
+| ------------ | -------------------------------------------- |
+| `get()`      | Read the current value                       |
+| `set(value)` | Set a new value                              |
+| `update(fn)` | Update the value based on the previous value |
+| `peek()`     | Read the value without tracking dependencies |
 
-run(): void - Manually run the effect
+### Example
 
-stop(): void - Stop the effect from running
+```javascript
+const [count, setCount] = createSignal(0);
 
-createComputed(fn)
-Creates a computed value that updates when dependencies change.
+console.log(count());
 
-typescript
-function createComputed<T>(fn: () => T): Computed<T>
-Returns:
+setCount(5);
 
-get(): T - Read the current value
+count.update((previous) => previous + 1);
 
-peek(): T - Read without tracking dependencies
+console.log(count());
+```
 
-createMemo(fn)
-Alias for createComputed.
+---
 
-typescript
-function createMemo<T>(fn: () => T): Memo<T>
-batch(fn)
-Batches multiple updates together.
+## `createEffect(fn)`
 
-typescript
-function batch(fn: () => void): void
-untracked(fn)
-Runs a function without tracking dependencies.
+Creates an effect that runs whenever its dependencies change.
 
-typescript
-function untracked<T>(fn: () => T): T
-Advanced Features
-Dependency Tracking
-javascript
-import { track, trigger } from '@teloce/reactivity';
+```typescript
+function createEffect(fn: () => void): Effect;
+```
 
-const target = { count: 0 };
+### Returns
+
+| Method   | Description                  |
+| -------- | ---------------------------- |
+| `run()`  | Manually run the effect      |
+| `stop()` | Stop the effect from running |
+
+### Example
+
+```javascript
+const [count, setCount] = createSignal(0);
+
+const effect = createEffect(() => {
+  console.log(count());
+});
+
+setCount(1);
+
+effect.stop();
+```
+
+---
+
+## `createComputed(fn)`
+
+Creates a computed value derived from reactive dependencies.
+
+```typescript
+function createComputed<T>(fn: () => T): Computed<T>;
+```
+
+### Returns
+
+| Method   | Description                        |
+| -------- | ---------------------------------- |
+| `get()`  | Read the computed value            |
+| `peek()` | Read without tracking dependencies |
+
+### Example
+
+```javascript
+const [count] = createSignal(5);
+
+const double = createComputed(() => count() * 2);
+
+console.log(double()); // 10
+```
+
+---
+
+## `createMemo(fn)`
+
+Alias for `createComputed()`.
+
+```typescript
+function createMemo<T>(fn: () => T): Memo<T>;
+```
+
+Example:
+
+```javascript
+const [count] = createSignal(5);
+
+const double = createMemo(() => count() * 2);
+
+console.log(double()); // 10
+```
+
+---
+
+## `batch(fn)`
+
+Batches multiple reactive updates together.
+
+```typescript
+function batch(fn: () => void): void;
+```
+
+Example:
+
+```javascript
+batch(() => {
+  setCount(10);
+  setName('Jane');
+});
+```
+
+---
+
+## `untracked(fn)`
+
+Runs a function without tracking reactive dependencies.
+
+```typescript
+function untracked<T>(fn: () => T): T;
+```
+
+Example:
+
+```javascript
+const value = untracked(() => count());
+```
+
+---
+
+# Advanced Features
+
+## Dependency Tracking
+
+The package provides low-level `track()` and `trigger()` utilities for advanced integrations.
+
+```javascript
+import {
+  createEffect,
+  track,
+  trigger,
+} from '@teloce/reactivity';
+
+const target = {
+  count: 0,
+};
+
 const key = 'count';
 
-// Track the dependency
 createEffect(() => {
   track(target, key);
+
   console.log('Count:', target.count);
 });
 
-// Trigger the effect
+// Update the value
 target.count = 1;
+
+// Notify dependents
 trigger(target, key);
-Utility Functions
-javascript
-import { isSignal, isComputed, toSignal, getValue } from '@teloce/reactivity';
+```
 
-const signal = createSignal(0);
-const computed = createComputed(() => signal() * 2);
+> **Note:** Direct use of `track()` and `trigger()` is intended for advanced integrations and custom reactive systems.
 
-console.log(isSignal(signal)); // true
+---
+
+## Utility Functions
+
+Teloce provides utilities for working with reactive values.
+
+```javascript
+import {
+  createSignal,
+  createComputed,
+  isSignal,
+  isComputed,
+  toSignal,
+  getValue,
+} from '@teloce/reactivity';
+
+const [count] = createSignal(0);
+
+const computed = createComputed(() => count() * 2);
+
+console.log(isSignal(count)); // true
 console.log(isComputed(computed)); // true
 
 const signalLike = toSignal(computed);
+
 console.log(getValue(signalLike)); // 0
-Performance Tips
-Use computed values instead of recalculating in effects
+```
 
-Batch updates when making multiple changes
+### Utility API
 
-Use untracked when reading values that shouldn't trigger effects
+| Function            | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `isSignal(value)`   | Checks whether a value is a signal           |
+| `isComputed(value)` | Checks whether a value is computed           |
+| `toSignal(value)`   | Converts a compatible value into a signal    |
+| `getValue(value)`   | Gets the current value from a reactive value |
 
-Memoize expensive computations with createMemo
+---
 
-License
+# Performance Tips
+
+For the best performance:
+
+1. **Use computed values** instead of repeatedly recalculating derived values inside effects.
+2. **Batch updates** when making multiple state changes.
+3. **Use `untracked()`** when reading values that should not create reactive dependencies.
+4. **Memoize expensive computations** with `createMemo()`.
+5. **Keep reactive state focused** to avoid unnecessary updates.
+6. **Prefer fine-grained signals** for frequently changing state.
+
+---
+
+## License
+
+MIT

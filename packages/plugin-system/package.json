@@ -1,7 +1,7 @@
 {
   "name": "@teloce/plugin-system",
-  "version": "0.1.0",
-   "publishConfig": {
+  "version": "0.2.0",
+  "publishConfig": {
     "access": "public"
   },
   "description": "Teloce plugin system - extend the template engine with custom directives, filters, components, and more",

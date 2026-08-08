@@ -1,7 +1,7 @@
 {
   "name": "@teloce/vite-plugin",
-  "version": "0.1.0",
-   "publishConfig": {
+  "version": "0.2.0",
+  "publishConfig": {
     "access": "public"
   },
   "description": "Vite plugin for Teloce - compile .vel Single File Components and templates",

@@ -1,7 +1,7 @@
 {
   "name": "@teloce/debugger",
-  "version": "0.1.0",
-   "publishConfig": {
+  "version": "0.2.0",
+  "publishConfig": {
     "access": "public"
   },
   "description": "Teloce human-friendly debugger - translates cryptic errors into plain English with local dashboard",

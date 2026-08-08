@@ -1,7 +1,7 @@
 {
   "name": "@teloce/bundler",
-  "version": "0.1.0",
-   "publishConfig": {
+  "version": "0.2.0",
+  "publishConfig": {
     "access": "public"
   },
   "description": "Teloce bundler - production packaging with tree-shaking, minification, and chunk splitting",

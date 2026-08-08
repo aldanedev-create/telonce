@@ -2,8 +2,8 @@
   "name": "teloce-vscode",
   "displayName": "Teloce",
   "description": "Teloce template language support for VS Code",
-  "version": "0.1.0",
-  "type": "module", 
+  "version": "0.1.1",
+  "type": "module",
   "publisher": "teloce",
   "license": "MIT",
   "repository": {
@@ -27,7 +27,6 @@
     "django",
     "fastapi"
   ],
-  
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [

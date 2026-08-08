@@ -1,7 +1,7 @@
 {
   "name": "@teloce/language-service",
-  "version": "0.1.0",
-   "publishConfig": {
+  "version": "0.2.0",
+  "publishConfig": {
     "access": "public"
   },
   "description": "Teloce language service - autocomplete, diagnostics, hover, and formatting for templates",

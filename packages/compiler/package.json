@@ -1,7 +1,7 @@
 {
   "name": "@teloce/compiler",
-  "version": "0.1.0",
-   "publishConfig": {
+  "version": "0.2.0",
+  "publishConfig": {
     "access": "public"
   },
   "description": "Teloce template compiler - parses and transforms templates into JavaScript",

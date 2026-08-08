@@ -44,7 +44,7 @@
     "reactive",
     "typescript"
   ],
-  "author": "Teloce Contributors",
+  "author": "ALdane Hutchinson",
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "^1.8.0",

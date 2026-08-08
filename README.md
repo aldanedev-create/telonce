@@ -203,14 +203,18 @@ Add Teloce directly to your HTML:
 
 <div id="app">
     <h1>Hello {{ name }}</h1>
-    <button @click="count++">{{ count }}</button>
+
+    <button @click="count++">
+        {{ count }}
+    </button>
 </div>
 
+
 <script>
-    teloce.create('#app', {
-        name: 'Python Developer',
-        count: 0
-    });
+teloce.create("#app", {
+    name: "Python Developer",
+    count: 0
+});
 </script>
 ```
 

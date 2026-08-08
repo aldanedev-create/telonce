@@ -1,6 +1,9 @@
 {
   "name": "@teloce/runtime-core",
   "version": "0.1.0",
+   "publishConfig": {
+    "access": "public"
+  },
   "description": "Teloce runtime core - component system, lifecycle, props, slots, directives",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -49,7 +52,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldanedev-create/telonce.git",
+    "url": "https://github.com/aldanedev-create/telonce",
     "directory": "packages/runtime-core"
   },
   "bugs": {

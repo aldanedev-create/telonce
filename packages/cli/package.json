@@ -1,6 +1,9 @@
 {
   "name": "@teloce/cli",
   "version": "0.1.0",
+   "publishConfig": {
+    "access": "public"
+  },
   "description": "Teloce command-line interface - dev, build, debug, create, and more",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -65,7 +68,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldanedev-create/telonce.git",
+    "url": "https://github.com/aldanedev-create/telonce",
     "directory": "packages/cli"
   },
   "bugs": {

@@ -1,6 +1,10 @@
 {
   "name": "teloce",
   "version": "0.1.0",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "A TypeScript template engine for Python web developers",
   "main": "dist/teloce.global.js",
   "module": "dist/teloce.esm.js",
@@ -58,7 +62,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldanedev-create/telonce.git"
+    "url": "https://github.com/aldanedev-create/telonce"
   },
   "bugs": {
     "url": "https://github.com/aldanedev-create/telonce/issues"

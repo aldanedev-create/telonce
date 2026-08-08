@@ -1,6 +1,9 @@
 {
   "name": "@teloce/debugger",
   "version": "0.1.0",
+   "publishConfig": {
+    "access": "public"
+  },
   "description": "Teloce human-friendly debugger - translates cryptic errors into plain English with local dashboard",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -52,7 +55,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldanedev-create/telonce.git",
+    "url": "https://github.com/aldanedev-create/telonce",
     "directory": "packages/debugger"
   },
   "bugs": {

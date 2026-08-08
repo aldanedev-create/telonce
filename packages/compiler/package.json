@@ -1,6 +1,9 @@
 {
   "name": "@teloce/compiler",
   "version": "0.1.0",
+   "publishConfig": {
+    "access": "public"
+  },
   "description": "Teloce template compiler - parses and transforms templates into JavaScript",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -47,7 +50,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldanedev-create/telonce.git",
+    "url": "https://github.com/aldanedev-create/telonce",
     "directory": "packages/compiler"
   },
   "bugs": {

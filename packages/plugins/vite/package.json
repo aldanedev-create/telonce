@@ -1,6 +1,9 @@
 {
   "name": "@teloce/vite-plugin",
   "version": "0.1.0",
+   "publishConfig": {
+    "access": "public"
+  },
   "description": "Vite plugin for Teloce - compile .vel Single File Components and templates",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -53,7 +56,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldanedev-create/telonce.git",
+    "url": "https://github.com/aldanedev-create/telonce",
     "directory": "packages/plugins/vite"
   },
   "bugs": {

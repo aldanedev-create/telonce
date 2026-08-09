@@ -207,7 +207,7 @@ function indent(code: string): string {
  * directly (document.createElement/createTextNode) instead of depending on
  * functions that don't exist.
  */
-export function generate(ast: ASTNode[], options: GenerateOptions = {}): GenerateResult {
+export function generate(ast: ASTNode[], _options: GenerateOptions = {}): GenerateResult {
   const ctx: GenCtx = {
     varCounter: 0,
     exprCounter: 0,

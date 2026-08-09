@@ -11,6 +11,7 @@ import {
   type InterpolationNode, 
   type ForNode, 
   type IfNode, 
+  type ShowHideNode,
   type DirectiveNode 
 } from './ast';
 
@@ -22,6 +23,7 @@ export {
   type InterpolationNode, 
   type ForNode, 
   type IfNode, 
+  type ShowHideNode,
   type DirectiveNode 
 };
 
@@ -43,7 +45,7 @@ export function parse(tokens: Token[], options: ParseOptions = {}): ASTNode[] {
       break;
     }
 
-    if (token.type === TokenType.OpenTag) {
+    if (token.type === TokenType.OpenTag || token.type === TokenType.SelfCloseTag) {
       const result = parseElement(tokens, index, options);
       nodes.push(result.node);
       index = result.index;
@@ -82,7 +84,7 @@ function parseElement(
   tokens: Token[],
   start: number,
   options: ParseOptions
-): { node: ElementNode; index: number } {
+): { node: ASTNode; index: number } {
   let index = start;
   const tagToken = tokens[index];
   const tagName = tagToken.value;
@@ -125,15 +127,7 @@ function parseElement(
   // If self-closing, return immediately without parsing children
   if (isSelfClosing) {
     return {
-      node: {
-        type: ASTNodeType.Element,
-        tag: tagName,
-        attributes,
-        children,
-        position: tagToken.position,
-        line: tagToken.line,
-        column: tagToken.column,
-      },
+      node: buildNode(tagName, attributes, children, [], tagToken),
       index,
     };
   }
@@ -152,7 +146,7 @@ function parseElement(
       break;
     }
 
-    if (token.type === TokenType.OpenTag) {
+    if (token.type === TokenType.OpenTag || token.type === TokenType.SelfCloseTag) {
       const child = parseElement(tokens, index, options);
       children.push(child.node);
       index = child.index;
@@ -188,16 +182,80 @@ function parseElement(
     index++;
   }
 
+  // Split out a top-level <else> child (for <if>...<else>...</if>) before
+  // building the final node, so buildNode() can hand it to IfNode as
+  // elseChildren rather than leaving it as a nonsensical regular child.
+  const elseIndex = children.findIndex(
+    child => child.type === ASTNodeType.Element && (child as ElementNode).tag === 'else'
+  );
+  let realChildren = children;
+  let elseChildren: ASTNode[] | undefined;
+  if (elseIndex !== -1) {
+    realChildren = children.slice(0, elseIndex);
+    elseChildren = (children[elseIndex] as ElementNode).children;
+  }
+
   return {
-    node: {
-      type: ASTNodeType.Element,
-      tag: tagName,
-      attributes,
-      children,
-      position: tagToken.position,
-      line: tagToken.line,
-      column: tagToken.column,
-    },
+    node: buildNode(tagName, attributes, realChildren, elseChildren, tagToken),
     index,
   };
+}
+
+/**
+ * Turn a parsed tag name + attributes into the right AST node type.
+ * <for>/<if>/<show>/<hide> get their dedicated node shapes (as defined in
+ * ./ast) instead of being treated as generic elements - previously every
+ * tag, directive or not, produced a plain ElementNode, so `condition`,
+ * `collection`/`item`/`key`, etc. were silently lost.
+ */
+function buildNode(
+  tagName: string,
+  attributes: Record<string, string>,
+  children: ASTNode[],
+  elseChildren: ASTNode[] | undefined,
+  tagToken: Token
+): ASTNode {
+  const base = {
+    position: tagToken.position,
+    line: tagToken.line,
+    column: tagToken.column,
+  };
+
+  if (tagName === 'for') {
+    return {
+      ...base,
+      type: ASTNodeType.For,
+      item: attributes.item ?? 'item',
+      collection: attributes.in ?? '',
+      key: attributes.key,
+      children,
+    } as ForNode;
+  }
+
+  if (tagName === 'if') {
+    return {
+      ...base,
+      type: ASTNodeType.If,
+      condition: attributes.condition ?? '',
+      children,
+      elseChildren,
+    } as IfNode;
+  }
+
+  if (tagName === 'show' || tagName === 'hide') {
+    return {
+      ...base,
+      type: tagName === 'show' ? ASTNodeType.Show : ASTNodeType.Hide,
+      condition: attributes.condition ?? '',
+      children,
+    } as ShowHideNode;
+  }
+
+  return {
+    ...base,
+    type: ASTNodeType.Element,
+    tag: tagName,
+    attributes,
+    children,
+  } as ElementNode;
 }

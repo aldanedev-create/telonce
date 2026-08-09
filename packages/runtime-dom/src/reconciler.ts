@@ -92,11 +92,18 @@ interface CacheEntry<T = any> {
  * Patch an existing DOM node with fresh content from a new node without losing DOM identity
  */
 function patchNode(oldNode: Node, newNode: Node): void {
-  if (oldNode.nodeType === Node.TEXT_NODE && newNode.nodeType === Node.TEXT_NODE) {
+  // Use the numeric nodeType constants directly (TEXT_NODE = 3,
+  // ELEMENT_NODE = 1) rather than referencing the global `Node`
+  // constructor - `Node` is a real global in browsers, but isn't
+  // automatically defined in Node.js/SSR/some embedding contexts even
+  // when `document`/DOM nodes are otherwise available (e.g. jsdom without
+  // explicitly attaching `window.Node` to `global`), which previously
+  // caused a `ReferenceError: Node is not defined` there.
+  if (oldNode.nodeType === 3 && newNode.nodeType === 3) {
     if (oldNode.textContent !== newNode.textContent) {
       oldNode.textContent = newNode.textContent;
     }
-  } else if (oldNode.nodeType === Node.ELEMENT_NODE && newNode.nodeType === Node.ELEMENT_NODE) {
+  } else if (oldNode.nodeType === 1 && newNode.nodeType === 1) {
     const oldEl = oldNode as HTMLElement;
     const newEl = newNode as HTMLElement;
 
@@ -153,7 +160,21 @@ export function createRenderer(options: RendererOptions): Renderer {
 
 /**
  * Reconcile a list with keyed updates
- * Uses Map-cache for O(1) node lookups and insertBefore for moves
+ * Uses Map-cache for O(1) node lookups and insertBefore for moves.
+ *
+ * Insertion previously anchored each item on `container.childNodes[index]`
+ * - an absolute position within the *entire* container. That's only
+ * correct if this list's items are the container's only children. As soon
+ * as the list shares a container with other content (e.g. a sibling <if>
+ * block that already placed a node there), items ended up inserted before
+ * that unrelated content instead of after it, since childNodes[0] would
+ * resolve to the sibling's node rather than "wherever this list's own
+ * previous item ended". Rewritten to walk the new list back-to-front,
+ * tracking the DOM node that should immediately follow each item (its own
+ * previously-placed neighbor, not a raw container index) - the standard
+ * keyed-list-diff anchoring technique. Items are only actually moved when
+ * they aren't already positioned correctly, to avoid unnecessary DOM
+ * churn.
  */
 export function reconcileList<T>(
   oldItems: T[],
@@ -164,7 +185,6 @@ export function reconcileList<T>(
   cache: Map<string, CacheEntry<T>> = new Map()
 ): ReconciliationResult {
   const operations: ReconciliationResult['operations'] = [];
-  const nodes: Node[] = [];
 
   const oldKeys = new Map<string, { item: T; index: number }>();
   const newKeys = new Set<string>();
@@ -194,45 +214,41 @@ export function reconcileList<T>(
     }
   }
 
-  // Step 2: Process new items
-  for (const [index, item] of newItems.entries()) {
+  // Step 2: process newest-to-oldest so each item has a real DOM-node
+  // anchor (the item that should come right after it) rather than a
+  // container-wide index. Nothing after the last new item belongs to this
+  // list, so the initial anchor is `null` (insertBefore(node, null) is
+  // just appendChild) - correct as long as this list's own items are
+  // contiguous, which holds for how this reconciler is used (a directive
+  // fully populates its own block before any later sibling is appended).
+  const nodes: Node[] = new Array(newItems.length);
+  let nextAnchor: Node | null = null;
+
+  for (let i = newItems.length - 1; i >= 0; i--) {
+    const item = newItems[i];
     const key = keyFn(item);
     const cached = cache.get(key);
+    let node: Node;
 
     if (cached) {
-      const node = cached.node;
-
-      // Render fresh node to extract updates, then patch existing node in-place
-      const freshNode = renderFn(item, index);
+      node = cached.node;
+      const freshNode = renderFn(item, i);
       patchNode(node, freshNode);
-
       cache.set(key, { node, data: item, key });
-      operations.push({ type: 'update', node, index, key });
-      nodes.push(node);
-
-      // Move to correct position using O(1) index access
-      const targetNode = container.childNodes[index];
-      if (targetNode && targetNode !== node) {
-        container.insertBefore(node, targetNode);
-        operations.push({ type: 'move', node, index, key });
-      } else if (!targetNode && container.lastChild !== node) {
-        container.appendChild(node);
-        operations.push({ type: 'move', node, index, key });
-      }
+      operations.push({ type: 'update', node, index: i, key });
     } else {
-      const node = renderFn(item, index);
+      node = renderFn(item, i);
       cache.set(key, { node, data: item, key });
-
-      const targetNode = container.childNodes[index];
-      if (targetNode) {
-        container.insertBefore(node, targetNode);
-      } else {
-        container.appendChild(node);
-      }
-
-      operations.push({ type: 'add', node, index, key });
-      nodes.push(node);
+      operations.push({ type: 'add', node, index: i, key });
     }
+
+    if (node.parentNode !== container || node.nextSibling !== nextAnchor) {
+      container.insertBefore(node, nextAnchor);
+      operations.push({ type: 'move', node, index: i, key });
+    }
+
+    nodes[i] = node;
+    nextAnchor = node;
   }
 
   return {
@@ -298,38 +314,40 @@ export function reconcileChildren(
     }
   }
 
-  // Add, patch, or move new nodes
-  for (const [index, child] of newChildren.entries()) {
+  // Same anchor-based approach as reconcileList (see the comment there) -
+  // walk newest-to-oldest so each node's insertion point is its own real
+  // next-sibling neighbor, not an absolute container-wide index.
+  let nextAnchor: Node | null = null;
+  const orderedNodes: Node[] = new Array(newChildren.length);
+
+  for (let i = newChildren.length - 1; i >= 0; i--) {
+    const child = newChildren[i];
     const key = keyFn(child);
+    let node: Node;
+
     if (key && oldKeys.has(key)) {
       const existingNode = oldKeys.get(key)!;
-      
       // Patch existing node content with fresh child updates instead of dropping them
       patchNode(existingNode, child);
-
-      const targetNode = container.childNodes[index];
-      if (targetNode !== existingNode) {
-        container.insertBefore(existingNode, targetNode || null);
-        operations.push({ type: 'move', node: existingNode, index, key });
-      }
-
-      operations.push({ type: 'update', node: existingNode, index, key });
-      nodes.push(existingNode);
+      node = existingNode;
+      operations.push({ type: 'update', node, index: i, key });
     } else {
-      const targetNode = container.childNodes[index];
-      if (targetNode) {
-        container.insertBefore(child, targetNode);
-      } else {
-        container.appendChild(child);
-      }
-      operations.push({ type: 'add', node: child, index, key });
-      nodes.push(child);
+      node = child;
+      operations.push({ type: 'add', node, index: i, key });
     }
+
+    if (node.parentNode !== container || node.nextSibling !== nextAnchor) {
+      container.insertBefore(node, nextAnchor);
+      operations.push({ type: 'move', node, index: i, key });
+    }
+
+    orderedNodes[i] = node;
+    nextAnchor = node;
   }
 
   return {
     updated: operations.length > 0,
-    nodes,
+    nodes: orderedNodes,
     operations,
   };
 }

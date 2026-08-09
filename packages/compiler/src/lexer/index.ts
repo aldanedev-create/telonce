@@ -115,6 +115,15 @@ export function tokenize(input: string): Token[] {
 
       let isSelfClosing = false;
 
+      tokens.push({
+        type: TokenType.OpenTag,
+        value: tagName,
+        position: tagStartPos,
+        line: tagStartLine,
+        column: tagStartCol,
+      });
+      const openTagIndex = tokens.length - 1;
+
       while (position < input.length) {
         // Skip whitespace
         while (position < input.length && isWhitespace(input[position])) {
@@ -162,13 +171,14 @@ export function tokenize(input: string): Token[] {
         }
       }
 
-      tokens.push({
-        type: isSelfClosing ? TokenType.SelfCloseTag : TokenType.OpenTag,
-        value: tagName,
-        position: tagStartPos,
-        line: tagStartLine,
-        column: tagStartCol,
-      });
+      // The OpenTag token was pushed before its attributes (so the parser,
+      // which starts reading attributes right after seeing OpenTag, sees
+      // them in the same order they appear in the source). If this turned
+      // out to be self-closing, patch that same token's type in place
+      // instead of pushing a second one.
+      if (isSelfClosing) {
+        tokens[openTagIndex].type = TokenType.SelfCloseTag;
+      }
       continue;
     }
 

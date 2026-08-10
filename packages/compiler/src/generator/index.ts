@@ -68,7 +68,7 @@ function genNode(node: ASTNode, parentVar: string, out: string[], ctx: GenCtx): 
       const varName = nextVar(ctx);
       out.push(`const ${varName} = document.createElement(${JSON.stringify(el.tag)});`);
       for (const [attrName, attrValue] of Object.entries(el.attributes)) {
-        out.push(`${varName}.setAttribute(${JSON.stringify(attrName)}, ${JSON.stringify(attrValue)});`);
+        genAttribute(varName, attrName, attrValue, out, ctx);
       }
       for (const child of el.children) {
         genNode(child, varName, out, ctx);
@@ -189,6 +189,105 @@ function indent(code: string): string {
     .split('\n')
     .map(line => '  ' + line)
     .join('\n');
+}
+
+const BOOLEAN_DOM_PROPS = new Set(['disabled', 'checked', 'selected', 'readonly', 'required', 'hidden']);
+const VALUE_DOM_PROPS = new Set(['value']);
+
+/**
+ * Generate code for one attribute. The real template syntax (confirmed
+ * against actual usage in this project's own example apps) isn't just
+ * plain `name="value"` pairs - it also uses:
+ *   - `@event="handler"` for event listeners (e.g. `@click="toggleCart"`,
+ *     `@click="addToCart(product.id)"`)
+ *   - `:model="path"` for two-way input binding
+ *   - `:prop="expr"` for one-way reactive attribute/property binding
+ *     (e.g. `:disabled="product.stock === 0"`, `:show="loading"`)
+ * The previous version of this generator ran every attribute through
+ * plain `setAttribute(name, value)` regardless of prefix, which both lost
+ * all reactivity for `:`-prefixed bindings and, for `@`-prefixed ones,
+ * actively crashed at runtime: `@` isn't a legal character to start an
+ * HTML/XML attribute name, so `el.setAttribute('@click', ...)` throws
+ * `InvalidCharacterError` in a real DOM (confirmed via jsdom).
+ */
+function genAttribute(varName: string, attrName: string, attrValue: string, out: string[], ctx: GenCtx): void {
+  if (attrName.startsWith('@')) {
+    const eventName = attrName.slice(1);
+    const handlerBody = isBareIdentifier(attrValue) ? `${attrValue}(event)` : attrValue;
+    ctx.exprCounter += 1;
+    const fnVar = `__handler${ctx.exprCounter}`;
+    out.push(
+      `const ${fnVar} = new Function('ctx', 'event', 'with (ctx) { ' + ${JSON.stringify(handlerBody)} + '; }');`
+    );
+    out.push(`${varName}.addEventListener(${JSON.stringify(eventName)}, (event) => { ${fnVar}(ctx, event); });`);
+    return;
+  }
+
+  if (attrName === ':model') {
+    ctx.needsRuntimeDom.add('createModel');
+    const { getterDecl, getterVar, setterDecl, setterVar } = emitAssignableAccessor(ctx, attrValue);
+    out.push(getterDecl);
+    out.push(setterDecl);
+    out.push(
+      `createModel(${varName}, Object.assign(() => ${getterVar}(ctx), { set: (v) => ${setterVar}(ctx, v), peek: () => ${getterVar}(ctx) }));`
+    );
+    return;
+  }
+
+  if (attrName === ':show' || attrName === ':hide') {
+    const fnName = attrName === ':show' ? 'createShow' : 'createHide';
+    ctx.needsRuntimeDom.add(fnName);
+    const { decl, varName: exprVar } = emitExpressionEvaluator(ctx, attrValue);
+    out.push(decl);
+    out.push(`${fnName}(${varName}, () => Boolean(${exprVar}(ctx)));`);
+    return;
+  }
+
+  if (attrName.startsWith(':')) {
+    const propName = attrName.slice(1);
+    const { decl, varName: exprVar } = emitExpressionEvaluator(ctx, attrValue);
+    out.push(decl);
+    ctx.needsReactivity.add('createEffect');
+    if (BOOLEAN_DOM_PROPS.has(propName)) {
+      out.push(`createEffect(() => { ${varName}.${propName} = Boolean(${exprVar}(ctx)); });`);
+    } else if (VALUE_DOM_PROPS.has(propName)) {
+      out.push(`createEffect(() => { ${varName}.${propName} = ${exprVar}(ctx) ?? ''; });`);
+    } else {
+      out.push(
+        `createEffect(() => { const __v = ${exprVar}(ctx); if (__v === false || __v === null || __v === undefined) { ${varName}.removeAttribute(${JSON.stringify(propName)}); } else { ${varName}.setAttribute(${JSON.stringify(propName)}, String(__v)); } });`
+      );
+    }
+    return;
+  }
+
+  out.push(`${varName}.setAttribute(${JSON.stringify(attrName)}, ${JSON.stringify(attrValue)});`);
+}
+
+function isBareIdentifier(expr: string): boolean {
+  return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(expr.trim());
+}
+
+/**
+ * Build a get/set pair of real functions for a simple assignable path
+ * (e.g. "count", "filters.category") for use in :model bindings. Only
+ * supports plain dotted-identifier paths (no computed/bracket access) -
+ * that matches every :model usage actually seen in this project's
+ * examples, and is the standard restriction two-way-binding targets have
+ * in comparable frameworks anyway (the left side of an assignment has to
+ * be a real reference, not an arbitrary expression).
+ */
+function emitAssignableAccessor(
+  ctx: GenCtx,
+  path: string
+): { getterDecl: string; getterVar: string; setterDecl: string; setterVar: string } {
+  ctx.exprCounter += 1;
+  const n = ctx.exprCounter;
+  const getterVar = `__modelGet${n}`;
+  const setterVar = `__modelSet${n}`;
+  const trimmed = path.trim();
+  const getterDecl = `const ${getterVar} = new Function('ctx', 'with (ctx) { return (' + ${JSON.stringify(trimmed)} + ') }');`;
+  const setterDecl = `const ${setterVar} = new Function('ctx', 'value', 'with (ctx) { (' + ${JSON.stringify(trimmed)} + ') = value; }');`;
+  return { getterDecl, getterVar, setterDecl, setterVar };
 }
 
 /**

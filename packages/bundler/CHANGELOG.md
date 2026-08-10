@@ -1,5 +1,29 @@
 # @teloce/bundler
 
+## 1.1.0
+
+### Minor Changes
+
+- fixes and bugs fix
+
+### Patch Changes
+
+- Updated dependencies
+  - @teloce/compiler@1.1.0
+  - @teloce/shared@1.1.0
+
+## 1.0.0
+
+### Major Changes
+
+- a fixes that was included
+
+### Patch Changes
+
+- Updated dependencies
+  - @teloce/compiler@1.0.0
+  - @teloce/shared@1.0.0
+
 ## 0.2.0
 
 ### Minor Changes

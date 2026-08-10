@@ -199,7 +199,7 @@ The server generates the HTML and data, while Teloce provides client-side reacti
 Add Teloce directly to your HTML:
 
 ```html
-https://cdn.jsdelivr.net/npm/teloce@0.3.0/dist/teloce.global.min.js
+https://cdn.jsdelivr.net/npm/teloce@1.0.0/dist/teloce.global.min.js
 <div id="app">
     <h1>Hello {{ name }}</h1>
 

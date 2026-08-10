@@ -181,6 +181,31 @@ function toValidIdentifier(name: string): string {
 }
 
 /**
+ * `template.code` (from @teloce/compiler's generate()) is a small, complete
+ * module: some `import ... from '...'` lines followed by
+ * `export function render(container, ctx) { ... }`. This used to be
+ * spliced straight into `const template = ${template.code};`, which is
+ * invalid JS the moment the value on the right of an `=` starts with an
+ * `import` statement (imports are statements, not expressions) - this
+ * pulls the import lines out to hoist them to the top of the generated SFC
+ * module instead, and turns the exported function into a plain local
+ * declaration the component definition can reference by name.
+ */
+function splitTemplateModule(code: string): { imports: string[]; functionCode: string } {
+  const imports: string[] = [];
+  const rest: string[] = [];
+  for (const line of code.split('\n')) {
+    if (/^\s*import\s.+from\s+['"].+['"];?\s*$/.test(line)) {
+      imports.push(line.trim());
+    } else {
+      rest.push(line);
+    }
+  }
+  const functionCode = rest.join('\n').replace(/export\s+function\s+render/, 'function render');
+  return { imports, functionCode };
+}
+
+/**
  * Generate final JavaScript code
  */
 function generateCode(
@@ -197,22 +222,38 @@ function generateCode(
   const name = toValidIdentifier(rawName);
   const nameLiteral = JSON.stringify(rawName);
 
+  const { imports: templateImports, functionCode: templateFnCode } = splitTemplateModule(template.code);
+
   let code = '';
 
   if (dev) {
     code += `// Compiled in development mode from ${sfc.name ? `component "${sfc.name}"` : 'an unnamed component'}\n`;
   }
 
-  // Add imports
+  // Add imports (this component's own, plus whatever the compiled
+  // template needs at runtime - createFor/createIf/etc, createEffect)
   code += `import { defineComponent } from '@teloce/core';\n`;
-
-  // Add script content
-  if (script.code) {
-    code += `\n${script.code}\n`;
+  for (const imp of templateImports) {
+    if (!code.includes(imp)) {
+      code += `${imp}\n`;
+    }
   }
 
-  // Add template
-  code += `\nconst template = ${template.code};\n`;
+  // Note: script.code (the raw <script> block text) is intentionally NOT
+  // included here. It's the author's original `export default {...}`
+  // object verbatim - the pieces that actually matter (data/methods/
+  // computed/lifecycle) are already pulled out separately via
+  // script.exports below and used to build defineComponent({...})'s own
+  // export default. Including the raw script text as well produced a
+  // second `export default` in the same module, which is a hard
+  // SyntaxError ("Identifier '.default' has already been declared").
+  // Known limitation: any top-level code a user writes *outside* the
+  // exported object in their <script> block (extra imports, standalone
+  // helper functions) isn't preserved by this - compileScript doesn't
+  // currently expose enough to safely re-include just that part.
+
+  // Add template render function
+  code += `\n${templateFnCode}\n`;
 
   // Add style
   if (style?.css) {
@@ -222,7 +263,7 @@ function generateCode(
   // Define component securely with escaped identifier and string literal
   code += `\nexport const ${name} = defineComponent({\n`;
   code += `  name: ${nameLiteral},\n`;
-  code += `  template,\n`;
+  code += `  template: render,\n`;
   if (style?.css) {
     code += `  styles,\n`;
   }

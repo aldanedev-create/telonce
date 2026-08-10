@@ -125,19 +125,29 @@ function patchNode(oldNode: Node, newNode: Node): void {
 }
 
 /**
+ * Duck-typed check for "is this a DOM Node" - checking for a numeric
+ * `.nodeType` property instead of `instanceof Node`, since the global
+ * `Node` constructor isn't guaranteed to exist outside a real browser (see
+ * the note on patchNode above for the same issue with Node.TEXT_NODE).
+ */
+function isDomNode(value: unknown): value is Node {
+  return !!value && typeof value === 'object' && typeof (value as any).nodeType === 'number';
+}
+
+/**
  * Create a renderer
  */
 export function createRenderer(options: RendererOptions): Renderer {
   return {
     render(template, data) {
       const result = typeof template === 'function' ? template(data) : template;
-      if (result instanceof Node) {
+      if (isDomNode(result)) {
         return result;
       }
       if (Array.isArray(result)) {
         const fragment = document.createDocumentFragment();
         for (const item of result) {
-          if (item instanceof Node) {
+          if (isDomNode(item)) {
             fragment.appendChild(item);
           }
         }

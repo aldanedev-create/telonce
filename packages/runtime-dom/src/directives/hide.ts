@@ -31,8 +31,9 @@ export function createHide(
   update: () => void;
   unmount: () => void;
 } {
-  let originalDisplay = el.style.display || getComputedStyle(el).display;
-
+  
+  let originalDisplay = el.style.display || (typeof getComputedStyle === 'function' ? getComputedStyle(el).display : '');
+ 
   function update() {
     const value = condition();
     el.style.display = value ? 'none' : originalDisplay;

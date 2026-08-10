@@ -19,7 +19,7 @@ def home(request):
     """Home page with Teloce integration"""
     return render(request, 'index.html', {
         'title': 'Teloce + Django',
-        'products': PRODUCTS,
+        'products_json': PRODUCTS,
         'user': {'name': 'Guest', 'is_authenticated': False}
     })
 
@@ -34,7 +34,7 @@ def api_product(request, product_id):
     product = next((p for p in PRODUCTS if p['id'] == product_id), None)
     if product:
         return JsonResponse(product)
-    return JsonResponse({'error': 'Product not found'}, status=404)
+    return JsonResponse({'error': 'Product not found'}, status_code=404)
 
 
 urlpatterns = [

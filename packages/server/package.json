@@ -1,6 +1,6 @@
 {
   "name": "@teloce/server",
-  "version": "0.2.0",
+  "version": "1.1.0",
   "description": "Teloce development server - HTTP server, WebSocket HMR, middleware, and proxy",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

@@ -353,6 +353,7 @@
                 </div>
             </header>
 
+            {% raw %}
             <!-- Filters -->
             <div class="filters">
                 <select :model="filters.category" @change="applyFilters">
@@ -437,6 +438,7 @@
                 </div>
             </div>
         </div>
+        {% endraw %}
     </div>
 
     <script>

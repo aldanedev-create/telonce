@@ -1,6 +1,6 @@
 {
   "name": "@teloce/core",
-  "version": "0.2.0",
+  "version": "1.1.0",
   "publishConfig": {
     "access": "public"
   },
@@ -29,7 +29,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@teloce/reactivity": "workspace:^"
+    "@teloce/reactivity": "workspace:^",
+    "@teloce/runtime-dom": "workspace:^",
+    "@teloce/std": "workspace:^"
   },
   "devDependencies": {
     "@teloce/shared": "workspace:^",

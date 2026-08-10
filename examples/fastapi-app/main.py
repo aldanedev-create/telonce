@@ -82,9 +82,6 @@ async def api_cart(request: Request):
     product_id = data.get('product_id')
     action = data.get('action', 'add')
     
-    # In a real app, this would use session or database
-    # For demo, just return success
-    
     if action in ['add', 'remove', 'clear']:
         if action == 'add':
             product = next((p for p in PRODUCTS if p['id'] == product_id), None)

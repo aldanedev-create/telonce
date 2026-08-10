@@ -162,13 +162,13 @@
     <div id="app">
         <div class="container">
             <header class="header">
-                <div class="logo">Teloce <span>+ FastAPI</span></div>
+                <div class="logo">Teloce <span>+ Django</span></div>
                 <div>
-                    <span class="badge">⚡ Async</span>
+                    <span class="badge">🛡️ Secure</span>
                 </div>
             </header>
 
-            {% raw %}
+            {% verbatim %}
             <div class="product-grid">
                 <for key="id" item="product" in="products">
                     <div class="product-card">
@@ -190,17 +190,21 @@
             </div>
 
             <div class="footer">
-                Built with ❤️ using <a href="https://teloce.dev" target="_blank">Teloce</a> and FastAPI
+                Built with ❤️ using <a href="https://teloce.dev" target="_blank">Teloce</a> and Django
                 <br />
                 <span style="font-size: 12px;">Cart: {{ cart.length }} items</span>
             </div>
-            {% endraw %}
+            {% endverbatim %}
         </div>
     </div>
 
+    {{ products_json|json_script:"products-data" }}
+
     <script>
+        const productsData = JSON.parse(document.getElementById('products-data').textContent);
+
         const app = teloce.createApp('#app', {
-            products: {{ products|tojson }},
+            products: productsData,
             cart: [],
 
             methods: {
@@ -220,7 +224,7 @@
             },
 
             mounted() {
-                console.log('🚀 Teloce + FastAPI app initialized!');
+                console.log('🚀 Teloce + Django app initialized!');
                 console.log('Products:', this.products);
             }
         });

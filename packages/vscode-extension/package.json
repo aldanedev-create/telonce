@@ -5,15 +5,15 @@
   "description": "Teloce template language support for VS Code",
   "version": "0.1.1",
   "type": "module",
-  "publisher": "teloce",
+  "publisher": "Flaxon-vscode",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldanedev-create/telonce.git",
+    "url": "https://github.com/aldanedev-create/telonce",
     "directory": "packages/vscode-extension"
   },
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Programming Languages",
@@ -28,26 +28,26 @@
     "django",
     "fastapi"
   ],
-  "main": "./dist/extension.js",
+  "main": "./dist/extension.cjs",
   "contributes": {
- "languages": [
-  {
-    "id": "teloce",
-    "aliases": [
-      "Teloce",
-      "teloce"
+    "languages": [
+      {
+        "id": "teloce",
+        "aliases": [
+          "Teloce",
+          "teloce"
+        ],
+        "extensions": [
+          ".vel",
+          ".teloce"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/vel-light.svg",
+          "dark": "./icons/vel-dark.svg"
+        }
+      }
     ],
-    "extensions": [
-      ".vel",
-      ".teloce"
-    ],
-    "configuration": "./language-configuration.json",
-    "icon": {
-      "light": "./icons/vel-light.svg",
-      "dark": "./icons/vel-dark.svg"
-    }
-  }
-],
     "grammars": [
       {
         "language": "teloce",
@@ -118,17 +118,20 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "vscode:prepublish": "npm run build",
-    "package": "vsce package",
-    "publish": "vsce publish"
+    "vscode:prepublish": "pnpm run build",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@teloce/language-service": "workspace:^"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
-    "@vscode/vsce": "^2.22.0",
-    "tsup": "^8.0.0",
-    "typescript": "^5.5.0"
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^2.32.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
   }
 }

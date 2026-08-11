@@ -30,20 +30,24 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "languages": [
-      {
-        "id": "teloce",
-        "aliases": [
-          "Teloce",
-          "teloce"
-        ],
-        "extensions": [
-          ".vel",
-          ".teloce"
-        ],
-        "configuration": "./language-configuration.json"
-      }
+ "languages": [
+  {
+    "id": "teloce",
+    "aliases": [
+      "Teloce",
+      "teloce"
     ],
+    "extensions": [
+      ".vel",
+      ".teloce"
+    ],
+    "configuration": "./language-configuration.json",
+    "icon": {
+      "light": "./icons/vel-light.svg",
+      "dark": "./icons/vel-dark.svg"
+    }
+  }
+],
     "grammars": [
       {
         "language": "teloce",

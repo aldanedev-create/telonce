@@ -23,7 +23,6 @@ For production applications, use the minified global build:
 | Build          | URL                                                                   | Use Case                    |
 | :------------- | :-------------------------------------------------------------------- | :-------------------------- |
 | **Production** | `https://cdn.jsdelivr.net/npm/teloce@0.3.0/dist/teloce.global.min.js` | Production websites         |
-| **Debug**      | `https://cdn.jsdelivr.net/npm/teloce@0.3.0/dist/teloce.debug.js`      | Development and debugging   |
 | **ESM**        | `https://cdn.jsdelivr.net/npm/teloce@0.3.0/dist/teloce.esm.js`        | Modern browsers and modules |
 
 ---

@@ -16,7 +16,6 @@ import type { Plugin, ResolvedConfig } from 'vite';
 import { compile as compileSFC } from '@teloce/sfc';
 import { compile as compileTemplate } from '@teloce/compiler';
 import * as path from 'path';
-import * as fs from 'fs';
 
 export interface TelocePluginOptions {
   /**
@@ -108,9 +107,11 @@ export default function telocePlugin(
   const opts = { ...defaultOptions, ...options };
   let config: ResolvedConfig;
 
-  // Normalize include/exclude patterns
-  const includePatterns = Array.isArray(opts.include) ? opts.include : [opts.include];
-  const excludePatterns = Array.isArray(opts.exclude) ? opts.exclude : [opts.exclude];
+  // Normalize include/exclude patterns and filter out undefined values
+  const includePatterns = (Array.isArray(opts.include) ? opts.include : [opts.include])
+    .filter((p): p is string | RegExp => p !== undefined);
+  const excludePatterns = (Array.isArray(opts.exclude) ? opts.exclude : [opts.exclude])
+    .filter((p): p is string | RegExp => p !== undefined);
 
   return {
     name: 'teloce',
@@ -191,7 +192,7 @@ function compileSFCFile(
   code: string,
   id: string,
   opts: TelocePluginOptions,
-  config: ResolvedConfig
+  _config: ResolvedConfig
 ): { code: string; map?: string } | null {
   try {
     // Parse and compile the SFC
@@ -233,7 +234,7 @@ function compileTemplateFile(
   code: string,
   id: string,
   opts: TelocePluginOptions,
-  config: ResolvedConfig
+  _config: ResolvedConfig
 ): { code: string; map?: string } | null {
   try {
     // Compile the template

@@ -1,15 +1,15 @@
 /**
- * @teloce/router - A small client-side router for Teloce SPAs
+ * @teloce/router - A robust client-side router for Teloce SPAs
  * 
  * Features:
- * - Hash-based routing (no server config needed)
- * - Dynamic route parameters (:id, :username)
- * - Query parameter parsing
- * - Route guards (beforeEach, afterEach)
- * - History navigation (push, replace, back, forward)
- * - Lazy loading support
- * - Nested routes
- * - Installable as Teloce plugin
+ * - Hash-based routing driven directly by browser native history
+ * - True hierarchical nested route matching and multi-level RouterView rendering
+ * - Dynamic (:id), optional (:id?), and wildcard (*) route parameters
+ * - Safe query parameter parsing (handles multiple values, '=' in values, URIError protection)
+ * - Async navigation guards with concurrency cancellation tokens
+ * - Route metadata accumulation across nested branches
+ * - Fully reactive RouterView and RouterLink components
+ * - Memory-leak-free mount() with explicit disposer cleanup
  */
 
 import { createSignal, createEffect, type Signal } from '@teloce/reactivity';
@@ -30,31 +30,16 @@ export interface RouteComponent {
 
 export interface RouteContext {
   params: Record<string, string>;
-  query: Record<string, string>;
+  query: Record<string, string | string[]>;
   path: string;
-  meta?: Record<string, any>;
-}
-
-export interface Router {
-  path: Signal<string>;
-  params: Signal<Record<string, string>>;
-  query: Signal<Record<string, string>>;
-  currentRoute: Signal<RouteContext | null>;
-  navigate: (to: string | LocationDescriptor) => void;
-  push: (to: string | LocationDescriptor) => void;
-  replace: (to: string | LocationDescriptor) => void;
-  back: () => void;
-  forward: () => void;
-  go: (delta: number) => void;
-  mount: (container: Element, ctx?: Record<string, any>) => void;
-  beforeEach: (guard: NavigationGuard) => void;
-  afterEach: (hook: NavigationHook) => void;
-  install: (app: any) => void;
+  fullPath: string;
+  meta: Record<string, any>;
+  matched: Route[];
 }
 
 export interface LocationDescriptor {
   path: string;
-  query?: Record<string, string>;
+  query?: Record<string, string | string[]>;
   replace?: boolean;
 }
 
@@ -68,523 +53,461 @@ export type NavigationHook = (
   from: RouteContext | null
 ) => void;
 
-export interface MatchedRoute {
+export interface MatchedBranchRecord {
   route: Route;
+  pattern: string;
   params: Record<string, string>;
-  children: MatchedRoute[];
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────
+export interface RouterLinkProps {
+  to: string | LocationDescriptor;
+  activeClass?: string;
+  exactActiveClass?: string;
+  label?: string;
+}
 
-function parseQuery(queryString: string): Record<string, string> {
+export interface Router {
+  path: Signal<string>;
+  params: Signal<Record<string, string>>;
+  query: Signal<Record<string, string | string[]>>;
+  currentRoute: Signal<RouteContext | null>;
+  navigate: (to: string | LocationDescriptor) => Promise<boolean>;
+  push: (to: string | LocationDescriptor) => Promise<boolean>;
+  replace: (to: string | LocationDescriptor) => Promise<boolean>;
+  back: () => void;
+  forward: () => void;
+  go: (delta: number) => void;
+  mount: (container: Element, ctx?: Record<string, any>) => () => void;
+  beforeEach: (guard: NavigationGuard) => void;
+  afterEach: (hook: NavigationHook) => void;
+  install: (app: any) => void;
+  getMatchedBranch: () => MatchedBranchRecord[];
+  routes: Route[];
+}
+
+// ─── Query & URL Utilities ──────────────────────────────────────────
+
+export function safeDecodeURIComponent(str: string): string {
+  try {
+    return decodeURIComponent(str);
+  } catch {
+    return str;
+  }
+}
+
+export function parseQuery(queryString: string): Record<string, string | string[]> {
   if (!queryString || queryString === '?') return {};
-  
-  const params: Record<string, string> = {};
+
+  const query: Record<string, string | string[]> = {};
   const search = queryString.startsWith('?') ? queryString.slice(1) : queryString;
-  
+
   for (const pair of search.split('&')) {
     if (!pair) continue;
-    const [key, value] = pair.split('=');
-    params[decodeURIComponent(key)] = value ? decodeURIComponent(value) : '';
+    const eqIdx = pair.indexOf('=');
+    let rawKey: string, rawVal: string;
+
+    if (eqIdx === -1) {
+      rawKey = pair;
+      rawVal = '';
+    } else {
+      rawKey = pair.slice(0, eqIdx);
+      rawVal = pair.slice(eqIdx + 1);
+    }
+
+    const key = safeDecodeURIComponent(rawKey);
+    const value = safeDecodeURIComponent(rawVal);
+
+    if (key in query) {
+      const existing = query[key];
+      if (Array.isArray(existing)) {
+        existing.push(value);
+      } else {
+        query[key] = [existing, value];
+      }
+    } else {
+      query[key] = value;
+    }
   }
-  
-  return params;
+
+  return query;
 }
 
-function stringifyQuery(query: Record<string, string>): string {
+export function stringifyQuery(query: Record<string, string | string[]>): string {
   const parts: string[] = [];
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null) {
-      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+  for (const [key, val] of Object.entries(query)) {
+    if (val === undefined || val === null) continue;
+    if (Array.isArray(val)) {
+      for (const subVal of val) {
+        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(subVal)}`);
+      }
+    } else {
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
     }
   }
   return parts.length ? `?${parts.join('&')}` : '';
 }
 
-function buildRouteContext(
-  path: string,
-  params: Record<string, string>,
-  query: Record<string, string>,
-  meta?: Record<string, any>
-): RouteContext {
-  return { path, params, query, meta };
+export function normalizePath(path: string): string {
+  if (!path) return '/';
+  const clean = path.replace(/\/+/g, '/');
+  if (clean === '/') return '/';
+  return clean.startsWith('/') ? clean.replace(/\/$/, '') : `/${clean.replace(/\/$/, '')}`;
 }
 
-function normalizePath(path: string): string {
-  return path.startsWith('/') ? path : `/${path}`;
+export function parseHashUrl(hashUrl: string): { path: string; query: Record<string, string | string[]> } {
+  const hash = hashUrl.startsWith('#') ? hashUrl.slice(1) : hashUrl;
+  const raw = hash || '/';
+  const qIdx = raw.indexOf('?');
+
+  if (qIdx === -1) {
+    return { path: normalizePath(raw), query: {} };
+  }
+
+  return {
+    path: normalizePath(raw.slice(0, qIdx)),
+    query: parseQuery(raw.slice(qIdx))
+  };
 }
 
-function getPathFromHash(): string {
-  const hash = location.hash.slice(1);
-  const queryIndex = hash.indexOf('?');
-  return queryIndex !== -1 ? hash.slice(0, queryIndex) : hash || '/';
+// ─── Hierarchical Route Matcher ─────────────────────────────────────
+
+function cleanPathSegment(segment: string): string {
+  return segment.replace(/^\/+|\/+$/g, '');
 }
 
-function getQueryFromHash(): Record<string, string> {
-  const hash = location.hash.slice(1);
-  const queryIndex = hash.indexOf('?');
-  return queryIndex !== -1 ? parseQuery(hash.slice(queryIndex)) : {};
-}
+function matchSegmentPattern(
+  pattern: string,
+  pathname: string,
+  isLeaf: boolean
+): { params: Record<string, string>; matchedLength: number } | null {
+  const normPattern = normalizePath(pattern);
+  const patternSegs = normPattern.split('/').filter(Boolean);
+  const pathSegs = pathname.split('/').filter(Boolean);
 
-function getFullHash(): string {
-  return location.hash.slice(1) || '/';
-}
-
-// ─── Route Matching ────────────────────────────────────────────────
-
-function matchRoute(pattern: string, actual: string): Record<string, string> | null {
-  const patternParts = pattern.split('/').filter(Boolean);
-  const actualParts = actual.split('/').filter(Boolean);
-  
-  if (patternParts.length !== actualParts.length) return null;
+  // Catch-all wildcard
+  if (pattern === '*' || pattern === '(.*)') {
+    return {
+      params: { pathMatch: pathSegs.join('/') },
+      matchedLength: pathSegs.length
+    };
+  }
 
   const params: Record<string, string> = {};
-  for (let i = 0; i < patternParts.length; i++) {
-    const p = patternParts[i];
-    if (p.startsWith(':')) {
-      params[p.slice(1)] = decodeURIComponent(actualParts[i]);
-    } else if (p !== actualParts[i]) {
-      return null;
+  let pIdx = 0;
+  let uIdx = 0;
+
+  while (pIdx < patternSegs.length) {
+    const pSeg = patternSegs[pIdx];
+
+    if (pSeg === '*') {
+      const rest = pathSegs.slice(uIdx).map(safeDecodeURIComponent).join('/');
+      params['pathMatch'] = rest;
+      return { params, matchedLength: pathSegs.length };
     }
+
+    const isOptional = pSeg.endsWith('?');
+    const rawParam = isOptional ? pSeg.slice(0, -1) : pSeg;
+
+    if (rawParam.startsWith(':')) {
+      const paramName = rawParam.slice(1);
+      if (uIdx < pathSegs.length) {
+        params[paramName] = safeDecodeURIComponent(pathSegs[uIdx]);
+        uIdx++;
+      } else if (!isOptional) {
+        return null;
+      }
+    } else {
+      if (uIdx >= pathSegs.length || pSeg !== pathSegs[uIdx]) {
+        return null;
+      }
+      uIdx++;
+    }
+    pIdx++;
   }
-  return params;
+
+  if (isLeaf && uIdx !== pathSegs.length) {
+    return null;
+  }
+
+  return { params, matchedLength: uIdx };
 }
 
-function findMatchedRoute(
+function matchRouteTree(
   routes: Route[],
-  path: string,
-  parentParams: Record<string, string> = {}
-): MatchedRoute | null {
-  const pathParts = path.split('/').filter(Boolean);
-  
+  targetPath: string,
+  parentPrefix: string = ''
+): MatchedBranchRecord[] | null {
+  const normalizedTarget = normalizePath(targetPath);
+
   for (const route of routes) {
-    const params = matchRoute(route.path, path);
-    if (params) {
-      const allParams = { ...parentParams, ...params };
-      
-      // Check for children
-      let children: MatchedRoute[] = [];
-      if (route.children) {
-        // Find matching child route (for nested routes)
-        const childPath = pathParts.slice(route.path.split('/').filter(Boolean).length).join('/');
-        const childMatch = findMatchedRoute(route.children, `/${childPath}`, allParams);
-        if (childMatch) {
-          children = [childMatch];
+    const routeSegment = cleanPathSegment(route.path);
+    const fullPattern = parentPrefix 
+      ? normalizePath(`${parentPrefix}/${routeSegment}`)
+      : normalizePath(route.path);
+
+    const hasChildren = Boolean(route.children && route.children.length > 0);
+
+    if (hasChildren) {
+      const match = matchSegmentPattern(fullPattern, normalizedTarget, false);
+      if (match) {
+        const childBranch = matchRouteTree(route.children!, normalizedTarget, fullPattern);
+        if (childBranch) {
+          return [
+            { route, pattern: fullPattern, params: match.params },
+            ...childBranch
+          ];
         }
       }
-      
-      return {
-        route,
-        params: allParams,
-        children
-      };
+    } else {
+      const match = matchSegmentPattern(fullPattern, normalizedTarget, true);
+      if (match) {
+        return [{ route, pattern: fullPattern, params: match.params }];
+      }
     }
   }
-  
+
   return null;
-}
-
-function flattenRoutes(routes: Route[], prefix: string = ''): Route[] {
-  const result: Route[] = [];
-  
-  for (const route of routes) {
-    const fullPath = prefix ? `${prefix}${route.path}` : route.path;
-    result.push({ ...route, path: fullPath });
-    
-    if (route.children) {
-      result.push(...flattenRoutes(route.children, fullPath));
-    }
-  }
-  
-  return result;
-}
-
-// ─── History ────────────────────────────────────────────────────────
-
-interface HistoryEntry {
-  path: string;
-  query: Record<string, string>;
-}
-
-class HistoryManager {
-  private stack: HistoryEntry[] = [];
-  private index: number = -1;
-  
-  constructor(initialPath: string, initialQuery: Record<string, string>) {
-    this.stack.push({ path: initialPath, query: initialQuery });
-    this.index = 0;
-  }
-  
-  push(path: string, query: Record<string, string>): void {
-    // Remove forward history
-    this.stack = this.stack.slice(0, this.index + 1);
-    this.stack.push({ path, query });
-    this.index = this.stack.length - 1;
-    this.updateHash(path, query);
-  }
-  
-  replace(path: string, query: Record<string, string>): void {
-    this.stack[this.index] = { path, query };
-    this.updateHash(path, query);
-  }
-  
-  back(): boolean {
-    if (this.index > 0) {
-      this.index--;
-      const entry = this.stack[this.index];
-      this.updateHash(entry.path, entry.query);
-      return true;
-    }
-    return false;
-  }
-  
-  forward(): boolean {
-    if (this.index < this.stack.length - 1) {
-      this.index++;
-      const entry = this.stack[this.index];
-      this.updateHash(entry.path, entry.query);
-      return true;
-    }
-    return false;
-  }
-  
-  go(delta: number): boolean {
-    const newIndex = this.index + delta;
-    if (newIndex >= 0 && newIndex < this.stack.length) {
-      this.index = newIndex;
-      const entry = this.stack[this.index];
-      this.updateHash(entry.path, entry.query);
-      return true;
-    }
-    return false;
-  }
-  
-  get current(): HistoryEntry {
-    return this.stack[this.index];
-  }
-  
-  private updateHash(path: string, query: Record<string, string>): void {
-    const queryString = stringifyQuery(query);
-    location.hash = queryString ? `${path}${queryString}` : path;
-  }
-  
-  get length(): number {
-    return this.stack.length;
-  }
 }
 
 // ─── Router Implementation ────────────────────────────────────────
 
 export function createRouter(routes: Route[]): Router {
-  // Flatten routes for matching
-  const flatRoutes = flattenRoutes(routes);
-  
+  const initialHash = parseHashUrl(window.location.hash);
+
   // Reactive state
-  const path = createSignal(getPathFromHash());
+  const path = createSignal<string>(initialHash.path);
   const params = createSignal<Record<string, string>>({});
-  const query = createSignal<Record<string, string>>(getQueryFromHash());
+  const query = createSignal<Record<string, string | string[]>>(initialHash.query);
   const currentRoute = createSignal<RouteContext | null>(null);
-  
-  // Guards and hooks
+
+  let activeMatchedBranch: MatchedBranchRecord[] = [];
   const beforeEachGuards: NavigationGuard[] = [];
   const afterEachHooks: NavigationHook[] = [];
+
+  // Concurrency tracking & flags
+  let navigationId = 0;
   let isNavigating = false;
-  let pendingNavigation: (() => void) | null = null;
-  
-  // History
-  const history = new HistoryManager(getPathFromHash(), getQueryFromHash());
-  
-  // ─── Navigation ──────────────────────────────────────────────────
-  
-  function performNavigation(
-    toPath: string,
-    toQuery: Record<string, string>,
-    replace: boolean = false
-  ): void {
-    const from = currentRoute();
-    const matched = findMatchedRoute(flatRoutes, toPath);
-    
-    if (!matched) {
-      console.warn(`[Teloce Router] No route found for: ${toPath}`);
-      // Show 404 or fallback
-      return;
+  let isRevertingHash = false;
+  let activeEffectDisposer: (() => void) | null = null;
+
+  // ─── Helpers ──────────────────────────────────────────────────────
+
+  function resolveLocation(to: string | LocationDescriptor): {
+    fullPath: string;
+    path: string;
+    query: Record<string, string | string[]>;
+    replace: boolean;
+  } {
+    if (typeof to === 'string') {
+      const parsed = parseHashUrl(to);
+      const qStr = stringifyQuery(parsed.query);
+      return {
+        fullPath: `${parsed.path}${qStr}`,
+        path: parsed.path,
+        query: parsed.query,
+        replace: false
+      };
+    } else {
+      const normPath = normalizePath(to.path);
+      const q = to.query || {};
+      const qStr = stringifyQuery(q);
+      return {
+        fullPath: `${normPath}${qStr}`,
+        path: normPath,
+        query: q,
+        replace: Boolean(to.replace)
+      };
     }
-    
-    const to: RouteContext = buildRouteContext(
-      toPath,
-      matched.params,
-      toQuery,
-      matched.route.meta
-    );
-    
-    // Run guards
-    runGuards(to, from, () => {
-      // Update state
-      path.set(toPath);
-      params.set(to.params);
-      query.set(toQuery);
-      currentRoute.set(to);
-      
-      // Update history
-      if (replace) {
-        history.replace(toPath, toQuery);
-      } else {
-        history.push(toPath, toQuery);
-      }
-      
-      // Run after hooks
-      runAfterHooks(to, from);
-    });
   }
-  
-  function runGuards(
-    to: RouteContext,
-    from: RouteContext | null,
-    next: () => void
-  ): void {
-    if (isNavigating) {
-      pendingNavigation = next;
-      return;
+
+  function updateBrowserHash(fullPath: string, replace: boolean): void {
+    const targetHash = `#${fullPath}`;
+    if (window.location.hash === targetHash) return;
+
+    if (replace) {
+      const url = window.location.href.split('#')[0] + targetHash;
+      window.location.replace(url);
+    } else {
+      window.location.hash = targetHash;
     }
-    
+  }
+
+  // ─── Navigation Pipeline ──────────────────────────────────────────
+
+  async function performNavigation(
+    to: string | LocationDescriptor,
+    fromHashChange: boolean = false
+  ): Promise<boolean> {
+    const currentNavId = ++navigationId;
     isNavigating = true;
-    let index = 0;
-    
-    function runNextGuard(): void {
-      if (index >= beforeEachGuards.length) {
-        isNavigating = false;
-        if (pendingNavigation) {
-          const pending = pendingNavigation;
-          pendingNavigation = null;
-          pending();
+
+    const target = resolveLocation(to);
+    const branch = matchRouteTree(routes, target.path);
+
+    if (!branch) {
+      console.warn(`[Teloce Router] No route matched for path: ${target.path}`);
+      isNavigating = false;
+      return false;
+    }
+
+    // Accumulate params, meta, and matched route hierarchy
+    const mergedParams: Record<string, string> = {};
+    const mergedMeta: Record<string, any> = {};
+    const matchedRoutes: Route[] = [];
+
+    for (const record of branch) {
+      Object.assign(mergedParams, record.params);
+      if (record.route.meta) {
+        Object.assign(mergedMeta, record.route.meta);
+      }
+      matchedRoutes.push(record.route);
+    }
+
+    const toContext: RouteContext = {
+      path: target.path,
+      fullPath: target.fullPath,
+      params: mergedParams,
+      query: target.query,
+      meta: mergedMeta,
+      matched: matchedRoutes
+    };
+
+    const fromContext = currentRoute();
+
+    // Run async guards sequentially
+    for (const guard of beforeEachGuards) {
+      try {
+        const result = await guard(toContext, fromContext);
+
+        // Cancel navigation if superseded by a newer call
+        if (currentNavId !== navigationId) {
+          return false;
         }
-        next();
-        return;
-      }
-      
-      const guard = beforeEachGuards[index++];
-      const result = guard(to, from);
-      
-      if (result === false) {
-        // Navigation cancelled
-        isNavigating = false;
-        pendingNavigation = null;
-        return;
-      }
-      
-      if (typeof result === 'string') {
-        // Redirect
-        isNavigating = false;
-        pendingNavigation = null;
-        navigate(result);
-        return;
-      }
-      
-      runNextGuard();
-    }
-    
-    runNextGuard();
-  }
-  
-  function runAfterHooks(to: RouteContext, from: RouteContext | null): void {
-    for (const hook of afterEachHooks) {
-      hook(to, from);
-    }
-  }
-  
-  // ─── Navigate ────────────────────────────────────────────────────
-  
-  function navigate(to: string | LocationDescriptor): void {
-    if (typeof to === 'string') {
-      const queryIndex = to.indexOf('?');
-      const path = queryIndex !== -1 ? to.slice(0, queryIndex) : to;
-      const query = queryIndex !== -1 ? parseQuery(to.slice(queryIndex)) : {};
-      performNavigation(normalizePath(path), query);
-    } else {
-      const path = normalizePath(to.path);
-      const query = to.query || {};
-      performNavigation(path, query, to.replace || false);
-    }
-  }
-  
-  function push(to: string | LocationDescriptor): void {
-    navigate(to);
-  }
-  
-  function replace(to: string | LocationDescriptor): void {
-    if (typeof to === 'string') {
-      const queryIndex = to.indexOf('?');
-      const path = queryIndex !== -1 ? to.slice(0, queryIndex) : to;
-      const query = queryIndex !== -1 ? parseQuery(to.slice(queryIndex)) : {};
-      performNavigation(normalizePath(path), query, true);
-    } else {
-      const path = normalizePath(to.path);
-      const query = to.query || {};
-      performNavigation(path, query, true);
-    }
-  }
-  
-  function back(): void {
-    if (history.back()) {
-      const entry = history.current;
-      path.set(entry.path);
-      query.set(entry.query);
-      
-      const matched = findMatchedRoute(flatRoutes, entry.path);
-      if (matched) {
-        params.set(matched.params);
-        currentRoute.set(buildRouteContext(entry.path, matched.params, entry.query));
-      }
-    }
-  }
-  
-  function forward(): void {
-    if (history.forward()) {
-      const entry = history.current;
-      path.set(entry.path);
-      query.set(entry.query);
-      
-      const matched = findMatchedRoute(flatRoutes, entry.path);
-      if (matched) {
-        params.set(matched.params);
-        currentRoute.set(buildRouteContext(entry.path, matched.params, entry.query));
-      }
-    }
-  }
-  
-  function go(delta: number): void {
-    if (history.go(delta)) {
-      const entry = history.current;
-      path.set(entry.path);
-      query.set(entry.query);
-      
-      const matched = findMatchedRoute(flatRoutes, entry.path);
-      if (matched) {
-        params.set(matched.params);
-        currentRoute.set(buildRouteContext(entry.path, matched.params, entry.query));
-      }
-    }
-  }
-  
-  // ─── Hash Change Listener ───────────────────────────────────────
-  
-  window.addEventListener('hashchange', () => {
-    const newPath = getPathFromHash();
-    const newQuery = getQueryFromHash();
-    
-    if (newPath !== path() || JSON.stringify(newQuery) !== JSON.stringify(query())) {
-      // Handle browser back/forward
-      const matched = findMatchedRoute(flatRoutes, newPath);
-      if (matched) {
-        path.set(newPath);
-        query.set(newQuery);
-        params.set(matched.params);
-        currentRoute.set(buildRouteContext(newPath, matched.params, newQuery));
-      }
-    }
-  });
-  
-  // ─── Mount ──────────────────────────────────────────────────────
-  
-  function mount(container: Element, ctx: Record<string, any> = {}): void {
-    createEffect(() => {
-      const current = path();
-      const q = query();
-      const matched = findMatchedRoute(flatRoutes, current);
-      
-      // Update params
-      if (matched) {
-        params.set(matched.params);
-        const routeContext = buildRouteContext(current, matched.params, q, matched.route.meta);
-        currentRoute.set(routeContext);
-      }
-      
-      container.innerHTML = '';
-      
-      if (matched) {
-        const fullCtx = {
-          ...ctx,
-          params: matched.params,
-          query: q,
-          path: current,
-          meta: matched.route.meta,
-        };
-        
-        matched.route.component.template(container, fullCtx);
-        
-        // Handle nested routes if present
-        if (matched.children.length > 0) {
-          // Find or create child container
-          let childContainer = container.querySelector('[data-router-view]');
-          if (!childContainer) {
-            childContainer = document.createElement('div');
-            childContainer.setAttribute('data-router-view', '');
-            container.appendChild(childContainer);
+
+        if (result === false) {
+          isNavigating = false;
+          if (fromHashChange && fromContext) {
+            isRevertingHash = true;
+            updateBrowserHash(fromContext.fullPath, true);
+            isRevertingHash = false;
           }
-          
-          // Render nested route
-          const child = matched.children[0];
-          const childCtx = {
-            ...fullCtx,
-            params: { ...fullCtx.params, ...child.params },
-          };
-          child.route.component.template(childContainer as Element, childCtx);
+          return false;
         }
-      } else {
-        // No route found - render 404
-        container.innerHTML = '<h1>404 - Page Not Found</h1>';
+
+        if (typeof result === 'string') {
+          isNavigating = false;
+          return navigate(result);
+        }
+      } catch (err) {
+        console.error('[Teloce Router] Error in beforeEach guard:', err);
+        isNavigating = false;
+        return false;
       }
-    });
+    }
+
+    // Apply reactive state changes
+    activeMatchedBranch = branch;
+    path.set(target.path);
+    params.set(mergedParams);
+    query.set(target.query);
+    currentRoute.set(toContext);
+
+    // Sync browser URL hash if invoked programmatically
+    if (!fromHashChange) {
+      updateBrowserHash(target.fullPath, target.replace);
+    }
+
+    // Run after hooks
+    for (const hook of afterEachHooks) {
+      try {
+        hook(toContext, fromContext);
+      } catch (err) {
+        console.error('[Teloce Router] Error in afterEach hook:', err);
+      }
+    }
+
+    isNavigating = false;
+    return true;
   }
-  
-  // ─── Guards and Hooks ───────────────────────────────────────────
-  
+
+  // ─── Hash Change Listener ───────────────────────────────────────
+
+  window.addEventListener('hashchange', () => {
+    if (isRevertingHash) return;
+
+    const { path: newPath, query: newQuery } = parseHashUrl(window.location.hash);
+    const curr = currentRoute();
+
+    if (curr && curr.path === newPath && JSON.stringify(curr.query) === JSON.stringify(newQuery)) {
+      return;
+    }
+
+    performNavigation(window.location.hash.slice(1) || '/', true);
+  });
+
+  // ─── Public Router API ─────────────────────────────────────────────
+
+  function navigate(to: string | LocationDescriptor): Promise<boolean> {
+    return performNavigation(to, false);
+  }
+
+  function push(to: string | LocationDescriptor): Promise<boolean> {
+    return navigate(to);
+  }
+
+  function replace(to: string | LocationDescriptor): Promise<boolean> {
+    if (typeof to === 'string') {
+      return performNavigation({ path: to, replace: true }, false);
+    }
+    return performNavigation({ ...to, replace: true }, false);
+  }
+
+  function back(): void {
+    window.history.back();
+  }
+
+  function forward(): void {
+    window.history.forward();
+  }
+
+  function go(delta: number): void {
+    window.history.go(delta);
+  }
+
   function beforeEach(guard: NavigationGuard): void {
     beforeEachGuards.push(guard);
   }
-  
+
   function afterEach(hook: NavigationHook): void {
     afterEachHooks.push(hook);
   }
-  
-  // ─── Install Plugin ─────────────────────────────────────────────
-  
-  function install(app: any): void {
-    // Register router as a component
-    if (app.component) {
-      app.component('RouterView', {
-        template: (container: Element, ctx: any) => {
-          const current = path();
-          const matched = findMatchedRoute(flatRoutes, current);
-          
-          container.innerHTML = '';
-          if (matched) {
-            const fullCtx = {
-              ...ctx,
-              params: matched.params,
-              query: query(),
-              path: current,
-            };
-            matched.route.component.template(container, fullCtx);
-          }
-        },
-      });
+
+  function mount(container: Element, ctx: Record<string, any> = {}): () => void {
+    if (activeEffectDisposer) {
+      activeEffectDisposer();
+      activeEffectDisposer = null;
     }
-    
-    // Add router to app context
-    if (app._context) {
-      app._context.router = this;
-    }
-    
-    // Provide router to components
-    if (app.provide) {
-      app.provide('router', this);
-      app.provide('route', currentRoute);
-    }
+
+    activeEffectDisposer = createEffect(() => {
+      const route = currentRoute();
+      container.innerHTML = '';
+
+      if (route && activeMatchedBranch.length > 0) {
+        const topMatch = activeMatchedBranch[0];
+        topMatch.route.component.template(container, route);
+      } else {
+        container.innerHTML = '<h1>404 - Page Not Found</h1>';
+      }
+    });
+
+    return () => {
+      if (activeEffectDisposer) {
+        activeEffectDisposer();
+        activeEffectDisposer = null;
+      }
+    };
   }
-  
-  // ─── Router API ──────────────────────────────────────────────────
-  
+
   const router: Router = {
     path,
     params,
@@ -599,94 +522,131 @@ export function createRouter(routes: Route[]): Router {
     mount,
     beforeEach,
     afterEach,
-    install,
+    install(app: any) {
+      if (app.component) {
+        app.component('RouterView', createRouterView(router));
+        app.component('RouterLink', createRouterLink(router));
+      }
+
+      if (app._context) {
+        app._context.router = router;
+      }
+
+      if (app.provide) {
+        app.provide('router', router);
+        app.provide('route', currentRoute);
+      }
+    },
+    getMatchedBranch: () => activeMatchedBranch,
+    routes
   };
-  
-  // Initial navigation
-  const initialPath = getPathFromHash();
-  const initialQuery = getQueryFromHash();
-  const initialMatched = findMatchedRoute(flatRoutes, initialPath);
-  if (initialMatched) {
-    params.set(initialMatched.params);
-    currentRoute.set(buildRouteContext(initialPath, initialMatched.params, initialQuery));
-  }
-  
+
+  // Run initial navigation synchronously
+  performNavigation(window.location.hash.slice(1) || '/', true);
+
   return router;
 }
 
-// ─── Router View Component ────────────────────────────────────────
+// ─── Reactive Router Components ────────────────────────────────────
 
-export function createRouterView(): {
-  template: (container: Element, ctx: any) => void;
+export function createRouterView(router?: Router, depth: number = 0): {
+  name: string;
+  template: (container: Element, ctx?: any) => void;
 } {
   return {
-    template: (container: Element, ctx: any) => {
-      const router = ctx.router || ctx.$router;
-      if (!router) {
-        container.innerHTML = '<p>Router not found</p>';
+    name: 'RouterView',
+    template: (container: Element, ctx?: any) => {
+      const activeRouter: Router | undefined = router || ctx?.router || ctx?._context?.router;
+
+      if (!activeRouter) {
+        container.innerHTML = '<p>[Teloce Router] RouterView: Router instance not found.</p>';
         return;
       }
-      
-      const current = router.path();
-      const matched = findMatchedRoute(
-        // We need access to routes - store them on router
-        (router as any)._routes || [],
-        current
-      );
-      
-      container.innerHTML = '';
-      if (matched) {
-        const fullCtx = {
-          ...ctx,
-          params: matched.params,
-          query: router.query(),
-          path: current,
-        };
-        matched.route.component.template(container, fullCtx);
-      }
-    },
+
+      createEffect(() => {
+        const branch = activeRouter.getMatchedBranch();
+        const routeCtx = activeRouter.currentRoute();
+        container.innerHTML = '';
+
+        if (branch && branch[depth] && routeCtx) {
+          const matchRecord = branch[depth];
+          matchRecord.route.component.template(container, routeCtx);
+        }
+      });
+    }
   };
 }
 
-// ─── Link Component ───────────────────────────────────────────────
-
-export function createRouterLink(props: {
-  to: string | LocationDescriptor;
-  activeClass?: string;
-  exactActiveClass?: string;
-}) {
+export function createRouterLink(routerOrProps?: Router | RouterLinkProps): {
+  name: string;
+  template: (container: Element, ctx?: any) => void;
+} {
   return {
-    template: (container: Element, ctx: any) => {
-      const router = ctx.router || ctx.$router;
-      if (!router) {
-        container.innerHTML = '<a>Router not found</a>';
+    name: 'RouterLink',
+    template: (container: Element, ctx?: any) => {
+      const activeRouter: Router | undefined = 
+        'navigate' in (routerOrProps || {}) 
+          ? (routerOrProps as Router) 
+          : ctx?.router || ctx?._context?.router;
+
+      if (!activeRouter) {
+        container.innerHTML = '<a>[Teloce Router] Router missing</a>';
         return;
       }
-      
-      const to = typeof props.to === 'string' ? props.to : props.to.path;
-      const current = router.path();
-      const isActive = current === to;
-      const isExactActive = current === to;
-      
+
+      const props: RouterLinkProps = 'navigate' in (routerOrProps || {})
+        ? ctx || {}
+        : (routerOrProps as RouterLinkProps) || ctx || {};
+
       const a = document.createElement('a');
-      a.href = `#${to}`;
-      a.textContent = container.textContent || 'Link';
-      
-      if (isActive && props.activeClass) {
-        a.className = props.activeClass;
+
+      if (props.label) {
+        a.textContent = props.label;
+      } else if (container.childNodes.length > 0) {
+        while (container.firstChild) {
+          a.appendChild(container.firstChild);
+        }
+      } else {
+        a.textContent = 'Link';
       }
-      if (isExactActive && props.exactActiveClass) {
-        a.className = props.exactActiveClass;
+
+      const activeClass = props.activeClass || 'router-link-active';
+      const exactActiveClass = props.exactActiveClass || 'router-link-exact-active';
+
+      let targetPath = '';
+      let targetQuery: Record<string, string | string[]> = {};
+
+      if (typeof props.to === 'string') {
+        const parsed = parseHashUrl(props.to);
+        targetPath = parsed.path;
+        targetQuery = parsed.query;
+      } else if (props.to) {
+        targetPath = normalizePath(props.to.path);
+        targetQuery = props.to.query || {};
       }
-      
+
+      const fullHref = `#${targetPath}${stringifyQuery(targetQuery)}`;
+      a.setAttribute('href', fullHref);
+
       a.addEventListener('click', (e) => {
         e.preventDefault();
-        router.navigate(props.to);
+        if (props.to) {
+          activeRouter.navigate(props.to);
+        }
       });
-      
+
+      createEffect(() => {
+        const currentPath = activeRouter.path();
+        const isExact = currentPath === targetPath;
+        const isActive = isExact || (targetPath !== '/' && currentPath.startsWith(`${targetPath}/`));
+
+        a.classList.toggle(activeClass, isActive);
+        a.classList.toggle(exactActiveClass, isExact);
+      });
+
       container.innerHTML = '';
       container.appendChild(a);
-    },
+    }
   };
 }
 

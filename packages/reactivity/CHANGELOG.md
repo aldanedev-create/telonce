@@ -1,5 +1,11 @@
 # @teloce/reactivity
 
+## 1.2.0
+
+### Minor Changes
+
+- well did alot of bug fixes
+
 ## 1.1.0
 
 ### Minor Changes

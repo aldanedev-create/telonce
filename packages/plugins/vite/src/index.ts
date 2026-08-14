@@ -108,6 +108,10 @@ export default function telocePlugin(
   let config: ResolvedConfig;
 
   // Normalize include/exclude patterns and filter out undefined values
+  // (opts.include/opts.exclude are optional, so `[opts.include]` could be
+  // `[undefined]` when the option was never set - that's what made
+  // `pattern` possibly-undefined below, even though a plain array is
+  // never actually passed containing `undefined` in practice).
   const includePatterns = (Array.isArray(opts.include) ? opts.include : [opts.include])
     .filter((p): p is string | RegExp => p !== undefined);
   const excludePatterns = (Array.isArray(opts.exclude) ? opts.exclude : [opts.exclude])
@@ -230,6 +234,32 @@ function compileSFCFile(
 /**
  * Compile a template file (.teloce)
  */
+/**
+ * `compileTemplate`'s result.code is a small, complete module - some
+ * `import ... from '...'` lines followed by
+ * `export function render(container, ctx) { ... }`. It was previously
+ * spliced straight into `return ${result.code};`, which is invalid JS the
+ * moment the "returned" value starts with an `import` statement (imports
+ * are statements, not expressions) - exactly the same bug this had in
+ * @teloce/sfc's compile.ts before it was fixed there. Pulls the import
+ * lines out to hoist them to the top of the wrapping module instead, and
+ * turns the exported function into a plain local declaration that the
+ * wrapper can reference by name.
+ */
+function splitTemplateModule(code: string): { imports: string[]; functionCode: string } {
+  const imports: string[] = [];
+  const rest: string[] = [];
+  for (const line of code.split('\n')) {
+    if (/^\s*import\s.+from\s+['"].+['"];?\s*$/.test(line)) {
+      imports.push(line.trim());
+    } else {
+      rest.push(line);
+    }
+  }
+  const functionCode = rest.join('\n').replace(/export\s+function\s+render/, 'function render');
+  return { imports, functionCode };
+}
+
 function compileTemplateFile(
   code: string,
   id: string,
@@ -245,12 +275,14 @@ function compileTemplateFile(
       dev: opts.dev,
     });
 
+    const { imports, functionCode } = splitTemplateModule(result.code);
+
     // Wrap in JavaScript
     const jsCode = `
 // Teloce template compiled from ${path.basename(id)}
-export default function render(data) {
-  return ${result.code};
-}
+${imports.join('\n')}
+${functionCode}
+export default render;
 `;
 
     return {

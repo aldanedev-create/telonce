@@ -1,5 +1,18 @@
 # @teloce/core
 
+## 1.2.0
+
+### Minor Changes
+
+- well did alot of bug fixes
+
+### Patch Changes
+
+- Updated dependencies
+  - @teloce/runtime-dom@1.2.0
+  - @teloce/reactivity@1.2.0
+  - @teloce/std@1.2.0
+
 ## 1.1.0
 
 ### Minor Changes

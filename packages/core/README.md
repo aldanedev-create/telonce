@@ -1,5 +1,20 @@
 # @teloce/core
 
+
+
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+**Author:** Aldane Hutchinson
+
+ teloce:  A JavaScript template engine for Python web developers.
+ 
+
 Core library for Teloce — provides a composable API for applications, bundlers, and tree-shaking users.
 
 ## Installation

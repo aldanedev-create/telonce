@@ -1,5 +1,19 @@
 # Teloce Plugin System
 
+
+
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+**Author:** Aldane Hutchinson
+
+ teloce:  A JavaScript template engine for Python web developers.
+
 > Extend the Teloce template engine with custom directives, filters, components, transforms, and lifecycle hooks.
 
 ---

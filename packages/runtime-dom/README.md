@@ -1,5 +1,18 @@
 # @teloce/runtime-dom
 
+
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+**Author:** Aldane Hutchinson
+
+ teloce:  A JavaScript template engine for Python web developers.
+
 > DOM runtime for Teloce — reconciler, directives, keyed loops, and event handling.
 
 ---

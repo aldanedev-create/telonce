@@ -1,5 +1,21 @@
 # @teloce/cli
 
+## 1.2.0
+
+### Minor Changes
+
+- well did alot of bug fixes
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @teloce/debugger@1.2.0
+  - @teloce/bundler@1.3.0
+  - @teloce/server@1.2.0
+  - @teloce/compiler@1.2.0
+  - @teloce/shared@1.2.0
+
 ## 1.1.0
 
 ### Minor Changes

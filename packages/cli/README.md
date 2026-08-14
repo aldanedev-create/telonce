@@ -7,6 +7,11 @@
 </p>
 
 
+
+**Author:** Aldane Hutchinson
+
+ teloce:  A JavaScript template engine for Python web developers.
+
 > Command-line interface for Teloce — develop, build, debug, and create Teloce projects.
 
 ---

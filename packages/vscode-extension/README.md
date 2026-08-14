@@ -1,5 +1,19 @@
 # Teloce VS Code Extension
 
+
+
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+**Author:** Aldane Hutchinson
+
+ teloce:  A JavaScript template engine for Python web developers.
+
 > Teloce template language support for Visual Studio Code.
 
 The Teloce VS Code extension provides language support and developer tooling for Teloce templates (`.vel` files), including syntax highlighting, diagnostics, autocomplete, formatting, snippets, and debugger integration.

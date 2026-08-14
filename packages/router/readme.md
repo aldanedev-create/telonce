@@ -16,11 +16,6 @@ teloce: A JavaScript template engine for Python web developers.
 * [Teloce Website](https://telonce-website.vercel.app/#/)
 
 
-Cdn
-:<script src="https://cdn.jsdelivr.net/npm/@teloce/router@latest/dist/teloce-router.global.js"></script>
-
-
-
 A small, dependency-light client-side router for Teloce single-page apps. Hash-based (no server rewrite rules needed), with nested routes, navigation guards, and reactive `RouterView`/`RouterLink` components.
 
 ## Install

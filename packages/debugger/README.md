@@ -1,5 +1,19 @@
 # @teloce/debugger
 
+
+
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+**Author:** Aldane Hutchinson
+
+ teloce:  A JavaScript template engine for Python web developers.
+
 > Human-friendly debugger for Teloce applications.
 
 The Teloce Debugger translates cryptic JavaScript and TypeScript errors into plain English and provides a local dashboard for inspecting your application in real time.

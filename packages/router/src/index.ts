@@ -1,20 +1,20 @@
 /**
  * @teloce/router - A robust client-side router for Teloce SPAs
- * 
- * Features:
- * - Hash-based routing driven directly by browser native history
- * - True hierarchical nested route matching and multi-level RouterView rendering
- * - Dynamic (:id), optional (:id?), and wildcard (*) route parameters
- * - Safe query parameter parsing (handles multiple values, '=' in values, URIError protection)
- * - Async navigation guards with concurrency cancellation tokens
- * - Route metadata accumulation across nested branches
- * - Fully reactive RouterView and RouterLink components
- * - Memory-leak-free mount() with explicit disposer cleanup
  */
 
 import { createSignal, createEffect, type Signal } from '@teloce/reactivity';
 
-// ─── Types ──────────────────────────────────────────────────────────
+/**
+ * createEffect() returns a real Effect object ({run, stop}), not a plain
+ * callable disposer function - `activeEffectDisposer = createEffect(...)`
+ * followed later by `activeEffectDisposer()` would throw
+ * `TypeError: activeEffectDisposer is not a function` the moment anyone
+ * actually tried to unmount, since you can't call an object. This adapts
+ * a real Effect into the `() => void` shape the rest of this file expects.
+ */
+function wrapEffectAsDisposer(effect: { stop: () => void }): () => void {
+  return () => effect.stop();
+}
 
 export interface Route {
   path: string;
@@ -84,8 +84,6 @@ export interface Router {
   getMatchedBranch: () => MatchedBranchRecord[];
   routes: Route[];
 }
-
-// ─── Query & URL Utilities ──────────────────────────────────────────
 
 export function safeDecodeURIComponent(str: string): string {
   try {
@@ -169,8 +167,6 @@ export function parseHashUrl(hashUrl: string): { path: string; query: Record<str
   };
 }
 
-// ─── Hierarchical Route Matcher ─────────────────────────────────────
-
 function cleanPathSegment(segment: string): string {
   return segment.replace(/^\/+|\/+$/g, '');
 }
@@ -184,7 +180,6 @@ function matchSegmentPattern(
   const patternSegs = normPattern.split('/').filter(Boolean);
   const pathSegs = pathname.split('/').filter(Boolean);
 
-  // Catch-all wildcard
   if (pattern === '*' || pattern === '(.*)') {
     return {
       params: { pathMatch: pathSegs.join('/') },
@@ -269,12 +264,9 @@ function matchRouteTree(
   return null;
 }
 
-// ─── Router Implementation ────────────────────────────────────────
-
 export function createRouter(routes: Route[]): Router {
   const initialHash = parseHashUrl(window.location.hash);
 
-  // Reactive state
   const path = createSignal<string>(initialHash.path);
   const params = createSignal<Record<string, string>>({});
   const query = createSignal<Record<string, string | string[]>>(initialHash.query);
@@ -284,13 +276,9 @@ export function createRouter(routes: Route[]): Router {
   const beforeEachGuards: NavigationGuard[] = [];
   const afterEachHooks: NavigationHook[] = [];
 
-  // Concurrency tracking & flags
   let navigationId = 0;
-  let isNavigating = false;
   let isRevertingHash = false;
   let activeEffectDisposer: (() => void) | null = null;
-
-  // ─── Helpers ──────────────────────────────────────────────────────
 
   function resolveLocation(to: string | LocationDescriptor): {
     fullPath: string;
@@ -332,25 +320,20 @@ export function createRouter(routes: Route[]): Router {
     }
   }
 
-  // ─── Navigation Pipeline ──────────────────────────────────────────
-
   async function performNavigation(
     to: string | LocationDescriptor,
     fromHashChange: boolean = false
   ): Promise<boolean> {
     const currentNavId = ++navigationId;
-    isNavigating = true;
 
     const target = resolveLocation(to);
     const branch = matchRouteTree(routes, target.path);
 
     if (!branch) {
       console.warn(`[Teloce Router] No route matched for path: ${target.path}`);
-      isNavigating = false;
       return false;
     }
 
-    // Accumulate params, meta, and matched route hierarchy
     const mergedParams: Record<string, string> = {};
     const mergedMeta: Record<string, any> = {};
     const matchedRoutes: Route[] = [];
@@ -374,18 +357,15 @@ export function createRouter(routes: Route[]): Router {
 
     const fromContext = currentRoute();
 
-    // Run async guards sequentially
     for (const guard of beforeEachGuards) {
       try {
         const result = await guard(toContext, fromContext);
 
-        // Cancel navigation if superseded by a newer call
         if (currentNavId !== navigationId) {
           return false;
         }
 
         if (result === false) {
-          isNavigating = false;
           if (fromHashChange && fromContext) {
             isRevertingHash = true;
             updateBrowserHash(fromContext.fullPath, true);
@@ -395,29 +375,24 @@ export function createRouter(routes: Route[]): Router {
         }
 
         if (typeof result === 'string') {
-          isNavigating = false;
           return navigate(result);
         }
       } catch (err) {
         console.error('[Teloce Router] Error in beforeEach guard:', err);
-        isNavigating = false;
         return false;
       }
     }
 
-    // Apply reactive state changes
     activeMatchedBranch = branch;
     path.set(target.path);
     params.set(mergedParams);
     query.set(target.query);
     currentRoute.set(toContext);
 
-    // Sync browser URL hash if invoked programmatically
     if (!fromHashChange) {
       updateBrowserHash(target.fullPath, target.replace);
     }
 
-    // Run after hooks
     for (const hook of afterEachHooks) {
       try {
         hook(toContext, fromContext);
@@ -426,11 +401,8 @@ export function createRouter(routes: Route[]): Router {
       }
     }
 
-    isNavigating = false;
     return true;
   }
-
-  // ─── Hash Change Listener ───────────────────────────────────────
 
   window.addEventListener('hashchange', () => {
     if (isRevertingHash) return;
@@ -444,8 +416,6 @@ export function createRouter(routes: Route[]): Router {
 
     performNavigation(window.location.hash.slice(1) || '/', true);
   });
-
-  // ─── Public Router API ─────────────────────────────────────────────
 
   function navigate(to: string | LocationDescriptor): Promise<boolean> {
     return performNavigation(to, false);
@@ -488,17 +458,23 @@ export function createRouter(routes: Route[]): Router {
       activeEffectDisposer = null;
     }
 
-    activeEffectDisposer = createEffect(() => {
+    activeEffectDisposer = wrapEffectAsDisposer(createEffect(() => {
       const route = currentRoute();
       container.innerHTML = '';
 
       if (route && activeMatchedBranch.length > 0) {
         const topMatch = activeMatchedBranch[0];
-        topMatch.route.component.template(container, route);
+        // `ctx` (extra context the caller passed to mount()) was previously
+        // accepted as a parameter and never used - only `route` reached
+        // the rendered component, silently dropping anything the caller
+        // wanted to pass down. `route`'s own fields win on conflict, since
+        // those come from actual route matching and shouldn't be
+        // shadowable by arbitrary caller data.
+        topMatch.route.component.template(container, { ...ctx, ...route });
       } else {
         container.innerHTML = '<h1>404 - Page Not Found</h1>';
       }
-    });
+    }));
 
     return () => {
       if (activeEffectDisposer) {
@@ -541,13 +517,10 @@ export function createRouter(routes: Route[]): Router {
     routes
   };
 
-  // Run initial navigation synchronously
   performNavigation(window.location.hash.slice(1) || '/', true);
 
   return router;
 }
-
-// ─── Reactive Router Components ────────────────────────────────────
 
 export function createRouterView(router?: Router, depth: number = 0): {
   name: string;
@@ -649,8 +622,6 @@ export function createRouterLink(routerOrProps?: Router | RouterLinkProps): {
     }
   };
 }
-
-// ─── Default Export ──────────────────────────────────────────────
 
 export default {
   createRouter,

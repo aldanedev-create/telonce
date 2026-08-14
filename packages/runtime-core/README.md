@@ -1,5 +1,21 @@
 # @teloce/runtime-core
 
+
+
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+**Author:** Aldane Hutchinson
+
+Teloce:A JavaScript template engine for Python web developers.
+* [Teloce Website](https://telonce-website.vercel.app/#/)
+
+
 > Runtime core for Teloce — component system, lifecycle hooks, props, slots, and directives.
 
 ---

@@ -1,5 +1,19 @@
 # @teloce/language-service
 
+
+
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aldanedev-create/telonce/main/assets/telonce.png" alt="telonce logo "
+   width="200"/>
+</p>
+
+
+
+**Author:** Aldane Hutchinson
+
+ teloce:  A JavaScript template engine for Python web developers.
+
 > Language service for Teloce templates — autocomplete, diagnostics, hover information, and formatting.
 
 ⚠️ **Note:** This package is primarily designed to be consumed by editor extensions such as VS Code and Neovim, but it can also be used programmatically.

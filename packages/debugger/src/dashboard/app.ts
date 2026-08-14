@@ -57,41 +57,44 @@ interface LogData {
     timestamp: number;
 }
 
-// ===== DOM References =====
+// ===== DOM References & Type Helpers =====
 
-const $ = (selector: string) => document.querySelector(selector);
-const $$ = (selector: string) => document.querySelectorAll(selector);
+const $ = <T extends HTMLElement = HTMLElement>(selector: string): T | null => 
+    document.querySelector<T>(selector);
+
+const $$ = <T extends HTMLElement = HTMLElement>(selector: string): NodeListOf<T> => 
+    document.querySelectorAll<T>(selector);
 
 const elements = {
     // Status
-    connectionStatus: $('#connectionStatus') as HTMLElement,
-    statusDot: $('#connectionStatus .status-dot') as HTMLElement,
-    statusText: $('#connectionStatus .status-text') as HTMLElement,
+    connectionStatus: $('#connectionStatus'),
+    statusDot: $('#connectionStatus .status-dot'),
+    statusText: $('#connectionStatus .status-text'),
 
     // Stats
-    statComponents: $('#statComponents') as HTMLElement,
-    statErrors: $('#statErrors') as HTMLElement,
-    statFps: $('#statFps') as HTMLElement,
-    statMemory: $('#statMemory') as HTMLElement,
-    statCompileTime: $('#statCompileTime') as HTMLElement,
-    statFiles: $('#statFiles') as HTMLElement,
+    statComponents: $('#statComponents'),
+    statErrors: $('#statErrors'),
+    statFps: $('#statFps'),
+    statMemory: $('#statMemory'),
+    statCompileTime: $('#statCompileTime'),
+    statFiles: $('#statFiles'),
 
     // Counts
-    componentCount: $('#componentCount') as HTMLElement,
-    errorCount: $('#errorCount') as HTMLElement,
+    componentCount: $('#componentCount'),
+    errorCount: $('#errorCount'),
 
     // Lists
-    recentErrors: $('#recentErrors') as HTMLElement,
-    componentTree: $('#componentTree') as HTMLElement,
-    componentList: $('#componentList') as HTMLElement,
-    errorList: $('#errorList') as HTMLElement,
-    logContainer: $('#logContainer') as HTMLElement,
+    recentErrors: $('#recentErrors'),
+    componentTree: $('#componentTree'),
+    componentList: $('#componentList'),
+    errorList: $('#errorList'),
+    logContainer: $('#logContainer'),
 
     // State
-    stateViewer: $('#stateViewer') as HTMLElement,
+    stateViewer: $('#stateViewer'),
 
     // Performance
-    componentPerformance: $('#componentPerformance') as HTMLElement,
+    componentPerformance: $('#componentPerformance'),
 
     // Tabs
     navItems: $$('.nav-item'),
@@ -99,8 +102,8 @@ const elements = {
 
     // Log controls
     logLevelButtons: $$('.btn-log-level'),
-    clearLogs: $('#clearLogs') as HTMLElement,
-    clearAll: $('#clearAll') as HTMLElement,
+    clearLogs: $('#clearLogs'),
+    clearAll: $('#clearAll'),
 };
 
 // ===== State =====
@@ -175,9 +178,13 @@ function attemptReconnect() {
 
 function setConnectionStatus(status: 'connected' | 'disconnected' | 'connecting') {
     state.connected = status === 'connected';
-    elements.statusDot.className = `status-dot ${status}`;
-    elements.statusText.textContent = status === 'connected' ? 'Connected' :
-                                        status === 'connecting' ? 'Connecting...' : 'Disconnected';
+    if (elements.statusDot) {
+        elements.statusDot.className = `status-dot ${status}`;
+    }
+    if (elements.statusText) {
+        elements.statusText.textContent = status === 'connected' ? 'Connected' :
+                                           status === 'connecting' ? 'Connecting...' : 'Disconnected';
+    }
 }
 
 // ===== Message Handler =====
@@ -305,28 +312,34 @@ function updateStats() {
     const errors = state.errors.length;
     const perf = state.performance;
 
-    elements.statComponents.textContent = String(components);
-    elements.statErrors.textContent = String(errors);
-    elements.statFps.textContent = perf.fps ? String(perf.fps) : '--';
-    elements.statMemory.textContent = perf.memory ? formatMemory(perf.memory) : '--';
-    elements.statCompileTime.textContent = perf.compileTime ? `${perf.compileTime}ms` : '--';
-    elements.statFiles.textContent = perf.fileCount ? String(perf.fileCount) : '--';
+    if (elements.statComponents) elements.statComponents.textContent = String(components);
+    if (elements.statErrors) elements.statErrors.textContent = String(errors);
+    if (elements.statFps) elements.statFps.textContent = perf.fps ? String(perf.fps) : '--';
+    if (elements.statMemory) elements.statMemory.textContent = perf.memory ? formatMemory(perf.memory) : '--';
+    if (elements.statCompileTime) elements.statCompileTime.textContent = perf.compileTime ? `${perf.compileTime}ms` : '--';
+    if (elements.statFiles) elements.statFiles.textContent = perf.fileCount ? String(perf.fileCount) : '--';
 }
 
 function updateErrorCount() {
     const count = state.errors.length;
-    elements.errorCount.textContent = String(count);
-    elements.errorCount.style.display = count > 0 ? 'inline' : 'none';
+    if (elements.errorCount) {
+        elements.errorCount.textContent = String(count);
+        elements.errorCount.style.display = count > 0 ? 'inline' : 'none';
+    }
 }
 
 function updateComponentCount() {
     const count = state.components.size;
-    elements.componentCount.textContent = String(count);
-    elements.componentCount.style.display = count > 0 ? 'inline' : 'none';
+    if (elements.componentCount) {
+        elements.componentCount.textContent = String(count);
+        elements.componentCount.style.display = count > 0 ? 'inline' : 'none';
+    }
 }
 
 function renderRecentErrors() {
     const container = elements.recentErrors;
+    if (!container) return;
+
     const recent = state.errors.slice(0, 5);
 
     if (recent.length === 0) {
@@ -336,16 +349,18 @@ function renderRecentErrors() {
 
     container.innerHTML = recent.map(error => `
         <div class="error-item" style="margin-bottom: 8px; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--accent-red); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-red);">
-            <div style="font-weight: 600; color: var(--accent-red);">${error.title || 'Error'}</div>
-            <div style="color: var(--text-secondary); font-size: 13px;">${error.message}</div>
-            ${error.source ? `<div style="color: var(--text-muted); font-size: 12px; margin-top: 4px;">${error.source}${error.line ? `:${error.line}` : ''}</div>` : ''}
-            ${error.fix ? `<div style="margin-top: 6px; padding: 6px 10px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-green); font-size: 13px; color: var(--text-secondary);">💡 ${error.fix}</div>` : ''}
+            <div style="font-weight: 600; color: var(--accent-red);">${escapeHtml(error.title || 'Error')}</div>
+            <div style="color: var(--text-secondary); font-size: 13px;">${escapeHtml(error.message)}</div>
+            ${error.source ? `<div style="color: var(--text-muted); font-size: 12px; margin-top: 4px;">${escapeHtml(error.source)}${error.line ? `:${error.line}` : ''}</div>` : ''}
+            ${error.fix ? `<div style="margin-top: 6px; padding: 6px 10px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-green); font-size: 13px; color: var(--text-secondary);">💡 ${escapeHtml(error.fix)}</div>` : ''}
         </div>
     `).join('');
 }
 
 function renderErrorList() {
     const container = elements.errorList;
+    if (!container) return;
+
     const errors = state.errors;
 
     if (errors.length === 0) {
@@ -356,26 +371,26 @@ function renderErrorList() {
     container.innerHTML = errors.map(error => `
         <div class="error-item">
             <div class="error-header">
-                <div class="error-title error">${error.title || 'Error'}</div>
+                <div class="error-title error">${escapeHtml(error.title || 'Error')}</div>
                 <div class="error-time">${formatTime(error.timestamp)}</div>
             </div>
-            <div class="error-message">${error.message}</div>
-            ${error.source ? `<div style="color: var(--text-muted); font-size: 12px; margin-bottom: 8px;">📍 ${error.source}${error.line ? `:${error.line}` : ''}${error.column ? `:${error.column}` : ''}</div>` : ''}
+            <div class="error-message">${escapeHtml(error.message)}</div>
+            ${error.source ? `<div style="color: var(--text-muted); font-size: 12px; margin-bottom: 8px;">📍 ${escapeHtml(error.source)}${error.line ? `:${error.line}` : ''}${error.column ? `:${error.column}` : ''}</div>` : ''}
             ${error.fix ? `
                 <div class="error-fix">
                     <div class="error-fix-label">💡 Suggested Fix</div>
-                    <div class="error-fix-text">${error.fix}</div>
+                    <div class="error-fix-text">${escapeHtml(error.fix)}</div>
                 </div>
             ` : ''}
             ${error.suggestions && error.suggestions.length > 0 ? `
                 <div class="error-suggestion">
-                    ${error.suggestions.map(s => `• ${s}`).join('<br>')}
+                    ${error.suggestions.map(s => `• ${escapeHtml(s)}`).join('<br>')}
                 </div>
             ` : ''}
             ${error.stack ? `
                 <details style="margin-top: 8px;">
                     <summary style="color: var(--text-muted); font-size: 12px; cursor: pointer;">Stack Trace</summary>
-                    <pre style="background: var(--bg-secondary); padding: 8px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); overflow-x: auto; margin-top: 4px;">${error.stack}</pre>
+                    <pre style="background: var(--bg-secondary); padding: 8px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); overflow-x: auto; margin-top: 4px;">${escapeHtml(error.stack)}</pre>
                 </details>
             ` : ''}
         </div>
@@ -384,6 +399,8 @@ function renderErrorList() {
 
 function renderComponentList() {
     const container = elements.componentList;
+    if (!container) return;
+
     const components = Array.from(state.components.values());
 
     if (components.length === 0) {
@@ -393,7 +410,7 @@ function renderComponentList() {
 
     container.innerHTML = components.map(comp => `
         <div class="component-item">
-            <div class="component-name">${comp.name}</div>
+            <div class="component-name">${escapeHtml(comp.name)}</div>
             <div class="component-meta">
                 <span class="component-badge ${comp.isMounted ? 'mounted' : 'unmounted'}">${comp.isMounted ? 'Mounted' : 'Unmounted'}</span>
                 <span>${comp.renderCount || 0} renders</span>
@@ -405,6 +422,8 @@ function renderComponentList() {
 
 function renderComponentTree() {
     const container = elements.componentTree;
+    if (!container) return;
+
     const roots = Array.from(state.components.values()).filter(c => !c.parentId);
 
     if (roots.length === 0) {
@@ -413,14 +432,13 @@ function renderComponentTree() {
     }
 
     function renderTree(component: ComponentData, depth: number = 0): string {
-        const indent = '  '.repeat(depth);
         const children = Array.from(state.components.values()).filter(c => c.parentId === component.id);
 
         return `
             <div style="padding: 4px 0; padding-left: ${depth * 16}px; display: flex; align-items: center; gap: 8px; font-size: 13px;">
                 <span style="color: ${component.isMounted ? 'var(--accent-green)' : 'var(--text-muted)'};">${component.isMounted ? '●' : '○'}</span>
-                <span style="color: var(--accent-blue);">${component.name}</span>
-                <span style="color: var(--text-muted); font-size: 11px;">${component.type}</span>
+                <span style="color: var(--accent-blue);">${escapeHtml(component.name)}</span>
+                <span style="color: var(--text-muted); font-size: 11px;">${escapeHtml(component.type)}</span>
                 <span style="color: var(--text-muted); font-size: 11px;">${component.renderCount || 0} renders</span>
             </div>
             ${children.map(c => renderTree(c, depth + 1)).join('')}
@@ -432,6 +450,8 @@ function renderComponentTree() {
 
 function renderStateViewer() {
     const container = elements.stateViewer;
+    if (!container) return;
+
     const stateObj = state.appState;
 
     if (Object.keys(stateObj).length === 0) {
@@ -439,12 +459,20 @@ function renderStateViewer() {
         return;
     }
 
-    function renderValue(value: any, depth: number = 0): string {
+    function renderValue(value: any, depth: number = 0, visited = new WeakSet()): string {
         if (value === null || value === undefined) {
             return `<span class="state-null">${String(value)}</span>`;
         }
+
+        if (typeof value === 'object') {
+            if (visited.has(value)) {
+                return `<span class="state-null">[Circular]</span>`;
+            }
+            visited.add(value);
+        }
+
         if (typeof value === 'string') {
-            return `<span class="state-string">"${value}"</span>`;
+            return `<span class="state-string">"${escapeHtml(value)}"</span>`;
         }
         if (typeof value === 'number') {
             return `<span class="state-number">${value}</span>`;
@@ -455,17 +483,17 @@ function renderStateViewer() {
         if (Array.isArray(value)) {
             if (value.length === 0) return '<span class="state-null">[]</span>';
             return `[<br>${value.map((v, i) => 
-                `${'  '.repeat(depth + 1)}${renderValue(v, depth + 1)}${i < value.length - 1 ? ',' : ''}`
+                `${'  '.repeat(depth + 1)}${renderValue(v, depth + 1, visited)}${i < value.length - 1 ? ',' : ''}`
             ).join('<br>')}<br>${'  '.repeat(depth)}]`;
         }
         if (typeof value === 'object') {
             const entries = Object.entries(value);
             if (entries.length === 0) return '<span class="state-null">{}</span>';
             return `{<br>${entries.map(([k, v], i) => 
-                `${'  '.repeat(depth + 1)}<span class="state-key">${k}</span>: ${renderValue(v, depth + 1)}${i < entries.length - 1 ? ',' : ''}`
+                `${'  '.repeat(depth + 1)}<span class="state-key">${escapeHtml(k)}</span>: ${renderValue(v, depth + 1, visited)}${i < entries.length - 1 ? ',' : ''}`
             ).join('<br>')}<br>${'  '.repeat(depth)}}`;
         }
-        return String(value);
+        return escapeHtml(String(value));
     }
 
     container.innerHTML = renderValue(stateObj);
@@ -474,6 +502,7 @@ function renderStateViewer() {
 function renderPerformance() {
     const perf = state.performance;
     const container = elements.componentPerformance;
+    if (!container) return;
 
     const renderTimes = perf.renderTimes || {};
     const entries = Object.entries(renderTimes);
@@ -493,7 +522,7 @@ function renderPerformance() {
         else if (isSlow) cls = 'slow';
         return `
             <div class="component-perf-item">
-                <span class="component-perf-name">${name}</span>
+                <span class="component-perf-name">${escapeHtml(name)}</span>
                 <span class="component-perf-time ${cls}">${time.toFixed(2)}ms</span>
             </div>
         `;
@@ -507,6 +536,8 @@ function renderComponentPerformance() {
 
 function renderLogs() {
     const container = elements.logContainer;
+    if (!container) return;
+
     const filter = state.currentLogFilter;
     let logs = state.logs;
 
@@ -522,13 +553,23 @@ function renderLogs() {
     container.innerHTML = logs.map(log => `
         <div class="log-entry">
             <span class="log-time">${formatTime(log.timestamp)}</span>
-            <span class="log-level ${log.level}">${log.level}</span>
-            <span class="log-message">${log.message}${log.data ? ` <span class="highlight">${JSON.stringify(log.data)}</span>` : ''}</span>
+            <span class="log-level ${log.level}">${escapeHtml(log.level)}</span>
+            <span class="log-message">${escapeHtml(log.message)}${log.data ? ` <span class="highlight">${escapeHtml(JSON.stringify(log.data))}</span>` : ''}</span>
         </div>
     `).join('');
 }
 
 // ===== Utilities =====
+
+function escapeHtml(str: unknown): string {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function formatTime(timestamp: number): string {
     const date = new Date(timestamp);
@@ -541,49 +582,60 @@ function formatMemory(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// ===== Tab Navigation =====
+// ===== Initialization & Event Setup =====
 
-elements.navItems.forEach(item => {
-    item.addEventListener('click', () => {
-        // Update nav
-        elements.navItems.forEach(n => n.classList.remove('active'));
-        item.classList.add('active');
+function init() {
+    // Tab Navigation
+    elements.navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            elements.navItems.forEach(n => n.classList.remove('active'));
+            item.classList.add('active');
 
-        // Update panels
-        const tabId = item.dataset.tab;
-        elements.tabPanels.forEach(panel => {
-            panel.classList.remove('active');
-            if (panel.id === `tab-${tabId}`) {
-                panel.classList.add('active');
-            }
+            const tabId = item.dataset.tab;
+            elements.tabPanels.forEach(panel => {
+                panel.classList.remove('active');
+                if (panel.id === `tab-${tabId}`) {
+                    panel.classList.add('active');
+                }
+            });
         });
     });
-});
 
-// ===== Log Controls =====
-
-elements.logLevelButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        elements.logLevelButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        state.currentLogFilter = btn.dataset.level as any;
-        renderLogs();
+    // Log Controls
+    elements.logLevelButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            elements.logLevelButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.currentLogFilter = (btn.dataset.level as any) || 'all';
+            renderLogs();
+        });
     });
-});
 
-elements.clearLogs.addEventListener('click', () => {
-    state.logs = [];
-    renderLogs();
-});
+    if (elements.clearLogs) {
+        elements.clearLogs.addEventListener('click', () => {
+            state.logs = [];
+            renderLogs();
+        });
+    }
 
-elements.clearAll.addEventListener('click', () => {
-    state.errors = [];
-    state.logs = [];
-    state.components.clear();
-    state.appState = {};
-    state.performance = {} as PerformanceData;
+    if (elements.clearAll) {
+        elements.clearAll.addEventListener('click', () => {
+            state.errors = [];
+            state.logs = [];
+            state.components.clear();
+            state.appState = {};
+            state.performance = {} as PerformanceData;
+            renderAll();
+        });
+    }
+
+    // Connect WebSocket and render initial state
+    connectWebSocket();
     renderAll();
-});
+
+    console.log('🐛 Teloce Debugger Dashboard initialized');
+    console.log('🔌 Connecting to debug server...');
+}
 
 // ===== Render All =====
 
@@ -600,13 +652,9 @@ function renderAll() {
     renderLogs();
 }
 
-// ===== Initialization =====
-
-// Connect to WebSocket
-connectWebSocket();
-
-// Initial render
-renderAll();
-
-console.log('🐛 Teloce Debugger Dashboard initialized');
-console.log('🔌 Connecting to debug server...');
+// Ensure DOM is ready before initializing
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}

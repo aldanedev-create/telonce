@@ -398,6 +398,7 @@ teloce.use(MarkdownPlugin);
 | **reactivity**    | `@teloce/reactivity`    | Signals-based reactivity system         |
 | **runtime-dom**   | `@teloce/runtime-dom`   | DOM runtime                             |
 | **cli**           | `@teloce/cli`           | Command-line interface                  |
+| **router**           | `@teloce/router`           | router:               |
 | **debugger**      | `@teloce/debugger`      | Human-friendly debugger                 |
 | **bundler**       | `@teloce/bundler`       | Production bundler and optimizer        |
 | **sfc**           | `@teloce/sfc`           | Single File Component (`.vel`) compiler |

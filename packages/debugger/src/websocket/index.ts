@@ -2,7 +2,7 @@
  * WebSocket - streams live errors/state to the dashboard page
  */
 
-import { createWebSocketServer, type WebSocketServer, type WebSocketMessage } from '@teloce/server';
+import { createWebSocketServer, type WebSocketServer } from '@teloce/server';
 
 export type DebugMessageType =
   | 'error'

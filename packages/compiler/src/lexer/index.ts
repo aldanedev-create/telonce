@@ -145,7 +145,7 @@ export function tokenize(input: string): Token[] {
 
         const attrStart = position;
         const attr = readAttribute(input, position);
-        if (attr) {
+        if (attr && attr.length > 0) {
           tokens.push({
             type: TokenType.Attribute,
             value: attr.name,
@@ -167,6 +167,16 @@ export function tokenize(input: string): Token[] {
             });
           }
         } else {
+          // readAttribute matched nothing here (an unrecognized character
+          // sitting where an attribute name was expected). Previously this
+          // fell through to the same `advanceChars(1)` below regardless -
+          // that part was fine. The bug was `attr && ...` alone: a
+          // *zero-length but non-null* result (attr.length === 0) used to
+          // pass the old `if (attr)` check, get pushed as a bogus empty
+          // Attribute token, and add 0 to position - looping forever
+          // without ever reaching this else branch's advance at all. Now
+          // any non-positive-length match is treated the same as no match,
+          // guaranteeing this loop always makes forward progress.
           advanceChars(1);
         }
       }
@@ -252,8 +262,16 @@ function readAttribute(input: string, start: number): { name: string; value: str
   }
 
   // Read attribute name
+  // Includes '.' so modifier syntax like @keyup.enter reads as one
+  // attribute name, not two. Previously '.' wasn't in this set at all: the
+  // name-reading loop stopped dead at the '.', the *next* readAttribute
+  // call then started sitting exactly on that '.' character, matched
+  // nothing (not a name char, not '=', not whitespace), returned a
+  // zero-length result, and the caller's position never advanced -
+  // an infinite loop (confirmed via an actual OOM crash on
+  // `<input @keyup.enter="x" />`).
   let name = '';
-  while (pos < input.length && /[a-zA-Z0-9_:@-]/.test(input[pos])) {
+  while (pos < input.length && /[a-zA-Z0-9_:@.-]/.test(input[pos])) {
     name += input[pos];
     pos++;
   }

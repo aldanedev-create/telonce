@@ -38,6 +38,7 @@ export function createApp(
     unmount: () => app.unmount(),
     use: (plugin: any) => app.use(plugin),
     component: (name: string, component: Component) => app.component(name, component),
+    filter: (name: string, fn: Parameters<typeof app.filter>[1]) => app.filter(name, fn),
   };
 }
 

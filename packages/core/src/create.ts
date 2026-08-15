@@ -1,4 +1,5 @@
 import { createSignal, createEffect, createComputed, batch } from '@teloce/reactivity';
+import { registerFilter, type Filter } from '@teloce/std';
 import { createConfig, type TeloceConfig } from './config';
 import { registerComponent, getComponent, type Component } from './component';
 
@@ -7,10 +8,27 @@ import { registerComponent, getComponent, type Component } from './component';
  */
 export interface TeloceApp {
   config: TeloceConfig;
+  /**
+   * The app's current reactive state - the same object mount() built via
+   * reactive(), exposed directly for cases like debugging, devtools, or
+   * reading/writing state from outside the component tree (e.g. a plain
+   * event handler that isn't one of the component's own methods). Empty
+   * object until mount() actually runs and populates it.
+   */
+  readonly state: Record<string, any>;
   reactive: <T extends Record<string, any>>(obj: T) => Record<string, any>;
   effect: (fn: () => void) => unknown;
   computed: <T>(fn: () => T) => () => T;
   component: (name: string, component: Component) => void;
+  /**
+   * Register a filter usable in `{{ expr | name }}` / `{{ expr | name(args) }}`
+   * template interpolations. Filters are looked up from the same global
+   * registry @teloce/std's built-in filters (currency, truncate,
+   * dateFormat, ...) live in, so a custom filter registered here is
+   * immediately usable by any template compiled afterward - it isn't
+   * scoped to just this one app instance.
+   */
+  filter: (name: string, fn: Filter) => void;
   use: (plugin: any) => void;
   mount: (root: Element, state: Record<string, any>) => TeloceApp;
   unmount: () => void;
@@ -28,6 +46,14 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
 
   const app: TeloceApp = {
     config: fullConfig,
+
+    get state() {
+      return state;
+    },
+
+    filter(name, fn) {
+      registerFilter(name, fn);
+    },
 
     reactive(obj) {
       const signals = new Map<string | symbol, ReturnType<typeof createSignal>>();

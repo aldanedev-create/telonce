@@ -1,5 +1,18 @@
 # @teloce/debugger
 
+## 1.3.0
+
+### Minor Changes
+
+- fixes and bugs
+
+### Patch Changes
+
+- Updated dependencies
+  - @teloce/compiler@1.3.0
+  - @teloce/server@1.3.0
+  - @teloce/shared@1.3.0
+
 ## 1.2.0
 
 ### Minor Changes

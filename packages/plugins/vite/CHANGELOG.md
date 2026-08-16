@@ -1,5 +1,18 @@
 # @teloce/vite-plugin
 
+## 1.3.0
+
+### Minor Changes
+
+- fixes and bugs
+
+### Patch Changes
+
+- Updated dependencies
+  - @teloce/compiler@1.3.0
+  - @teloce/sfc@1.3.0
+  - @teloce/shared@1.3.0
+
 ## 1.2.0
 
 ### Minor Changes

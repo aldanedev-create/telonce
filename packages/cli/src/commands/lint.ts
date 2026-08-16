@@ -20,8 +20,8 @@ export async function lintCommand(options: LintOptions, command: any): Promise<v
   const spinner = ora('Linting Teloce project...').start();
 
   try {
-    // Find .teloce files
-    const files = await globAsync('**/*.teloce', { ignore: ['node_modules/**', 'dist/**'] });
+    // Find .vel files
+    const files = await globAsync('**/*.vel', { ignore: ['node_modules/**', 'dist/**'] });
     const jsFiles = await globAsync('**/*.{js,ts}', { ignore: ['node_modules/**', 'dist/**'] });
 
     const allFiles = [...files, ...jsFiles];

@@ -42,7 +42,7 @@ if __name__ == '__main__':
 <html>
 <head>
     <title>Teloce + Flask</title>
-    <script src="https://cdn.teloce.dev/teloce.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/teloce@latest/dist/teloce.global.js"></script>
 </head>
 <body>
     <div id="app">
@@ -87,7 +87,7 @@ if __name__ == '__main__':
 <html>
 <head>
     <title>Teloce + Django</title>
-    <script src="https://cdn.teloce.dev/teloce.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/teloce@latest/dist/teloce.global.js"></script>
 </head>
 <body>
     <div id="app">
@@ -124,7 +124,7 @@ async def home(request: Request):
 <html>
 <head>
     <title>Teloce + FastAPI</title>
-    <script src="https://cdn.teloce.dev/teloce.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/teloce@latest/dist/teloce.global.js"></script>
 </head>
 <body>
     <div id="app">
@@ -162,7 +162,7 @@ if __name__ == '__main__':
 <html>
 <head>
     <title>Teloce + Quart</title>
-    <script src="https://cdn.teloce.dev/teloce.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/teloce@latest/dist/teloce.global.js"></script>
 </head>
 <body>
     <div id="app">
@@ -199,7 +199,7 @@ if __name__ == '__main__':
 <html>
 <head>
     <title>Teloce + Flaxon</title>
-    <script src="https://cdn.teloce.dev/teloce.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/teloce@latest/dist/teloce.global.js"></script>
 </head>
 <body>
     <div id="app">

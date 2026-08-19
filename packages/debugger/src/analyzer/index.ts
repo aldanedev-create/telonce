@@ -353,7 +353,7 @@ export function analyzeBundleSize(
     gzipSize: number;
     chunks: Array<{ name: string; size: number }>;
   },
-  options: AnalyzerOptions = {}
+  _options: AnalyzerOptions = {}
 ): BundleReport {
   const recommendations: string[] = [];
   const totalSize = data.totalSize;

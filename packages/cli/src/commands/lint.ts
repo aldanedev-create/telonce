@@ -5,26 +5,30 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { logger } from '../logger';
-import { glob } from 'fs';
 import * as fs from 'fs-extra';
-import { promisify } from 'util';
 
-const globAsync = promisify(glob);
 
 export interface LintOptions {
   fix?: boolean;
   strict?: boolean;
 }
 
-export async function lintCommand(options: LintOptions, command: any): Promise<void> {
+export async function lintCommand(options: LintOptions, _command: any): Promise<void> {
   const spinner = ora('Linting Teloce project...').start();
 
   try {
-    // Find .vel files
-    const files = await globAsync('**/*.vel', { ignore: ['node_modules/**', 'dist/**'] });
-    const jsFiles = await globAsync('**/*.{js,ts}', { ignore: ['node_modules/**', 'dist/**'] });
+  // Recursively read all files in current directory (Node 20+)
+  const allEntries = await fs.readdir(process.cwd(), { recursive: true });
 
-    const allFiles = [...files, ...jsFiles];
+// Filter out node_modules, dist, and keep only .vel, .js, and .ts files
+  // With this safer path matching:
+   const allFiles = allEntries
+  .map(entry => entry.toString())
+  .filter(file => 
+    !/(^|[/\\])(node_modules|dist)([/\\]|$)/.test(file) &&
+    /\.(vel|js|ts)$/.test(file)
+  );
+
     const lintErrors: string[] = [];
     const lintWarnings: string[] = [];
     let fixed = 0;

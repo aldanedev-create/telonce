@@ -18,15 +18,18 @@ import { compile as compileTemplate } from '@teloce/compiler';
 import * as path from 'path';
 
 export interface TelocePluginOptions {
-  /**
-   * Include patterns for template files
-   * @default ['**\/*.teloce', '**\/*.vel']
+    /**
+   * Include patterns for template files. Plain strings are matched as a
+   * literal substring/suffix of the file path (not a glob) - pass a
+   * RegExp if you need real glob-style matching.
+   * @default ['.teloce', '.vel']
    */
   include?: string | RegExp | (string | RegExp)[];
 
-  /**
-   * Exclude patterns for template files
-   * @default ['node_modules/**', 'dist/**']
+    /**
+   * Exclude patterns for template files. Same matching rules as `include`
+   * - plain strings are a literal substring/suffix check, not a glob.
+   * @default ['node_modules', 'dist']
    */
   exclude?: string | RegExp | (string | RegExp)[];
 
@@ -87,8 +90,8 @@ export interface TelocePluginOptions {
  * Default options
  */
 const defaultOptions: TelocePluginOptions = {
-  include: ['**/*.teloce', '**/*.vel'],
-  exclude: ['node_modules/**', 'dist/**'],
+  include: ['.teloce', '.vel'],
+  exclude: ['node_modules', 'dist'],
   sourceMap: true,
   minify: process.env.NODE_ENV === 'production',
   dev: process.env.NODE_ENV === 'development',

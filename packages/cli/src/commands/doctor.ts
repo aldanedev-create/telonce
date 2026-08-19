@@ -16,8 +16,8 @@ const execAsync = promisify(exec);
 export interface DoctorOptions {
   verbose?: boolean;
 }
-
-export async function doctorCommand(options: DoctorOptions, command: any): Promise<void> {
+                                                              //command not being used//
+export async function doctorCommand(options: DoctorOptions, _command: any): Promise<void> {
   const spinner = ora('Running Teloce doctor...').start();
 
   try {

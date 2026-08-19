@@ -23,24 +23,26 @@ export function createApp(
     throw new Error(`Root element not found: ${rootSelector}`);
   }
 
-  // Initialize state
-  const state = app.reactive(data);
+  //  (app as any)._root = root;
 
-  // Store state on app instance
-  (app as any)._state = state;
-  (app as any)._root = root;
-
-  // Return app instance
+  // `state` is a live getter onto app.state (create.ts) rather than a
+  // separately pre-wrapped copy of `data` - it needs to reflect whatever
+  // mount() actually ends up using internally (which may differ from the
+  // raw `data` passed in here, e.g. when `data` is a component and
+  // mount() builds its own internal state from that component's data()).
   return {
-    state,
+    get state() {
+      return app.state;
+    },
     root,
-    mount: () => app.mount(root, state),
+    mount: () => app.mount(root, data),
     unmount: () => app.unmount(),
     use: (plugin: any) => app.use(plugin),
     component: (name: string, component: Component) => app.component(name, component),
     filter: (name: string, fn: Parameters<typeof app.filter>[1]) => app.filter(name, fn),
   };
 }
+
 
 export { createConfig, type TeloceConfig } from './config';
 export { mount } from './mount';

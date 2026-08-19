@@ -7,5 +7,5 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   target: 'es2020',
-  dts: false,
+  dts: true,
 });

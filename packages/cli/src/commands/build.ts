@@ -17,7 +17,10 @@ export interface BuildOptions {
   chunks?: boolean;
 }
 
-export async function buildCommand(options: BuildOptions, command: any): Promise<void> {
+/**
+ * Build command - builds for production
+ */
+export async function buildCommand(options: BuildOptions, _command: any): Promise<void> {
   const spinner = ora('Building Teloce project...').start();
 
   try {

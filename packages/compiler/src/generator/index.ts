@@ -249,8 +249,13 @@ function genNode(node: ASTNode, parentVar: string, out: string[], ctx: GenCtx): 
       // the loop's children call `${exprVar}(ctx)`, and thanks to normal
       // JS scoping that resolves to *this* local `ctx`, not the outer one.
       renderBody.push(
-        `const ctx = Object.assign(Object.create(__outerCtx), { ${JSON.stringify(forNode.item)}: __item, index: __index });`
+        `const __itemLocal = { ${JSON.stringify(forNode.item)}: __item, index: __index };`
       );
+      renderBody.push(
+        `const ctx = new Proxy({}, { get(_t, p) { return (p === ${JSON.stringify(forNode.item)} || p === 'index') ? __itemLocal[p] : __outerCtx[p]; }, set(_t, p, v) { if (p === ${JSON.stringify(forNode.item)} || p === 'index') { __itemLocal[p] = v; } else { __outerCtx[p] = v; } return true; }, has(_t, p) { return p === ${JSON.stringify(forNode.item)} || p === 'index' || p in __outerCtx; } });`
+      );
+      
+
       renderBody.push(`const ${itemRootVar} = document.createDocumentFragment();`);
       for (const child of forNode.children) {
         genNode(child, itemRootVar, renderBody, ctx);

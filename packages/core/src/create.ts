@@ -30,7 +30,7 @@ export interface TeloceApp {
    */
   filter: (name: string, fn: Filter) => void;
   use: (plugin: any) => void;
-  mount: (root: Element, state: Record<string, any>) => TeloceApp;
+  mount: (root: Element, componentOrData: Record<string, any> | { template: (container: Element, ctx: any) => void; [key: string]: any }) => TeloceApp;
   unmount: () => void;
 }
 
@@ -134,17 +134,67 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
         plugin.install(app);
       }
     },
-
-    mount(el, data) {
+    mount(el, componentOrData) {
       if (isMounted) {
         this.unmount();
       }
 
       root = el;
-      state = this.reactive(data || {});
-      isMounted = true;
 
-      // Mount components logic (runtime-dom integration)
+      const isComponent =
+        componentOrData &&
+        typeof componentOrData === 'object' &&
+        typeof (componentOrData as any).template === 'function';
+
+      if (isComponent) {
+        const comp = componentOrData as {
+          template: (container: Element, ctx: any) => void;
+          data?: () => Record<string, any>;
+          methods?: Record<string, (...args: any[]) => any>;
+          computed?: Record<string, () => any>;
+          created?: (ctx: any) => void;
+          mounted?: (ctx: any) => void;
+        };
+
+        const initialData = typeof comp.data === 'function' ? comp.data() : {};
+        state = this.reactive(initialData);
+
+        const methods = comp.methods || {};
+        const computedFns = comp.computed || {};
+
+        const ctx: any = new Proxy(
+          {},
+          {
+            get(_target, prop) {
+              if (typeof prop === 'string' && prop in methods) {
+                return (...args: any[]) => methods[prop].apply(ctx, args);
+              }
+              if (typeof prop === 'string' && prop in computedFns) {
+                return computedFns[prop].call(ctx);
+              }
+              return (state as any)[prop];
+            },
+            set(_target, prop, value) {
+              (state as any)[prop] = value;
+              return true;
+            },
+            has(_target, prop) {
+              return (
+                (typeof prop === 'string' && (prop in methods || prop in computedFns)) ||
+                prop in state
+              );
+            },
+          }
+        );
+
+        comp.created?.(ctx);
+        comp.template(el, ctx);
+        comp.mounted?.(ctx);
+      } else {
+        state = this.reactive((componentOrData as Record<string, any>) || {});
+      }
+
+      isMounted = true;
       return this;
     },
 

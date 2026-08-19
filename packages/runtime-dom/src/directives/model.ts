@@ -46,6 +46,22 @@ export function Model(props: ModelDirectiveProps = {}): any {
   };
 }
 
+// Tag-name checks instead of `instanceof HTMLInputElement` etc: the global
+// HTMLInputElement/HTMLSelectElement/HTMLTextAreaElement constructors are
+// real in browsers, but aren't automatically defined in Node.js/SSR/build
+// tooling contexts (confirmed via a real crash: `HTMLSelectElement is not
+// defined`, thrown the moment createModel() ran in a Vite-bundled app
+// under Node). Comparing `tagName` works identically in every environment.
+function isInputEl(el: Element): el is HTMLInputElement {
+  return el.tagName === 'INPUT';
+}
+function isSelectEl(el: Element): el is HTMLSelectElement {
+  return el.tagName === 'SELECT';
+}
+function isTextAreaEl(el: Element): el is HTMLTextAreaElement {
+  return el.tagName === 'TEXTAREA';
+}
+
 /**
  * Create a two-way binding with full reactive synchronization
  */
@@ -67,10 +83,18 @@ export function createModel(
   let isUpdatingFromDOM = false;
 
   function update() {
-    if (isUpdatingFromDOM || !signal) return;
+    // `signal()` must be called on every run, even when the resulting DOM
+    // write is going to be skipped - effects clear their dependency list
+    // at the start of every run and rebuild it purely from whatever
+    // signals get read *during* that run. Returning early before calling
+    // signal() (the old code, when triggered by the input's own element-
+    // to-signal write) meant that run read no signals at all, silently
+    // and permanently unsubscribing this effect from then on.
+    if (!signal) return;
     const val = signal();
+    if (isUpdatingFromDOM) return;
 
-    if (el instanceof HTMLInputElement) {
+    if (isInputEl(el)) {
       if (type === 'checkbox') {
         if (Array.isArray(val)) {
           el.checked = val.includes(value !== undefined ? value : el.value);
@@ -84,7 +108,7 @@ export function createModel(
       } else {
         el.value = val !== undefined && val !== null ? String(val) : '';
       }
-    } else if (el instanceof HTMLSelectElement) {
+    } else if (isSelectEl(el)) {
       if (el.multiple && Array.isArray(val)) {
         for (const option of Array.from(el.options)) {
           option.selected = val.includes(option.value);
@@ -92,7 +116,7 @@ export function createModel(
       } else {
         el.value = val !== undefined && val !== null ? String(val) : '';
       }
-    } else if (el instanceof HTMLTextAreaElement) {
+    } else if (isTextAreaEl(el)) {
       el.value = val !== undefined && val !== null ? String(val) : '';
     }
   }
@@ -101,7 +125,7 @@ export function createModel(
     if (!signal) return;
     isUpdatingFromDOM = true;
     try {
-      if (el instanceof HTMLInputElement) {
+      if (isInputEl(el)) {
         if (type === 'checkbox') {
           const currentVal = signal();
           if (Array.isArray(currentVal)) {
@@ -128,7 +152,7 @@ export function createModel(
         } else {
           signal.set(el.value);
         }
-      } else if (el instanceof HTMLSelectElement) {
+      } else if (isSelectEl(el)) {
         if (el.multiple) {
           const selectedValues = Array.from(el.selectedOptions).map(opt => opt.value);
           signal.set(selectedValues);
@@ -141,7 +165,7 @@ export function createModel(
             signal.set(val);
           }
         }
-      } else if (el instanceof HTMLTextAreaElement) {
+      } else if (isTextAreaEl(el)) {
         signal.set(el.value);
       }
     } finally {
@@ -150,7 +174,7 @@ export function createModel(
   }
 
   // Bind event listeners
-  const eventName = (type === 'checkbox' || type === 'radio' || el instanceof HTMLSelectElement) ? 'change' : 'input';
+  const eventName = (type === 'checkbox' || type === 'radio' || isSelectEl(el)) ? 'change' : 'input';
   el.addEventListener(eventName, handleInput);
   if (type === 'checkbox' || type === 'radio') {
     el.addEventListener('input', handleInput);

@@ -17,14 +17,15 @@ export interface DebugOptions {
   host?: string;
   open?: boolean;
 }
-
-export async function debugCommand(options: DebugOptions, command: any): Promise<void> {
+                                                           //command not being used//
+export async function debugCommand(options: DebugOptions, _command: any): Promise<void> {
   const spinner = ora('Starting Teloce debugger...').start();
 
   try {
     // Load configuration
     const config = await loadConfig();
-    const port = parseInt(options.port || config.debugger?.port || '9000');
+    //yay fix
+    const port = parseInt(String(options.port || config.debugger?.port || '9000'), 10);
     const host = options.host || config.debugger?.host || 'localhost';
     const openBrowser = options.open !== false;
 

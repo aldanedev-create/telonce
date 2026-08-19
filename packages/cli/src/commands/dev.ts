@@ -6,7 +6,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { createDevServer } from '@teloce/server';
 import { detectFramework, type Framework } from '../detect';
-import { loadConfig, type TeloceConfig } from '../config';
+import { loadConfig } from '../config';
 import { logger } from '../logger';
 
 export interface DevOptions {
@@ -16,13 +16,14 @@ export interface DevOptions {
   proxy?: string;
 }
 
-export async function devCommand(options: DevOptions, command: any): Promise<void> {
+export async function devCommand(options: DevOptions, _command: any): Promise<void> {
   const spinner = ora('Starting Teloce dev server...').start();
 
   try {
     // Load configuration
     const config = await loadConfig();
-    const port = parseInt(options.port || config.devServer?.port || '5173');
+    //yay fix
+    const port = parseInt(String(options.port || config.devServer?.port || '5173'), 10);    
     const host = options.host || config.devServer?.host || 'localhost';
     const hmr = options.hmr !== false && config.devServer?.hotReload !== false;
     const proxyTarget = options.proxy || config.devServer?.proxy;
@@ -42,7 +43,8 @@ export async function devCommand(options: DevOptions, command: any): Promise<voi
       port,
       host,
       staticDir: config.devServer?.staticFolder || 'static',
-      proxyTarget: proxyTarget || getProxyTarget(framework),
+      proxyTarget: proxyTarget || getProxyTarget(framework || undefined),  
+          
       hmr,
       logging: true,
       cors: true,

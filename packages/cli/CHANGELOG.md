@@ -1,5 +1,20 @@
 # @teloce/cli
 
+## 1.4.0
+
+### Minor Changes
+
+- update and huge fixeses
+
+### Patch Changes
+
+- Updated dependencies
+  - @teloce/bundler@1.5.0
+  - @teloce/compiler@1.4.0
+  - @teloce/debugger@1.4.0
+  - @teloce/server@1.4.0
+  - @teloce/shared@1.4.0
+
 ## 1.3.0
 
 ### Minor Changes

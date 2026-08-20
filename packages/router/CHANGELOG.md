@@ -1,5 +1,16 @@
 # @teloce/router
 
+## 0.4.0
+
+### Minor Changes
+
+- update and huge fixeses
+
+### Patch Changes
+
+- Updated dependencies
+  - @teloce/reactivity@1.4.0
+
 ## 0.3.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@teloce/runtime-dom",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Teloce DOM runtime - reconciler, directives, events, keyed loops",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

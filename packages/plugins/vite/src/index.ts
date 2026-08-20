@@ -131,8 +131,8 @@ export default function telocePlugin(
     /**
      * Transform .vel and .teloce files
      */
+    // 👈 REPLACE THE EXISTING transform METHOD HERE
     transform(code: string, id: string) {
-      // Check if file should be processed
       const shouldProcess = includePatterns.some(pattern => {
         if (typeof pattern === 'string') {
           return id.includes(pattern) || id.endsWith(pattern);
@@ -142,7 +142,6 @@ export default function telocePlugin(
 
       if (!shouldProcess) return null;
 
-      // Check if file should be excluded
       const shouldExclude = excludePatterns.some(pattern => {
         if (typeof pattern === 'string') {
           return id.includes(pattern) || id.endsWith(pattern);
@@ -152,21 +151,17 @@ export default function telocePlugin(
 
       if (shouldExclude) return null;
 
-      // Determine file type
       const isSFC = id.endsWith('.vel');
 
       try {
         if (isSFC) {
-          // Compile Single File Component
           return compileSFCFile(code, id, opts, config);
         } else {
-          // Compile template
           return compileTemplateFile(code, id, opts, config);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.error(`[teloce] Failed to compile ${id}: ${message}`);
-        return null;
       }
     },
 
@@ -194,44 +189,36 @@ export default function telocePlugin(
 
 /**
  * Compile a Single File Component (.vel)
- */
-function compileSFCFile(
+ */function compileSFCFile(
   code: string,
   id: string,
   opts: TelocePluginOptions,
   _config: ResolvedConfig
-): { code: string; map?: string } | null {
-  try {
-    // Parse and compile the SFC
-    const result = compileSFC(code, {
-      filename: path.basename(id),
-      sourceMap: opts.sourceMap,
-      minify: opts.minify,
-      dev: opts.dev,
-      scoped: opts.scoped,
-    });
+): { code: string; map?: string } {
+  const result = compileSFC(code, {
+    filename: path.basename(id),
+    sourceMap: opts.sourceMap,
+    minify: opts.minify,
+    dev: opts.dev,
+    scoped: opts.scoped,
+  });
 
-    // Process with custom plugins
-    let finalCode = result.code;
-    if (opts.plugins) {
-      for (const plugin of opts.plugins) {
-        if (plugin.transform) {
-          const transformed = plugin.transform(finalCode, id);
-          if (transformed) {
-            finalCode = transformed;
-          }
+  let finalCode = result.code;
+  if (opts.plugins) {
+    for (const plugin of opts.plugins) {
+      if (plugin.transform) {
+        const transformed = plugin.transform(finalCode, id);
+        if (transformed) {
+          finalCode = transformed;
         }
       }
     }
-
-    return {
-      code: finalCode,
-      map: result.map,
-    };
-  } catch (error) {
-    console.error(`[teloce] Error compiling SFC ${id}:`, error);
-    return null;
   }
+
+  return {
+    code: finalCode,
+    map: result.map,
+  };
 }
 
 /**
@@ -262,42 +249,33 @@ function splitTemplateModule(code: string): { imports: string[]; functionCode: s
   const functionCode = rest.join('\n').replace(/export\s+function\s+render/, 'function render');
   return { imports, functionCode };
 }
-
 function compileTemplateFile(
   code: string,
   id: string,
   opts: TelocePluginOptions,
   _config: ResolvedConfig
-): { code: string; map?: string } | null {
-  try {
-    // Compile the template
-    const result = compileTemplate(code, {
-      filename: path.basename(id),
-      sourceMap: opts.sourceMap,
-      minify: opts.minify,
-      dev: opts.dev,
-    });
+): { code: string; map?: string } {
+  const result = compileTemplate(code, {
+    filename: path.basename(id),
+    sourceMap: opts.sourceMap,
+    minify: opts.minify,
+    dev: opts.dev,
+  });
 
-    const { imports, functionCode } = splitTemplateModule(result.code);
+  const { imports, functionCode } = splitTemplateModule(result.code);
 
-    // Wrap in JavaScript
-    const jsCode = `
+  const jsCode = `
 // Teloce template compiled from ${path.basename(id)}
 ${imports.join('\n')}
 ${functionCode}
 export default render;
 `;
 
-    return {
-      code: jsCode,
-      map: result.map,
-    };
-  } catch (error) {
-    console.error(`[teloce] Error compiling template ${id}:`, error);
-    return null;
-  }
+  return {
+    code: jsCode,
+    map: result.map,
+  };
 }
-
 /**
  * Virtual module for Teloce runtime
  */

@@ -6,7 +6,10 @@ import { createRequire } from 'module';
 import type { Plugin } from './types';
 import type { PluginRegistry } from './registry';
 
-const require = createRequire(import.meta.url);
+// Use native require in CJS, or create standard ESM require fallback
+const loaderRequire = typeof require !== 'undefined'
+  ? require
+  : createRequire(import.meta.url);
 
 export interface LoaderOptions {
   /** Plugin registry */
@@ -156,7 +159,7 @@ export class PluginLoader {
       }
 
       // Try to load the package using ESM-compatible require.resolve
-      const packagePath = require.resolve(name, { paths: [this.baseDir] });
+      const packagePath = loaderRequire.resolve(name, { paths: [this.baseDir] });      
       return await this.loadModule(packagePath);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -266,7 +269,7 @@ export class PluginLoader {
   async loadFromPackageJson(): Promise<LoaderResult> {
     try {
       const packageJsonPath = `${this.baseDir}/package.json`;
-      const packageJson = require(packageJsonPath);
+      const packageJson = loaderRequire(packageJsonPath);
       const teloce = packageJson.teloce || {};
 
       if (!teloce.plugins || !Array.isArray(teloce.plugins)) {

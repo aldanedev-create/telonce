@@ -18,7 +18,7 @@ import { compile as compileTemplate } from '@teloce/compiler';
 import * as path from 'path';
 
 export interface TelocePluginOptions {
-    /**
+  /**
    * Include patterns for template files. Plain strings are matched as a
    * literal substring/suffix of the file path (not a glob) - pass a
    * RegExp if you need real glob-style matching.
@@ -26,7 +26,7 @@ export interface TelocePluginOptions {
    */
   include?: string | RegExp | (string | RegExp)[];
 
-    /**
+  /**
    * Exclude patterns for template files. Same matching rules as `include`
    * - plain strings are a literal substring/suffix check, not a glob.
    * @default ['node_modules', 'dist']
@@ -110,11 +110,6 @@ export default function telocePlugin(
   const opts = { ...defaultOptions, ...options };
   let config: ResolvedConfig;
 
-  // Normalize include/exclude patterns and filter out undefined values
-  // (opts.include/opts.exclude are optional, so `[opts.include]` could be
-  // `[undefined]` when the option was never set - that's what made
-  // `pattern` possibly-undefined below, even though a plain array is
-  // never actually passed containing `undefined` in practice).
   const includePatterns = (Array.isArray(opts.include) ? opts.include : [opts.include])
     .filter((p): p is string | RegExp => p !== undefined);
   const excludePatterns = (Array.isArray(opts.exclude) ? opts.exclude : [opts.exclude])
@@ -131,37 +126,39 @@ export default function telocePlugin(
     /**
      * Transform .vel and .teloce files
      */
-    // 👈 REPLACE THE EXISTING transform METHOD HERE
     transform(code: string, id: string) {
+      // Strip Vite internal query parameters (e.g. ?t=12345 or ?import)
+      const [cleanId] = id.split('?');
+
       const shouldProcess = includePatterns.some(pattern => {
         if (typeof pattern === 'string') {
-          return id.includes(pattern) || id.endsWith(pattern);
+          return cleanId.includes(pattern) || cleanId.endsWith(pattern);
         }
-        return pattern.test(id);
+        return pattern.test(cleanId);
       });
 
       if (!shouldProcess) return null;
 
       const shouldExclude = excludePatterns.some(pattern => {
         if (typeof pattern === 'string') {
-          return id.includes(pattern) || id.endsWith(pattern);
+          return cleanId.includes(pattern) || cleanId.endsWith(pattern);
         }
-        return pattern.test(id);
+        return pattern.test(cleanId);
       });
 
       if (shouldExclude) return null;
 
-      const isSFC = id.endsWith('.vel');
+      const isSFC = cleanId.endsWith('.vel');
 
       try {
         if (isSFC) {
-          return compileSFCFile(code, id, opts, config);
+          return compileSFCFile(code, cleanId, opts, config);
         } else {
-          return compileTemplateFile(code, id, opts, config);
+          return compileTemplateFile(code, cleanId, opts, config);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.error(`[teloce] Failed to compile ${id}: ${message}`);
+        this.error(`[teloce] Failed to compile ${path.basename(cleanId)}: ${message}`);
       }
     },
 
@@ -169,8 +166,8 @@ export default function telocePlugin(
      * Handle HMR for .vel files
      */
     handleHotUpdate({ file, server }: any) {
-      if (file.endsWith('.vel')) {
-        // Send HMR update
+      const [cleanFile] = file.split('?');
+      if (cleanFile.endsWith('.vel')) {
         server.ws.send({
           type: 'update',
           updates: [
@@ -189,7 +186,8 @@ export default function telocePlugin(
 
 /**
  * Compile a Single File Component (.vel)
- */function compileSFCFile(
+ */
+function compileSFCFile(
   code: string,
   id: string,
   opts: TelocePluginOptions,
@@ -224,18 +222,6 @@ export default function telocePlugin(
 /**
  * Compile a template file (.teloce)
  */
-/**
- * `compileTemplate`'s result.code is a small, complete module - some
- * `import ... from '...'` lines followed by
- * `export function render(container, ctx) { ... }`. It was previously
- * spliced straight into `return ${result.code};`, which is invalid JS the
- * moment the "returned" value starts with an `import` statement (imports
- * are statements, not expressions) - exactly the same bug this had in
- * @teloce/sfc's compile.ts before it was fixed there. Pulls the import
- * lines out to hoist them to the top of the wrapping module instead, and
- * turns the exported function into a plain local declaration that the
- * wrapper can reference by name.
- */
 function splitTemplateModule(code: string): { imports: string[]; functionCode: string } {
   const imports: string[] = [];
   const rest: string[] = [];
@@ -249,6 +235,7 @@ function splitTemplateModule(code: string): { imports: string[]; functionCode: s
   const functionCode = rest.join('\n').replace(/export\s+function\s+render/, 'function render');
   return { imports, functionCode };
 }
+
 function compileTemplateFile(
   code: string,
   id: string,
@@ -276,6 +263,7 @@ export default render;
     map: result.map,
   };
 }
+
 /**
  * Virtual module for Teloce runtime
  */

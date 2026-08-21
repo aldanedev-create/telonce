@@ -318,12 +318,6 @@ defineComponent({
 <script src="https://cdn.jsdelivr.net/npm/teloce@0.3.0/dist/teloce.global.min.js"></script>
 ```
 
-## Debug
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/teloce@0.3.0/dist/teloce.debug.js"></script>
-```
-
 ## ESM
 
 ```html

@@ -1,0 +1,378 @@
+diff --git a/packages/cli/bin/teloce.js b/packages/cli/bin/teloce.js
+index fb14b24..d8a1202 100644
+--- a/packages/cli/bin/teloce.js
++++ b/packages/cli/bin/teloce.js
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env node
+ 
+-import { program } from '../dist/index.mjs';
++import { program } from '../dist/index.js';
+ 
+ program.parse(process.argv);
+\ No newline at end of file
+diff --git a/packages/cli/package.json b/packages/cli/package.json
+index e0cb7cf..8ffc6cf 100644
+--- a/packages/cli/package.json
++++ b/packages/cli/package.json
+@@ -5,8 +5,9 @@
+     "access": "public"
+   },
+   "description": "Teloce command-line interface - dev, build, debug, create, and more",
+-  "main": "dist/index.js",
+-  "module": "dist/index.mjs",
++  "type": "module",
++  "main": "dist/index.cjs",
++  "module": "dist/index.js",
+   "types": "dist/index.d.ts",
+   "bin": {
+     "teloce": "./bin/teloce.js"
+@@ -14,8 +15,8 @@
+   "exports": {
+     ".": {
+       "types": "./dist/index.d.ts",
+-      "import": "./dist/index.mjs",
+-      "require": "./dist/index.js",
++      "import": "./dist/index.js",
++      "require": "./dist/index.cjs",
+       "default": "./dist/index.js"
+     },
+     "./package.json": "./package.json"
+diff --git a/packages/cli/src/commands/build.ts b/packages/cli/src/commands/build.ts
+index 7ee800b..7a4b7f0 100644
+--- a/packages/cli/src/commands/build.ts
++++ b/packages/cli/src/commands/build.ts
+@@ -7,7 +7,7 @@ import ora from 'ora';
+ import { bundle } from '@teloce/bundler';
+ import { loadConfig } from '../config';
+ import { logger } from '../logger';
+-import * as fs from 'fs-extra';
++import fs from 'fs-extra';
+ import * as path from 'path';
+ 
+ export interface BuildOptions {
+diff --git a/packages/cli/src/commands/create.ts b/packages/cli/src/commands/create.ts
+index 60520cf..55b220b 100644
+--- a/packages/cli/src/commands/create.ts
++++ b/packages/cli/src/commands/create.ts
+@@ -4,7 +4,7 @@
+ 
+ import chalk from 'chalk';
+ import ora from 'ora';
+-import * as fs from 'fs-extra';
++import fs from 'fs-extra';
+ import * as path from 'path';
+ // was not being used in the code leave if needed//
+ // import { fileURLToPath } from 'url';//
+diff --git a/packages/cli/src/commands/debug.ts b/packages/cli/src/commands/debug.ts
+index 750268f..c1aa2ee 100644
+--- a/packages/cli/src/commands/debug.ts
++++ b/packages/cli/src/commands/debug.ts
+@@ -36,6 +36,7 @@ export async function debugCommand(options: DebugOptions, _command: any): Promis
+       open: openBrowser,
+       config,
+     });
++    await server.start();
+ 
+     spinner.succeed(`Debugger started at http://${host}:${port}`);
+ 
+diff --git a/packages/cli/src/commands/doctor.ts b/packages/cli/src/commands/doctor.ts
+index 8040490..fc61e88 100644
+--- a/packages/cli/src/commands/doctor.ts
++++ b/packages/cli/src/commands/doctor.ts
+@@ -7,7 +7,7 @@ import ora from 'ora';
+ import { detectFramework } from '../detect';
+ import { loadConfig } from '../config';
+ import { logger } from '../logger';
+-import * as fs from 'fs-extra';
++import fs from 'fs-extra';
+ import { exec } from 'child_process';
+ import { promisify } from 'util';
+ 
+diff --git a/packages/cli/src/commands/lint.ts b/packages/cli/src/commands/lint.ts
+index 640aff4..10b5438 100644
+--- a/packages/cli/src/commands/lint.ts
++++ b/packages/cli/src/commands/lint.ts
+@@ -5,7 +5,7 @@
+ import chalk from 'chalk';
+ import ora from 'ora';
+ import { logger } from '../logger';
+-import * as fs from 'fs-extra';
++import fs from 'fs-extra';
+ 
+ 
+ export interface LintOptions {
+diff --git a/packages/cli/src/commands/watch.ts b/packages/cli/src/commands/watch.ts
+index e77db31..2e79212 100644
+--- a/packages/cli/src/commands/watch.ts
++++ b/packages/cli/src/commands/watch.ts
+@@ -7,7 +7,7 @@ import ora from 'ora';
+ import { loadConfig } from '../config';
+ import { logger } from '../logger';
+ import { compile } from '@teloce/compiler';
+-import * as fs from 'fs-extra';
++import fs from 'fs-extra';
+ import * as path from 'path';
+ 
+ export interface WatchOptions {
+diff --git a/packages/cli/src/config/index.ts b/packages/cli/src/config/index.ts
+index 5c3a337..4e5f96b 100644
+--- a/packages/cli/src/config/index.ts
++++ b/packages/cli/src/config/index.ts
+@@ -2,7 +2,7 @@
+  * Configuration - loads and manages Teloce configuration
+  */
+ 
+-import * as fs from 'fs-extra';
++import fs from 'fs-extra';
+ import * as path from 'path';
+ 
+ export interface TeloceConfig {
+diff --git a/packages/cli/src/detect/index.ts b/packages/cli/src/detect/index.ts
+index f5f6786..48946d6 100644
+--- a/packages/cli/src/detect/index.ts
++++ b/packages/cli/src/detect/index.ts
+@@ -2,7 +2,7 @@
+  * Framework detection - auto-detects Python frameworks using precise import parsing and dependency inspection
+  */
+ 
+-import * as fs from 'fs-extra';
++import fs from 'fs-extra';
+ import * as path from 'path';
+ 
+ export type Framework = 'flask' | 'django' | 'fastapi' | 'quart' | 'flaxon' | 'unknown';
+diff --git a/packages/cli/src/index.ts b/packages/cli/src/index.ts
+index 4787596..d5ef3a0 100644
+--- a/packages/cli/src/index.ts
++++ b/packages/cli/src/index.ts
+@@ -80,9 +80,4 @@ program
+   .option('--no-hmr', 'Disable hot module replacement')
+   .action(watchCommand);
+ 
+-// Default command - show help
+-if (process.argv.length === 2) {
+-  program.outputHelp();
+-}
+-
+ export { program };
+\ No newline at end of file
+diff --git a/packages/debugger/package.json b/packages/debugger/package.json
+index 465c32d..b30b32b 100644
+--- a/packages/debugger/package.json
++++ b/packages/debugger/package.json
+@@ -19,12 +19,11 @@
+   },
+   "files": [
+     "dist",
+-    "dashboard",
+     "README.md",
+     "LICENSE"
+   ],
+   "scripts": {
+-    "build": "tsup",
++    "build": "tsup && node scripts/build-dashboard.mjs",
+     "dev": "tsup --watch",
+     "test": "vitest",
+     "clean": "rm -rf dist"
+@@ -37,6 +36,7 @@
+   "peerDependencies": {},
+   "devDependencies": {
+     "@types/node": "^20.11.0",
++    "esbuild": "^0.21.0",
+     "tsup": "^8.0.0",
+     "typescript": "^5.5.0",
+     "vitest": "^2.0.0"
+diff --git a/packages/debugger/scripts/build-dashboard.mjs b/packages/debugger/scripts/build-dashboard.mjs
+new file mode 100644
+index 0000000..c49d427
+--- /dev/null
++++ b/packages/debugger/scripts/build-dashboard.mjs
+@@ -0,0 +1,43 @@
++#!/usr/bin/env node
++/**
++ * Bundles the debugger dashboard's browser-side assets.
++ *
++ * The dashboard frontend (src/dashboard/app.ts, index.html, layout.css) is
++ * plain browser code, not part of the @teloce/debugger library entry point,
++ * so it isn't touched by the main `tsup` build. This script compiles
++ * app.ts -> dist/dashboard/app.js with esbuild and copies the static
++ * html/css alongside it so serveDashboard() has something real to serve.
++ */
++import { build } from 'esbuild';
++import { mkdir, copyFile } from 'fs/promises';
++import { fileURLToPath } from 'url';
++import path from 'path';
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const root = path.resolve(__dirname, '..');
++const srcDir = path.join(root, 'src', 'dashboard');
++const outDir = path.join(root, 'dist', 'dashboard');
++
++async function main() {
++  await mkdir(outDir, { recursive: true });
++
++  await build({
++    entryPoints: [path.join(srcDir, 'app.ts')],
++    outfile: path.join(outDir, 'app.js'),
++    bundle: true,
++    format: 'esm',
++    target: 'es2020',
++    sourcemap: true,
++    minify: false,
++  });
++
++  await copyFile(path.join(srcDir, 'index.html'), path.join(outDir, 'index.html'));
++  await copyFile(path.join(srcDir, 'layout.css'), path.join(outDir, 'layout.css'));
++
++  console.log('Dashboard assets built -> dist/dashboard');
++}
++
++main().catch((err) => {
++  console.error('Failed to build dashboard assets:', err);
++  process.exit(1);
++});
+diff --git a/packages/debugger/src/dashboard/index.ts b/packages/debugger/src/dashboard/index.ts
+index bfe3104..ae56b46 100644
+--- a/packages/debugger/src/dashboard/index.ts
++++ b/packages/debugger/src/dashboard/index.ts
+@@ -1,6 +1,27 @@
++import { fileURLToPath } from 'url';
++import path from 'path';
++import { readFileSync } from 'fs';
++import { createServer, type ServerInstance } from '@teloce/server';
++import { combineMiddleware, staticMiddleware, corsMiddleware, type MiddlewareContext } from '@teloce/server';
++import { createDebugWebSocket, type DebugWebSocket } from '../websocket';
++
++// import.meta.url works in both the ESM and CJS builds (tsup shims it for CJS),
++// unlike a bare `__dirname` reference which is undefined in ESM output.
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++
+ export interface DashboardOptions {
+   port?: number;
+   host?: string;
++  /**
++   * Open the dashboard in the default browser once it starts.
++   * (Actual browser-opening is handled by the CLI; this flag is accepted
++   * here so callers can pass their options through unchanged.)
++   */
++  open?: boolean;
++  /**
++   * Teloce project configuration, made available to the dashboard.
++   */
++  config?: Record<string, unknown>;
+ }
+ 
+ export interface DashboardData {
+@@ -8,17 +29,99 @@ export interface DashboardData {
+ }
+ 
+ export interface DashboardServer {
++  /**
++   * The live debug WebSocket channel, once the server has started.
++   * Useful for pushing errors/state/performance data into the dashboard.
++   */
++  ws?: DebugWebSocket;
+   start: () => Promise<void>;
+   stop: () => Promise<void>;
++  /**
++   * Alias for stop(), kept for callers that expect a close() method.
++   */
++  close: () => Promise<void>;
+ }
+ 
+-export function serveDashboard(_options: DashboardOptions = {}): DashboardServer {
++const DASHBOARD_ASSETS_DIR = path.join(__dirname, 'dashboard');
++const DEBUG_WS_PATH = '/__teloce_debug';
++
++export function serveDashboard(options: DashboardOptions = {}): DashboardServer {
++  const port = options.port || 9000;
++  const host = options.host || 'localhost';
++
++  const staticFiles = staticMiddleware(DASHBOARD_ASSETS_DIR, { prefix: DEBUG_WS_PATH });
++  const cors = corsMiddleware();
++  const middleware = [cors, staticFiles];
++
++  const httpServer: ServerInstance = createServer({
++    port,
++    host,
++    handler: (req, res) => {
++      const ctx: MiddlewareContext = {
++        req,
++        res,
++        params: {},
++        query: {},
++      };
++
++      return combineMiddleware(middleware)(ctx, async () => {
++        // Anything that isn't a dashboard asset falls back to the dashboard
++        // shell itself, so deep links (e.g. /components) still load the app.
++        res.writeHead(200, { 'Content-Type': 'text/html' });
++        res.end(indexHtmlFallback());
++      });
++    },
++  });
++
++  let ws: DebugWebSocket | undefined;
++  let isRunning = false;
++
+   return {
+-    async start() {},
+-    async stop() {},
++    get ws() {
++      return ws;
++    },
++
++    async start() {
++      if (isRunning) return;
++      await httpServer.start();
++      ws = createDebugWebSocket(httpServer.server, { path: DEBUG_WS_PATH });
++      isRunning = true;
++    },
++
++    async stop() {
++      if (!isRunning) return;
++      if (ws) {
++        await ws.close();
++        ws = undefined;
++      }
++      await httpServer.stop();
++      isRunning = false;
++    },
++
++    async close() {
++      await this.stop();
++    },
+   };
+ }
+ 
++let cachedIndexHtml: string | undefined;
++function indexHtmlFallback(): string {
++  if (cachedIndexHtml) return cachedIndexHtml;
++  try {
++    // Lazily read so a missing build doesn't crash server startup.
++    cachedIndexHtml = readFileSync(
++      path.join(DASHBOARD_ASSETS_DIR, 'index.html'),
++      'utf-8'
++    );
++  } catch {
++    cachedIndexHtml =
++      '<!doctype html><html><body><h1>Teloce Debugger</h1>' +
++      '<p>Dashboard assets not found. Run the debugger package build first.</p>' +
++      '</body></html>';
++  }
++  return cachedIndexHtml;
++}
++
+ export function createDashboardServer(options: DashboardOptions = {}): DashboardServer {
+   return serveDashboard(options);
+ }
+diff --git a/packages/debugger/tsup.config.ts b/packages/debugger/tsup.config.ts
+index 8bfa938..4bfd7f1 100644
+--- a/packages/debugger/tsup.config.ts
++++ b/packages/debugger/tsup.config.ts
+@@ -8,4 +8,5 @@ export default defineConfig({
+   splitting: false,
+   target: 'es2020',
+   dts: true,
++  shims: true,
+ });
+\ No newline at end of file

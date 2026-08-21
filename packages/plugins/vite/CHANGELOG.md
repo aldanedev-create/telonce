@@ -1,5 +1,11 @@
 # @teloce/vite-plugin
 
+## 1.6.0
+
+### Minor Changes
+
+- jj
+
 ## 1.5.0
 
 ### Minor Changes

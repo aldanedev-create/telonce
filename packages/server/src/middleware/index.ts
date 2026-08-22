@@ -49,6 +49,15 @@ export function combineMiddleware(
     let index = 0;
 
     async function nextHandler() {
+      // Guard against a downstream middleware trying to keep processing a
+      // request whose response an earlier middleware already fully ended
+      // (e.g. the proxy middleware in dev-server.ts). Without this, a
+      // later handler's res.writeHead()/res.end() call throws
+      // ERR_HTTP_HEADERS_SENT, crashing the whole process rather than
+      // just no-op'ing on a request that's already finished.
+      if (ctx.res.writableEnded) {
+        return;
+      }
       if (index < sorted.length) {
         const mw = sorted[index++];
         await mw.handler(ctx, nextHandler);

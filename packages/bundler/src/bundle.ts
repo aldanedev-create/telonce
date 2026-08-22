@@ -179,21 +179,21 @@ export function bundle(
       stats.chunkCount = chunkResult.chunks.length;
     }
 
-    // 3. Generate output files from chunks or tree-shaken modules/entries
-    if (chunkResult && chunkResult.chunks.length > 0) {
-      for (const chunk of chunkResult.chunks) {
-        const chunkAny = chunk as any;
-        const fileName = chunkAny.name || chunkAny.fileName || `chunk-${files.length + 1}.js`;
-        const filePath = `${outDir}/${fileName}`;
-        const content = chunkAny.code || chunkAny.content || '';
-        files.push({
-          path: filePath,
-          content,
-          size: new TextEncoder().encode(content).length,
-          type: filePath.endsWith('.css') ? 'css' : 'js',
-        });
-      }
-    } else if (treeShakeResult && treeShakeResult.modules.length > 0) {
+    // 3. Generate output files. Tree-shaking is checked first and, when it
+    // ran, always wins: it's the one path here that actually reads real
+    // source from disk (see tree-shaking/index.ts's fs.readFileSync) and
+    // produces genuine file content. createChunks(), by contrast, doesn't
+    // read any files at all - it works purely on entry path strings - so
+    // `chunk.code`/`chunk.content` for a real project is always empty.
+    // Previously this checked chunkResult FIRST, so as soon as chunking
+    // was enabled (the CLI's default), every chunk's empty content won
+    // over any real tree-shaken content, and `teloce build` would happily
+    // report "Build completed successfully!" while writing out empty,
+    // extensionless files. Chunk entries with genuinely empty content are
+    // now skipped rather than written, since a 0-byte file named after a
+    // chunk isn't useful output, and if that leaves nothing at all we
+    // still fall through to the tree-shake/placeholder branches below.
+    if (treeShakeResult && treeShakeResult.modules.length > 0) {
       const combinedContent = treeShakeResult.modules
         .map((m: any) => m.code || m.content || m.source || '')
         .join('\n\n');
@@ -208,7 +208,26 @@ export function bundle(
           type: 'js',
         });
       }
+    } else if (chunkResult && chunkResult.chunks.some((c: any) => c.code || c.content)) {
+      for (const chunk of chunkResult.chunks) {
+        const chunkAny = chunk as any;
+        const content = chunkAny.code || chunkAny.content || '';
+        if (!content) continue;
+        const fileName = chunkAny.name || chunkAny.fileName || `chunk-${files.length + 1}.js`;
+        const filePath = `${outDir}/${fileName}`;
+        files.push({
+          path: filePath,
+          content,
+          size: new TextEncoder().encode(content).length,
+          type: filePath.endsWith('.css') ? 'css' : 'js',
+        });
+      }
     } else {
+      diagnostics.warnings.push(
+        'Neither tree-shaking nor chunk splitting produced real bundled content ' +
+          '(pass treeShake: true and ensure your entry files exist on disk); writing ' +
+          'placeholder output instead of empty files.'
+      );
       for (const entry of entries) {
         const baseName = entry.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'bundle';
         const filePath = `${outDir}/${baseName}.js`;

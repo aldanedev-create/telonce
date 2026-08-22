@@ -73,6 +73,18 @@ export interface ModuleInfo {
    * Whether the module has side effects
    */
   hasSideEffects?: boolean;
+
+  /**
+   * The module's final source code, after dead-code elimination. Was
+   * previously computed (as `prunedCode`, right where finalSize/diff are
+   * derived below) and then thrown away - only the resulting *size* made
+   * it into ModuleInfo, not the code itself. That meant bundle() (in
+   * ../bundle.ts) had no real source to work with for any entry that went
+   * through tree-shaking: `teloce build` would report success while
+   * writing out empty files, since there was nowhere left for real
+   * bundled content to come from.
+   */
+  code?: string;
 }
 
 export interface ImportInfo {
@@ -200,7 +212,27 @@ export function removeUnused(
   const result: string[] = [];
 
   for (const line of lines) {
-    const exportMatch = line.match(/export\s+{?\s*([^}]+)\s*}?/);
+    // Only treat this as a named-export-list line (`export { a, b, c };`,
+    // optionally `... from '...'`) when `{` immediately follows `export`
+    // (whitespace aside). The previous regex, `export\s+{?\s*([^}]+)\s*}?`,
+    // made that opening brace optional - so it also matched
+    // `export function foo() {`, `export const x = 1;`, `export default
+    // foo;`, `export class Foo {`, etc., capturing everything after
+    // `export` as if it were a comma-separated name list. None of those
+    // names were ever in `usedExports` (real identifiers there don't
+    // include literal text like "function foo() {"), so `keep` came back
+    // empty and the *entire line* got dropped - including just the
+    // declaration's opening line, since this function only ever looks at
+    // one line at a time. For a multi-line `export function`/`export
+    // class` body, that left every line after the (now-missing) opening
+    // line still in the output: a dangling function body with no
+    // signature, invalid JavaScript. This codebase has no real per-line
+    // brace-matching here (unlike the SFC compiler's findMatchingBrace),
+    // so rather than attempt to correctly strip a whole multi-line
+    // declaration textually, exports other than the `export { ... }` list
+    // form are now always kept - accepting some unremoved dead code as
+    // the trade-off for never emitting broken syntax.
+    const exportMatch = line.match(/^\s*export\s*\{\s*([^}]*)\s*\}/);
     if (exportMatch) {
       const names = exportMatch[1].split(',').map(s => s.trim());
       const keep = names.filter(name => {
@@ -366,6 +398,7 @@ export function treeShake(entries: string | string[], options: TreeShakeOptions 
       imports: mod.imports,
       exports: mod.exports,
       hasSideEffects,
+      code: prunedCode,
     });
     remainingSize += finalSize;
   }

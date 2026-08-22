@@ -90,7 +90,7 @@ export function createProxy(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const parsedUrl = url.parse(req.url || '/', true);
 
       // Apply path rewrite
@@ -157,16 +157,31 @@ export function createProxy(
       });
 
       proxyReq.on('error', (err) => {
-        res.writeHead(502, { 'Content-Type': 'text/plain' });
-        res.end(`Proxy Error: ${err.message}`);
-        reject(err);
+        // A proper error response has already been written and sent to the
+        // client below - that's the request being handled successfully
+        // from this function's point of view, so resolve() here, not
+        // reject(). Previously this rejected even after writing the 502,
+        // and since the caller (createServer's proxy middleware in
+        // dev-server.ts) does `await proxy.proxy(...)` with no try/catch,
+        // that rejection became an unhandled promise rejection that
+        // crashed the entire Node process - meaning any single failed
+        // connection to the backend (e.g. Flask/Django not started yet,
+        // or mid-restart - both routine during normal dev workflow) took
+        // down the whole `teloce dev` server, not just that one request.
+        if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'text/plain' });
+          res.end(`Proxy Error: ${err.message}`);
+        }
+        resolve();
       });
 
       proxyReq.on('timeout', () => {
         proxyReq.destroy();
-        res.writeHead(504, { 'Content-Type': 'text/plain' });
-        res.end('Proxy Timeout');
-        reject(new Error('Proxy timeout'));
+        if (!res.headersSent) {
+          res.writeHead(504, { 'Content-Type': 'text/plain' });
+          res.end('Proxy Timeout');
+        }
+        resolve();
       });
 
       // Pipe request body

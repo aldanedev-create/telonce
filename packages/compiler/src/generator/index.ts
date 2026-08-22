@@ -5,6 +5,15 @@ export interface GenerateOptions {
   target?: 'browser' | 'node' | 'esm';
   dev?: boolean;
   format?: 'iife' | 'esm' | 'cjs';
+  /**
+   * Attribute name (e.g. "data-teloce-abc123") to set on every generated
+   * element, so scoped CSS selectors (which get this same attribute
+   * appended by the style compiler) actually match something in the
+   * rendered DOM. Without this, `scoped` styles compile to valid CSS that
+   * never matches any element, since nothing sets the attribute the
+   * selectors are gated on.
+   */
+  scopeAttr?: string;
 }
 
 export interface GenerateResult {
@@ -20,6 +29,7 @@ interface GenCtx {
   needsRuntimeDom: Set<string>;
   needsReactivity: Set<string>;
   needsFilters: boolean;
+  scopeAttr?: string;
 }
 
 function nextVar(ctx: GenCtx, prefix = 'el'): string {
@@ -176,6 +186,9 @@ function genNode(node: ASTNode, parentVar: string, out: string[], ctx: GenCtx): 
       const el = node as ElementNode;
       const varName = nextVar(ctx);
       out.push(`const ${varName} = document.createElement(${JSON.stringify(el.tag)});`);
+      if (ctx.scopeAttr) {
+        out.push(`${varName}.setAttribute(${JSON.stringify(ctx.scopeAttr)}, '');`);
+      }
       for (const [attrName, attrValue] of Object.entries(el.attributes)) {
         genAttribute(varName, attrName, attrValue, out, ctx);
       }
@@ -397,6 +410,28 @@ function genAttribute(varName: string, attrName: string, attrValue: string, out:
     return;
   }
 
+  if (attrName === ':class') {
+    // `:class` previously fell through to the generic `:`-binding branch
+    // below, which does `setAttribute('class', String(__v))`. That's fine
+    // when `__v` is already a string (e.g. a ternary expression), but the
+    // common Vue-style forms - an object map of className -> boolean, or
+    // an array of class name strings/falsy values - would stringify to the
+    // useless literal "[object Object]" or "a,b,c" instead of a proper
+    // space-separated class list. This normalizes all three accepted
+    // forms (string / array / object) the same way Vue does.
+    const { decl, varName: exprVar, callArgs } = emitExpressionEvaluator(ctx, attrValue);
+    out.push(decl);
+    ctx.needsReactivity.add('createEffect');
+    out.push(
+      `createEffect(() => { const __v = ${exprVar}(${callArgs}); let __cls = ''; ` +
+        `if (Array.isArray(__v)) { __cls = __v.filter(Boolean).join(' '); } ` +
+        `else if (__v && typeof __v === 'object') { __cls = Object.keys(__v).filter((__k) => __v[__k]).join(' '); } ` +
+        `else if (__v) { __cls = String(__v); } ` +
+        `${varName}.setAttribute('class', __cls); });`
+    );
+    return;
+  }
+
   if (attrName.startsWith(':')) {
     const propName = attrName.slice(1);
     const { decl, varName: exprVar, callArgs } = emitExpressionEvaluator(ctx, attrValue);
@@ -467,6 +502,7 @@ export function generate(ast: ASTNode[], _options: GenerateOptions = {}): Genera
     needsRuntimeDom: new Set(),
     needsReactivity: new Set(),
     needsFilters: false,
+    scopeAttr: _options.scopeAttr,
   };
 
   const body: string[] = [];

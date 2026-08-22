@@ -5,7 +5,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { logger } from '../logger';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 
 
 export interface LintOptions {

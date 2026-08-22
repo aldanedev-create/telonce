@@ -7,7 +7,7 @@ import ora from 'ora';
 import { bundle } from '@teloce/bundler';
 import { loadConfig } from '../config';
 import { logger } from '../logger';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import * as path from 'path';
 
 export interface BuildOptions {

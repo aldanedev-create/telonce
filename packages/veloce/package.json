@@ -6,17 +6,22 @@
     "access": "public"
   },
   "description": "A TypeScript template engine for Python web developers",
-  "main": "dist/teloce.global.js",
+  "main": "dist/teloce.js",
   "module": "dist/teloce.esm.js",
   "unpkg": "dist/teloce.global.js",
   "jsdelivr": "dist/teloce.global.js",
-  "types": "dist/teloce.d.mts",
+  "types": "dist/teloce.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/teloce.d.mts",
+      "types": "./dist/teloce.d.ts",
       "import": "./dist/teloce.esm.js",
-      "require": "./dist/teloce.global.js",
-      "default": "./dist/teloce.global.js"
+      "require": "./dist/teloce.js",
+      "default": "./dist/teloce.esm.js"
+    },
+    "./compiler": {
+      "types": "./dist/teloce-compiler.d.ts",
+      "import": "./dist/teloce-compiler.esm.js",
+      "require": "./dist/teloce-compiler.js"
     },
     "./package.json": "./package.json"
   },
@@ -31,14 +36,16 @@
     "test": "vitest",
     "clean": "rm -rf dist"
   },
-  "devDependencies": {
-    "@teloce/compiler": "workspace:*",
+  "dependencies": {
     "@teloce/core": "workspace:*",
     "@teloce/reactivity": "workspace:*",
     "@teloce/runtime-core": "workspace:*",
     "@teloce/runtime-dom": "workspace:*",
+    "@teloce/std": "workspace:*"
+  },
+  "devDependencies": {
+    "@teloce/compiler": "workspace:*",
     "@teloce/sfc": "workspace:*",
-    "@teloce/std": "workspace:*",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"

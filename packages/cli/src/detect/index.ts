@@ -2,7 +2,7 @@
  * Framework detection - auto-detects Python frameworks using precise import parsing and dependency inspection
  */
 
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import * as path from 'path';
 
 export type Framework = 'flask' | 'django' | 'fastapi' | 'quart' | 'flaxon' | 'unknown';

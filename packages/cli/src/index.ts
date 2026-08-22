@@ -80,9 +80,4 @@ program
   .option('--no-hmr', 'Disable hot module replacement')
   .action(watchCommand);
 
-// Default command - show help
-if (process.argv.length === 2) {
-  program.outputHelp();
-}
-
 export { program };

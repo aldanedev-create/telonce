@@ -4,7 +4,7 @@
 
 import chalk from 'chalk';
 import ora from 'ora';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import * as path from 'path';
 // was not being used in the code leave if needed//
 // import { fileURLToPath } from 'url';//

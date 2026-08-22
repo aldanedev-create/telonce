@@ -189,7 +189,7 @@ export function createRenderer(options: RendererOptions): Renderer {
 export function reconcileList<T>(
   oldItems: T[],
   newItems: T[],
-  keyFn: (item: T) => string,
+  keyFn: (item: T, index?: number) => string,
   renderFn: (item: T, index: number) => Node,
   container: HTMLElement,
   cache: Map<string, CacheEntry<T>> = new Map()
@@ -199,13 +199,21 @@ export function reconcileList<T>(
   const oldKeys = new Map<string, { item: T; index: number }>();
   const newKeys = new Set<string>();
 
+  // `keyFn` is called with both `(item, index)` here - the compiler's
+  // default fallback keyer (used whenever a <for> has no explicit `key`
+  // attribute) is `(item, index) => String(index)`, which needs that
+  // second argument to tell items apart. Previously these three call sites
+  // only passed `item`, so `index` was always `undefined` inside every
+  // default keyFn - collapsing every item in the list onto the same cache
+  // key ("undefined") and causing only one item to ever render, no matter
+  // how many were in the array.
   oldItems.forEach((item, index) => {
-    const key = keyFn(item);
+    const key = keyFn(item, index);
     oldKeys.set(key, { item, index });
   });
 
-  newItems.forEach((item) => {
-    const key = keyFn(item);
+  newItems.forEach((item, index) => {
+    const key = keyFn(item, index);
     newKeys.add(key);
   });
 
@@ -236,7 +244,7 @@ export function reconcileList<T>(
 
   for (let i = newItems.length - 1; i >= 0; i--) {
     const item = newItems[i];
-    const key = keyFn(item);
+    const key = keyFn(item, i);
     const cached = cache.get(key);
     let node: Node;
 

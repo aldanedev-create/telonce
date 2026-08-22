@@ -23,6 +23,7 @@ import { Class, createClass } from './directives/class';
 import { Style, createStyle } from './directives/style';
 import { Show, createShow } from './directives/show';
 import { Hide, createHide } from './directives/hide';
+import { resolveFragmentToNode } from './fragment';
 
 import { 
   createEventBinding, 
@@ -52,6 +53,7 @@ export { Class, createClass };
 export { Style, createStyle };
 export { Show, createShow };
 export { Hide, createHide };
+export { resolveFragmentToNode };
 
 // Export events
 export { 
@@ -84,6 +86,7 @@ export default {
   createStyle,
   createShow,
   createHide,
+  resolveFragmentToNode,
   createEventBinding,
   bindEvents,
   unbindEvents,

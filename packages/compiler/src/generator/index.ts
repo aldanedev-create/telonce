@@ -230,7 +230,8 @@ function genNode(node: ASTNode, parentVar: string, out: string[], ctx: GenCtx): 
       for (const child of ifNode.children) {
         genNode(child, trueRootVar, trueBody, ctx);
       }
-      trueBody.push(`return ${trueRootVar}.firstChild || document.createComment('');`);
+      trueBody.push(`return resolveFragmentToNode(${trueRootVar});`);
+      ctx.needsRuntimeDom.add('resolveFragmentToNode');
 
       let falseBody = `return document.createComment('');`;
       if (ifNode.elseChildren && ifNode.elseChildren.length > 0) {
@@ -240,7 +241,8 @@ function genNode(node: ASTNode, parentVar: string, out: string[], ctx: GenCtx): 
         for (const child of ifNode.elseChildren) {
           genNode(child, falseRootVar, falseStatements, ctx);
         }
-        falseStatements.push(`return ${falseRootVar}.firstChild || document.createComment('');`);
+        falseStatements.push(`return resolveFragmentToNode(${falseRootVar});`);
+        ctx.needsRuntimeDom.add('resolveFragmentToNode');
         falseBody = falseStatements.join('\n');
       }
 
@@ -273,7 +275,8 @@ function genNode(node: ASTNode, parentVar: string, out: string[], ctx: GenCtx): 
       for (const child of forNode.children) {
         genNode(child, itemRootVar, renderBody, ctx);
       }
-      renderBody.push(`return ${itemRootVar}.firstChild || document.createComment('');`);
+      renderBody.push(`return resolveFragmentToNode(${itemRootVar});`);
+      ctx.needsRuntimeDom.add('resolveFragmentToNode');
 
       const keyFn = forNode.key
         ? `(__item) => String(__item && __item[${JSON.stringify(forNode.key)}])`
@@ -407,6 +410,30 @@ function genAttribute(varName: string, attrName: string, attrValue: string, out:
     const { decl, varName: exprVar, callArgs } = emitExpressionEvaluator(ctx, attrValue);
     out.push(decl);
     out.push(`${fnName}(${varName}, () => Boolean(${exprVar}(${callArgs})));`);
+    return;
+  }
+
+  if (attrName === ':style') {
+    // Same gap as :class had: without this, ':style' fell through to the
+    // generic setAttribute('style', String(value)) path below, which
+    // stringifies an object binding to the literal "[object Object]"
+    // instead of real CSS. @teloce/runtime-dom already has a createStyle()
+    // that correctly handles both string and object forms (with
+    // camelCase->kebab-case conversion), but it isn't itself reactive -
+    // it applies the style once at creation and expects the caller to
+    // re-invoke .update() on change - so this wraps it in createEffect
+    // rather than calling it directly, the same way createStyle's own
+    // internal update() logic is inlined here for :class-style
+    // consistency and to avoid a second runtime import.
+    const { decl, varName: exprVar, callArgs } = emitExpressionEvaluator(ctx, attrValue);
+    out.push(decl);
+    ctx.needsReactivity.add('createEffect');
+    out.push(
+      `createEffect(() => { const __v = ${exprVar}(${callArgs}); ${varName}.style.cssText = ''; ` +
+        `if (typeof __v === 'string') { ${varName}.style.cssText = __v; } ` +
+        `else if (__v && typeof __v === 'object') { for (const [__k, __sv] of Object.entries(__v)) { ` +
+        `if (__sv !== undefined && __sv !== null) { ${varName}.style.setProperty(__k.replace(/[A-Z]/g, (__m) => '-' + __m.toLowerCase()), String(__sv)); } } } });`
+    );
     return;
   }
 

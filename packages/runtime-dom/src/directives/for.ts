@@ -59,6 +59,16 @@ export function createFor<T>(
   let currentItems: T[] = [];
   let effect: Effect | null = null;
 
+  // Persistent boundary marker, inserted once up front, immediately after
+  // this loop's own current position in `container` (nothing else has
+  // been appended there yet during the initial synchronous render, since
+  // the compiled render function calls createFor in template source
+  // order before any later sibling is created). See the comment on
+  // reconcileList in ../reconciler.ts for why this is needed on every
+  // subsequent reconcile, not just correct by accident on the first one.
+  const endAnchor = document.createComment('');
+  container.appendChild(endAnchor);
+
   function update() {
     // Support both static arrays and reactive signals
     const newItems = typeof items === 'function' ? (items as Signal<T[]>)() : items;
@@ -74,7 +84,8 @@ export function createFor<T>(
       keyFn as any,
       renderFn,
       container,
-      cache
+      cache,
+      endAnchor
     );
 
     currentItems = newItems;
@@ -95,6 +106,10 @@ export function createFor<T>(
     }
     cache.clear();
     currentItems = [];
+
+    if (endAnchor.parentNode) {
+      endAnchor.parentNode.removeChild(endAnchor);
+    }
   }
 
   function getCache() {

@@ -47,7 +47,16 @@ export interface TeloceConfig {
  * Default configuration
  */
 export const defaultConfig: TeloceConfig = {
-  dev: process.env.NODE_ENV === 'development',
+  // `process` isn't a real global in browsers - only Node, and bundlers
+  // that specifically shim it in (many do, for compatibility, which is
+  // why this wasn't obviously broken in every context it was tested in -
+  // but it's not guaranteed, and the raw, unreplaced `process.env`
+  // reference was confirmed present as-is in this package's own published
+  // dist output). `typeof process !== 'undefined'` is safe even when
+  // `process` was never declared at all: `typeof` on an undeclared
+  // identifier returns "undefined" rather than throwing, unlike directly
+  // referencing `process.env.NODE_ENV` would.
+  dev: typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development',
   debug: false,
   performance: false,
   strict: true,

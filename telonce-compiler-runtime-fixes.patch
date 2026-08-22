@@ -1,0 +1,579 @@
+diff --git a/packages/compiler/src/generator/index.ts b/packages/compiler/src/generator/index.ts
+index 21753d7..2897be2 100644
+--- a/packages/compiler/src/generator/index.ts
++++ b/packages/compiler/src/generator/index.ts
+@@ -397,6 +397,28 @@ function genAttribute(varName: string, attrName: string, attrValue: string, out:
+     return;
+   }
+ 
++  if (attrName === ':class') {
++    // `:class` previously fell through to the generic `:`-binding branch
++    // below, which does `setAttribute('class', String(__v))`. That's fine
++    // when `__v` is already a string (e.g. a ternary expression), but the
++    // common Vue-style forms - an object map of className -> boolean, or
++    // an array of class name strings/falsy values - would stringify to the
++    // useless literal "[object Object]" or "a,b,c" instead of a proper
++    // space-separated class list. This normalizes all three accepted
++    // forms (string / array / object) the same way Vue does.
++    const { decl, varName: exprVar, callArgs } = emitExpressionEvaluator(ctx, attrValue);
++    out.push(decl);
++    ctx.needsReactivity.add('createEffect');
++    out.push(
++      `createEffect(() => { const __v = ${exprVar}(${callArgs}); let __cls = ''; ` +
++        `if (Array.isArray(__v)) { __cls = __v.filter(Boolean).join(' '); } ` +
++        `else if (__v && typeof __v === 'object') { __cls = Object.keys(__v).filter((__k) => __v[__k]).join(' '); } ` +
++        `else if (__v) { __cls = String(__v); } ` +
++        `${varName}.setAttribute('class', __cls); });`
++    );
++    return;
++  }
++
+   if (attrName.startsWith(':')) {
+     const propName = attrName.slice(1);
+     const { decl, varName: exprVar, callArgs } = emitExpressionEvaluator(ctx, attrValue);
+diff --git a/packages/core/src/create.ts b/packages/core/src/create.ts
+index 12ae9e3..f0a856b 100644
+--- a/packages/core/src/create.ts
++++ b/packages/core/src/create.ts
+@@ -43,6 +43,11 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
+   let state: Record<string, any> = {};
+   let effects: unknown[] = [];
+   let isMounted = false;
++  // Tracks the currently-mounted component + its ctx proxy so unmount() can
++  // invoke unmounted()/beforeUnmount() hooks with the same `this` binding
++  // created()/mounted() get - see the fix comment in mount() below.
++  let activeComponent: Record<string, any> | null = null;
++  let activeCtx: any = null;
+ 
+   const app: TeloceApp = {
+     config: fullConfig,
+@@ -154,6 +159,8 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
+           computed?: Record<string, () => any>;
+           created?: (ctx: any) => void;
+           mounted?: (ctx: any) => void;
++          unmounted?: (ctx: any) => void;
++          beforeUnmount?: (ctx: any) => void;
+         };
+ 
+         const initialData = typeof comp.data === 'function' ? comp.data() : {};
+@@ -187,11 +194,28 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
+           }
+         );
+ 
+-        comp.created?.(ctx);
++        // Lifecycle hooks are called with `this` bound to `ctx` (the same
++        // reactive proxy methods get), not to `comp` (the raw, un-reactive
++        // component definition object). Using `comp.created?.(ctx)` here
++        // previously called the hook as `comp.created(ctx)` - a plain
++        // property access + call, which binds `this` to `comp` rather than
++        // `ctx`. Since `comp` doesn't have the component's state/methods as
++        // its own properties (those live on `comp.data`/`comp.methods`,
++        // unevaluated/nested), any hook body that read or wrote `this.x` or
++        // called `this.someMethod()` silently broke ("this.x is not a
++        // function"/undefined). `.call(ctx, ctx)` fixes `this` while still
++        // passing ctx as the first argument for hooks that prefer an
++        // explicit parameter.
++        comp.created?.call(ctx, ctx);
+         comp.template(el, ctx);
+-        comp.mounted?.(ctx);
++        comp.mounted?.call(ctx, ctx);
++
++        activeComponent = comp;
++        activeCtx = ctx;
+       } else {
+         state = this.reactive((componentOrData as Record<string, any>) || {});
++        activeComponent = null;
++        activeCtx = null;
+       }
+ 
+       isMounted = true;
+@@ -199,6 +223,13 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
+     },
+ 
+     unmount() {
++      // beforeUnmount/unmounted were previously never invoked at all - the
++      // compiled hooks existed but nothing in the runtime ever called them.
++      // Same `this`-binding fix as created/mounted above applies here.
++      if (activeComponent) {
++        (activeComponent as any).beforeUnmount?.call(activeCtx, activeCtx);
++      }
++
+       isMounted = false;
+       effects.forEach(effect => {
+         if (effect && typeof (effect as any).stop === 'function') {
+@@ -207,6 +238,12 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
+       });
+       effects = [];
+       root = null;
++
++      if (activeComponent) {
++        (activeComponent as any).unmounted?.call(activeCtx, activeCtx);
++      }
++      activeComponent = null;
++      activeCtx = null;
+     },
+   };
+ 
+diff --git a/packages/runtime-dom/src/reconciler.ts b/packages/runtime-dom/src/reconciler.ts
+index 18aef5f..3f3e5f7 100644
+--- a/packages/runtime-dom/src/reconciler.ts
++++ b/packages/runtime-dom/src/reconciler.ts
+@@ -189,7 +189,7 @@ export function createRenderer(options: RendererOptions): Renderer {
+ export function reconcileList<T>(
+   oldItems: T[],
+   newItems: T[],
+-  keyFn: (item: T) => string,
++  keyFn: (item: T, index?: number) => string,
+   renderFn: (item: T, index: number) => Node,
+   container: HTMLElement,
+   cache: Map<string, CacheEntry<T>> = new Map()
+@@ -199,13 +199,21 @@ export function reconcileList<T>(
+   const oldKeys = new Map<string, { item: T; index: number }>();
+   const newKeys = new Set<string>();
+ 
++  // `keyFn` is called with both `(item, index)` here - the compiler's
++  // default fallback keyer (used whenever a <for> has no explicit `key`
++  // attribute) is `(item, index) => String(index)`, which needs that
++  // second argument to tell items apart. Previously these three call sites
++  // only passed `item`, so `index` was always `undefined` inside every
++  // default keyFn - collapsing every item in the list onto the same cache
++  // key ("undefined") and causing only one item to ever render, no matter
++  // how many were in the array.
+   oldItems.forEach((item, index) => {
+-    const key = keyFn(item);
++    const key = keyFn(item, index);
+     oldKeys.set(key, { item, index });
+   });
+ 
+-  newItems.forEach((item) => {
+-    const key = keyFn(item);
++  newItems.forEach((item, index) => {
++    const key = keyFn(item, index);
+     newKeys.add(key);
+   });
+ 
+@@ -236,7 +244,7 @@ export function reconcileList<T>(
+ 
+   for (let i = newItems.length - 1; i >= 0; i--) {
+     const item = newItems[i];
+-    const key = keyFn(item);
++    const key = keyFn(item, i);
+     const cached = cache.get(key);
+     let node: Node;
+ 
+diff --git a/packages/veloce/package.json b/packages/veloce/package.json
+index 1cdd19a..a0abae1 100644
+--- a/packages/veloce/package.json
++++ b/packages/veloce/package.json
+@@ -6,17 +6,22 @@
+     "access": "public"
+   },
+   "description": "A TypeScript template engine for Python web developers",
+-  "main": "dist/teloce.global.js",
++  "main": "dist/teloce.js",
+   "module": "dist/teloce.esm.js",
+   "unpkg": "dist/teloce.global.js",
+   "jsdelivr": "dist/teloce.global.js",
+-  "types": "dist/teloce.d.mts",
++  "types": "dist/teloce.d.ts",
+   "exports": {
+     ".": {
+-      "types": "./dist/teloce.d.mts",
++      "types": "./dist/teloce.d.ts",
+       "import": "./dist/teloce.esm.js",
+-      "require": "./dist/teloce.global.js",
+-      "default": "./dist/teloce.global.js"
++      "require": "./dist/teloce.js",
++      "default": "./dist/teloce.esm.js"
++    },
++    "./compiler": {
++      "types": "./dist/teloce-compiler.d.ts",
++      "import": "./dist/teloce-compiler.esm.js",
++      "require": "./dist/teloce-compiler.js"
+     },
+     "./package.json": "./package.json"
+   },
+@@ -31,14 +36,16 @@
+     "test": "vitest",
+     "clean": "rm -rf dist"
+   },
+-  "devDependencies": {
+-    "@teloce/compiler": "workspace:*",
++  "dependencies": {
+     "@teloce/core": "workspace:*",
+     "@teloce/reactivity": "workspace:*",
+     "@teloce/runtime-core": "workspace:*",
+     "@teloce/runtime-dom": "workspace:*",
++    "@teloce/std": "workspace:*"
++  },
++  "devDependencies": {
++    "@teloce/compiler": "workspace:*",
+     "@teloce/sfc": "workspace:*",
+-    "@teloce/std": "workspace:*",
+     "tsup": "^8.0.0",
+     "typescript": "^5.5.0",
+     "vitest": "^2.0.0"
+diff --git a/packages/veloce/src/cdn.ts b/packages/veloce/src/cdn.ts
+new file mode 100644
+index 0000000..ab58cad
+--- /dev/null
++++ b/packages/veloce/src/cdn.ts
+@@ -0,0 +1,83 @@
++// Full CDN entry point - used only for the IIFE build (dist/teloce.global.js,
++// loaded via <script src="...">). Unlike the main `teloce` entry
++// (src/index.ts), this intentionally bundles the compiler too: a
++// no-build-step, script-tag consumer has no separate build step to run
++// @teloce/vite-plugin at, and no downstream bundler to strip unused
++// exports back out even if it wanted to - so completeness here matters
++// more than bundle size, which is the opposite tradeoff from the npm/ESM
++// entry.
++import {
++  createApp,
++  defineComponent,
++  mount,
++  createConfig,
++  createPlugin,
++  createSignal,
++  createEffect,
++  createComputed,
++  createMemo,
++  batch,
++  untracked,
++  createRenderer,
++  reconcileList,
++  For,
++  If,
++  Show,
++  createDirective,
++  registerDirective,
++  transition,
++  animate,
++  format,
++  createFilter,
++  createTransition,
++} from './index';
++import { compile } from '@teloce/compiler';
++import { compileSFC, parse } from '@teloce/sfc';
++
++const teloceGlobal = {
++  // Core
++  createApp,
++  defineComponent,
++  mount,
++  createConfig,
++  createPlugin,
++
++  // Reactivity
++  createSignal,
++  createEffect,
++  createComputed,
++  createMemo,
++  batch,
++  untracked,
++
++  // Runtime DOM
++  createRenderer,
++  reconcileList,
++  For,
++  If,
++  Show,
++
++  // Runtime Core
++  createDirective,
++  registerDirective,
++
++  // Compiler & SFC - only present in this CDN build, not the npm/ESM entry
++  compile,
++  compileSFC,
++  parse,
++
++  // Standard library
++  transition,
++  animate,
++  format,
++  createFilter,
++  createTransition,
++};
++
++if (typeof window !== 'undefined') {
++  (window as any).teloce = teloceGlobal;
++  // For backward compatibility
++  (window as any).Teloce = teloceGlobal;
++}
++
++export default teloceGlobal;
+diff --git a/packages/veloce/src/compiler.ts b/packages/veloce/src/compiler.ts
+new file mode 100644
+index 0000000..3a9a984
+--- /dev/null
++++ b/packages/veloce/src/compiler.ts
+@@ -0,0 +1,8 @@
++// Optional entry for Node-side/build-tooling code that explicitly wants
++// programmatic access to the .vel compiler - e.g. a custom build script,
++// codemod, or tool that isn't @teloce/vite-plugin itself. Import this via
++// the `teloce/compiler` subpath rather than the main `teloce` entry, so
++// browser bundles that only need `import { createApp } from 'teloce'`
++// never pull this in (see the comment at the top of src/index.ts).
++export { compile } from '@teloce/compiler';
++export { compileSFC, parse } from '@teloce/sfc';
+diff --git a/packages/veloce/src/index.ts b/packages/veloce/src/index.ts
+index cd687ed..34aa741 100644
+--- a/packages/veloce/src/index.ts
++++ b/packages/veloce/src/index.ts
+@@ -1,4 +1,28 @@
+-// Import all core packages
++// Runtime-only entry point.
++//
++// This deliberately does NOT import @teloce/compiler or @teloce/sfc.
++// Those packages are the .vel parser/codegen toolchain - useful at build
++// time (that's what @teloce/vite-plugin uses internally) or for advanced
++// Node-side tooling, but never needed by an app's own browser bundle.
++//
++// The previous single-entry build (src/index.ts) imported and re-exported
++// compile()/compileSFC() alongside createApp() etc. from the same module,
++// and tsup's `noExternal: [/@teloce\/.*/]` bundled every @teloce/* package
++// into that one pre-built dist/teloce.esm.js unconditionally - so any app
++// that did `import { createApp } from 'teloce'` got the entire compiler
++// shipped to the browser too, with no way for the consumer's own bundler
++// to tree-shake it back out (the bundling already happened at publish
++// time, inside an opaque single minified file). Measured ~57KB minified
++// for a trivial one-component app, vs ~15KB importing only what's needed.
++//
++// This file is what `dist/teloce.esm.js` / `dist/teloce.js` (the
++// "import"/"require" entries most consumers hit) are now built from. The
++// full CDN build (dist/teloce.global.js, for <script src="...">
++// no-build-step usage) still bundles everything including the compiler -
++// see src/cdn.ts - since that build target has no separate build step to
++// run the compiler at, and no bundler downstream to strip unused exports
++// from in the first place.
++
+ import { createApp, defineComponent, mount, createConfig, createPlugin } from '@teloce/core';
+ import { createSignal, createEffect, createComputed, createMemo, batch, untracked } from '@teloce/reactivity';
+ import { createRenderer, reconcileList, For, If, Show } from '@teloce/runtime-dom';
+@@ -6,10 +30,7 @@ import { createDirective, registerDirective } from '@teloce/runtime-core';
+ import { transition, animate, createFilter, createTransition } from '@teloce/std';
+ import type { Filter } from '@teloce/std';
+ import format from '@teloce/std';
+-import { compile } from '@teloce/compiler';
+-import { compileSFC, parse } from '@teloce/sfc';
+ 
+-// Export everything for ESM/npm users
+ export {
+   // Core
+   createApp,
+@@ -37,11 +58,6 @@ export {
+   createDirective,
+   registerDirective,
+ 
+-  // Compiler & SFC
+-  compile,
+-  compileSFC,
+-  parse,
+-
+   // Standard library
+   transition,
+   animate,
+@@ -50,56 +66,8 @@ export {
+   createTransition,
+ };
+ 
+-// Export types separately for verbatimModuleSyntax compliance
+ export type { Filter };
+ 
+-// Attach to window for CDN users (IIFE build)
+-if (typeof window !== 'undefined') {
+-  (window as any).teloce = {
+-    // Core
+-    createApp,
+-    defineComponent,
+-    mount,
+-    createConfig,
+-    createPlugin,
+-
+-    // Reactivity
+-    createSignal,
+-    createEffect,
+-    createComputed,
+-    createMemo,
+-    batch,
+-    untracked,
+-
+-    // Runtime DOM
+-    createRenderer,
+-    reconcileList,
+-    For,
+-    If,
+-    Show,
+-
+-    // Runtime Core
+-    createDirective,
+-    registerDirective,
+-
+-    // Compiler & SFC
+-    compile,
+-    compileSFC,
+-    parse,
+-
+-    // Standard library
+-    transition,
+-    animate,
+-    format,
+-    createFilter,
+-    createTransition,
+-  };
+-
+-  // For backward compatibility
+-  (window as any).Teloce = (window as any).teloce;
+-}
+-
+-// Default export for CommonJS
+ export default {
+   createApp,
+   defineComponent,
+@@ -119,12 +87,9 @@ export default {
+   Show,
+   createDirective,
+   registerDirective,
+-  compile,
+-  compileSFC,
+-  parse,
+   transition,
+   animate,
+   format,
+   createFilter,
+   createTransition,
+-};
+\ No newline at end of file
++};
+diff --git a/packages/veloce/tsup.config.ts b/packages/veloce/tsup.config.ts
+index ae0a910..732e8ba 100644
+--- a/packages/veloce/tsup.config.ts
++++ b/packages/veloce/tsup.config.ts
+@@ -1,9 +1,22 @@
+ import { defineConfig } from 'tsup';
+ 
++const aliases = {
++  '@teloce/compiler': '../compiler/src/index.ts',
++  '@teloce/core': '../core/src/index.ts',
++  '@teloce/reactivity': '../reactivity/src/index.ts',
++  '@teloce/runtime-core': '../runtime-core/src/index.ts',
++  '@teloce/runtime-dom': '../runtime-dom/src/index.ts',
++  '@teloce/sfc': '../sfc/src/index.ts',
++  '@teloce/std': '../std/src/index.ts',
++};
++
+ export default defineConfig([
+   // 1. CDN Global Build (IIFE) -> teloce.global.js
++  //    Built from src/cdn.ts, which bundles the compiler on purpose - see
++  //    the comment at the top of that file for why this build is the one
++  //    exception to "don't ship the compiler to the browser".
+   {
+-    entry: { teloce: 'src/index.ts' },
++    entry: { teloce: 'src/cdn.ts' },
+     format: ['iife'],
+     globalName: 'Teloce',
+     minify: true,
+@@ -19,18 +32,12 @@ export default defineConfig([
+       options.bundle = true;
+       options.splitting = false;
+       options.legalComments = 'none';
+-      options.alias = {
+-        '@teloce/compiler': '../compiler/src/index.ts',
+-        '@teloce/core': '../core/src/index.ts',
+-        '@teloce/reactivity': '../reactivity/src/index.ts',
+-        '@teloce/runtime-core': '../runtime-core/src/index.ts',
+-        '@teloce/runtime-dom': '../runtime-dom/src/index.ts',
+-        '@teloce/sfc': '../sfc/src/index.ts',
+-        '@teloce/std': '../std/src/index.ts',
+-      };
++      options.alias = aliases;
+     },
+   },
+   // 2. ESM Build -> teloce.esm.js
++  //    Built from the lean src/index.ts (no compiler/sfc) - this is what
++  //    `import { createApp } from 'teloce'` actually resolves to.
+   {
+     entry: { teloce: 'src/index.ts' },
+     format: ['esm'],
+@@ -47,36 +54,59 @@ export default defineConfig([
+       options.bundle = true;
+       options.splitting = false;
+       options.legalComments = 'none';
+-      options.alias = {
+-        '@teloce/compiler': '../compiler/src/index.ts',
+-        '@teloce/core': '../core/src/index.ts',
+-        '@teloce/reactivity': '../reactivity/src/index.ts',
+-        '@teloce/runtime-core': '../runtime-core/src/index.ts',
+-        '@teloce/runtime-dom': '../runtime-dom/src/index.ts',
+-        '@teloce/sfc': '../sfc/src/index.ts',
+-        '@teloce/std': '../std/src/index.ts',
+-      };
++      options.alias = aliases;
+     },
+   },
+-  // 3. TypeScript Declarations
++  // 3. CJS Build -> teloce.js (for the "require" export condition)
+   {
+     entry: { teloce: 'src/index.ts' },
+-    format: ['esm'],
++    format: ['cjs'],
++    minify: true,
++    sourcemap: true,
++    clean: false,
++    dts: false,
++    outDir: 'dist',
++    outExtension: () => ({ js: '.js' }),
++    platform: 'browser',
++    target: 'es2020',
++    noExternal: [/@teloce\/.*/],
++    esbuildOptions(options) {
++      options.bundle = true;
++      options.splitting = false;
++      options.legalComments = 'none';
++      options.alias = aliases;
++    },
++  },
++  // 4. Optional teloce/compiler subpath build -> teloce-compiler.esm.js / .js
++  {
++    entry: { 'teloce-compiler': 'src/compiler.ts' },
++    format: ['esm', 'cjs'],
++    minify: true,
++    sourcemap: true,
++    clean: false,
+     dts: true,
++    outDir: 'dist',
++    outExtension: ({ format }) => ({ js: format === 'esm' ? '.esm.js' : '.js' }),
++    platform: 'node',
++    target: 'es2020',
++    noExternal: [/@teloce\/.*/],
++    esbuildOptions(options) {
++      options.bundle = true;
++      options.splitting = false;
++      options.legalComments = 'none';
++      options.alias = aliases;
++    },
++  },
++  // 5. TypeScript Declarations for the main (lean) entry
++  {
++    entry: { teloce: 'src/index.ts' },
++    dts: { only: true },
+     clean: false,
+     outDir: 'dist',
+     platform: 'neutral',
+     target: 'es2020',
+     esbuildOptions(options) {
+-      options.alias = {
+-        '@teloce/compiler': '../compiler/src/index.ts',
+-        '@teloce/core': '../core/src/index.ts',
+-        '@teloce/reactivity': '../reactivity/src/index.ts',
+-        '@teloce/runtime-core': '../runtime-core/src/index.ts',
+-        '@teloce/runtime-dom': '../runtime-dom/src/index.ts',
+-        '@teloce/sfc': '../sfc/src/index.ts',
+-        '@teloce/std': '../std/src/index.ts',
+-      };
++      options.alias = aliases;
+     },
+   },
+-]);
+\ No newline at end of file
++]);

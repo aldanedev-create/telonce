@@ -126,9 +126,19 @@ export function createDevServer(options: DevServerOptions = {}): DevServer {
     });
     middleware.push({
       name: 'proxy',
-      handler: async (ctx: MiddlewareContext, next: () => Promise<void>) => {
+      handler: async (ctx: MiddlewareContext, _next: () => Promise<void>) => {
+        // Proxying is terminal: proxy.proxy() always fully writes and ends
+        // the response itself (successful pipe from the backend, or - as
+        // of the proxy/index.ts fix - a graceful 502/504 when the backend
+        // is unreachable). Previously this called next() unconditionally
+        // afterward, so once a request's response had already been ended
+        // here, a later middleware in the chain would try to
+        // res.writeHead()/res.end() an already-finished response and
+        // crash the whole process with ERR_HTTP_HEADERS_SENT. There's
+        // nothing left for downstream middleware to do with a request
+        // that's already been proxied, so next() is intentionally not
+        // called here at all.
         await proxy.proxy(ctx.req as any, ctx.res as any);
-        await next();
       },
       priority: 0,
     });

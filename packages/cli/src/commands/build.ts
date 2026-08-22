@@ -41,13 +41,17 @@ export async function buildCommand(options: BuildOptions, _command: any): Promis
       minify,
       sourceMap,
       chunks,
+      treeShake: true,
       format: 'esm',
       target: 'browser',
     });
 
-    // Write files
+    // Write files. bundle()'s returned file.path is already prefixed with
+    // outDir (e.g. "dist/main.mjs"), so joining it with outDir again here
+    // produced doubled paths like dist/dist/main.mjs - file.path is used
+    // as-is, relative to the current working directory.
     for (const file of result.files) {
-      const filePath = path.join(outDir, file.path);
+      const filePath = file.path;
       await fs.ensureDir(path.dirname(filePath));
       await fs.writeFile(filePath, file.content);
     }

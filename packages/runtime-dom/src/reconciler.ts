@@ -192,7 +192,8 @@ export function reconcileList<T>(
   keyFn: (item: T, index?: number) => string,
   renderFn: (item: T, index: number) => Node,
   container: HTMLElement,
-  cache: Map<string, CacheEntry<T>> = new Map()
+  cache: Map<string, CacheEntry<T>> = new Map(),
+  endAnchor: Node | null = null
 ): ReconciliationResult {
   const operations: ReconciliationResult['operations'] = [];
 
@@ -234,13 +235,23 @@ export function reconcileList<T>(
 
   // Step 2: process newest-to-oldest so each item has a real DOM-node
   // anchor (the item that should come right after it) rather than a
-  // container-wide index. Nothing after the last new item belongs to this
-  // list, so the initial anchor is `null` (insertBefore(node, null) is
-  // just appendChild) - correct as long as this list's own items are
-  // contiguous, which holds for how this reconciler is used (a directive
-  // fully populates its own block before any later sibling is appended).
+  // container-wide index. The initial anchor is `endAnchor` (defaulting to
+  // `null`, i.e. append at the very end of the container, for callers that
+  // don't pass one) rather than always `null` - `null` unconditionally
+  // meant every reconcile after the first re-inserted the whole list via
+  // insertBefore(node, null), i.e. appended it to the absolute end of
+  // `container`, silently jumping the list past any later sibling that
+  // isn't part of it (e.g. a <button> following a <for> in the same
+  // parent - the previous comment here claimed "this list's own items are
+  // contiguous... a directive fully populates its own block before any
+  // later sibling is appended", which only holds for the very first
+  // render, not for any subsequent reconcile once later siblings exist).
+  // createFor (see ../directives/for.ts) passes a persistent boundary
+  // marker comment node it creates once, up front, so every future
+  // reconcile still knows exactly where "the end of this list" is
+  // regardless of what's been appended after it since.
   const nodes: Node[] = new Array(newItems.length);
-  let nextAnchor: Node | null = null;
+  let nextAnchor: Node | null = endAnchor;
 
   for (let i = newItems.length - 1; i >= 0; i--) {
     const item = newItems[i];

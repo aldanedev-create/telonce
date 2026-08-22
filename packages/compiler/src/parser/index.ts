@@ -32,6 +32,34 @@ export interface ParseOptions {
 }
 
 /**
+ * Whitespace-only text tokens get special handling rather than being kept
+ * or dropped uniformly:
+ * - Whitespace containing a newline is template formatting/indentation
+ *   (e.g. the whitespace between `<div>` and a child `<p>` on the next
+ *   line) and should be dropped, or every element would pick up stray
+ *   text-node siblings from source indentation.
+ * - Whitespace with no newline is meaningful inline spacing - most
+ *   commonly the single space in `{{ first }} {{ last }}` or `text {{
+ *   expr }}`. Previously *all* whitespace-only text was dropped
+ *   unconditionally (`if (token.value.trim())`), which collapsed that
+ *   space away entirely: `{{ first }} {{ last }}` rendered as "AB"
+ *   instead of "A B", with no way to tell the two interpolations apart
+ *   visually. This normalizes surviving inline whitespace down to a
+ *   single space (collapsing e.g. accidental double-spaces) rather than
+ *   preserving it byte-for-byte, matching normal HTML whitespace
+ *   handling.
+ */
+function textNodeValue(rawValue: string): string | null {
+  if (rawValue.trim()) {
+    return rawValue;
+  }
+  if (rawValue.length > 0 && !rawValue.includes('\n')) {
+    return ' ';
+  }
+  return null;
+}
+
+/**
  * Parse tokens into an AST
  */
 export function parse(tokens: Token[], options: ParseOptions = {}): ASTNode[] {
@@ -59,10 +87,11 @@ export function parse(tokens: Token[], options: ParseOptions = {}): ASTNode[] {
       } as InterpolationNode);
       index++;
     } else if (token.type === TokenType.Text) {
-      if (token.value.trim()) {
+      const textValue = textNodeValue(token.value);
+      if (textValue !== null) {
         nodes.push({
           type: ASTNodeType.Text,
-          value: token.value,
+          value: textValue,
           position: token.position,
           line: token.line,
           column: token.column,
@@ -166,10 +195,11 @@ function parseElement(
     }
 
     if (token.type === TokenType.Text) {
-      if (token.value.trim()) {
+      const textValue = textNodeValue(token.value);
+      if (textValue !== null) {
         children.push({
           type: ASTNodeType.Text,
-          value: token.value,
+          value: textValue,
           position: token.position,
           line: token.line,
           column: token.column,

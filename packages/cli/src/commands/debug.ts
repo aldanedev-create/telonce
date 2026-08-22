@@ -36,6 +36,7 @@ export async function debugCommand(options: DebugOptions, _command: any): Promis
       open: openBrowser,
       config,
     });
+    await server.start();
 
     spinner.succeed(`Debugger started at http://${host}:${port}`);
 

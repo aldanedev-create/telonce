@@ -37,6 +37,13 @@ export interface CompileOptions {
   target?: 'browser' | 'node' | 'esm';
 
   /**
+   * Attribute name to stamp onto every generated element, for scoped CSS.
+   * See the matching option on TemplateCompileOptions in @teloce/sfc for
+   * the full explanation.
+   */
+  scopeAttr?: string;
+
+  /**
    * Development mode (more verbose errors)
    */
   dev?: boolean;
@@ -117,6 +124,7 @@ export function compile(
       minify: options.minify ?? false,
       target: options.target ?? 'browser',
       dev: options.dev ?? false,
+      scopeAttr: options.scopeAttr,
     });
 
     const endTime = performance.now();

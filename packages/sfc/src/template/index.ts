@@ -55,6 +55,16 @@ export interface TemplateCompileOptions {
    * Target platform
    */
   target?: 'browser' | 'node' | 'esm';
+
+  /**
+   * When set, every element the compiled template creates gets this
+   * attribute (e.g. `data-teloce-abc123`) so a component's scoped
+   * `<style>` block - whose selectors get the same attribute appended by
+   * the style compiler - actually matches something. Without this, scoped
+   * CSS selectors like `.wrap[data-teloce-abc123]` never match any real
+   * element, since nothing in the rendered DOM carries that attribute.
+   */
+  scopeAttr?: string;
 }
 
 /**
@@ -80,6 +90,7 @@ export function compileTemplate(
       minify: options.minify,
       dev: options.dev,
       target: options.target,
+      scopeAttr: options.scopeAttr,
     };
     const result = compileWithCompiler(source, compileOptions);
 

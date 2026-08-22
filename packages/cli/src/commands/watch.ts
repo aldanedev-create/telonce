@@ -7,7 +7,7 @@ import ora from 'ora';
 import { loadConfig } from '../config';
 import { logger } from '../logger';
 import { compile } from '@teloce/compiler';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import * as path from 'path';
 
 export interface WatchOptions {

@@ -4,7 +4,7 @@
 
 import { parseSFC, type SFCResult } from './parser';
 import { compileScript, type ScriptCompileResult } from './script';
-import { compileStyle, type StyleCompileResult } from './style';
+import { compileStyle, generateScopeId, scopeFromId, type StyleCompileResult } from './style';
 import { compileTemplate, type TemplateCompileResult } from './template';
 
 export interface SFCCompileOptions {
@@ -106,7 +106,17 @@ export function compile(
 
   // 1. Parse the SFC with matching options signature
   const sfc = parseSFC(source, { filename });
-  
+
+  // Compute the scoped-CSS attribute up front, from the raw filename +
+  // style text, so it's available before compiling the template - both
+  // the template compiler (which stamps this attribute onto every element
+  // it creates) and the style compiler (which appends it to every CSS
+  // selector) need to agree on the exact same value, or scoped styles
+  // compile to valid CSS that never matches anything in the actual
+  // rendered DOM. Previously each independently generated its own scope
+  // id and the two were never connected at all.
+  const scope = scoped && sfc.style ? scopeFromId(generateScopeId(filename, sfc.style)) : undefined;
+
   // 2. Compile the template
   const template = compileTemplate(sfc.template, {
     filename,
@@ -114,6 +124,7 @@ export function compile(
     minify: options.minify,
     dev: options.dev,
     target: options.target,
+    scopeAttr: scope?.attribute,
   });
 
   // 3. Compile the script
@@ -134,6 +145,7 @@ export function compile(
       minify: options.minify,
       scoped,
       componentName: sfc.name || DEFAULT_COMPONENT_NAME,
+      scope,
     });
   }
 

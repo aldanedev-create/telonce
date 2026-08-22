@@ -3,6 +3,33 @@ import { registerFilter, type Filter } from '@teloce/std';
 import { createConfig, type TeloceConfig } from './config';
 import { registerComponent, getComponent, type Component } from './component';
 
+// Module-level (not per-app) so the same compiled component - which is
+// what a .vel file's `<style>` block compiles to a `styles` string on -
+// only ever gets its <style> tag inserted into <head> once, no matter how
+// many times it's mounted/unmounted/remounted or how many app instances
+// use it.
+const injectedComponentStyles = new WeakSet<object>();
+
+/**
+ * A .vel file's `<style>` block compiles to CSS text on `comp.styles`, but
+ * nothing previously read that property at runtime - the compiler did its
+ * job producing correctly-scoped CSS, and it just sat there, unused, never
+ * reaching the page. This inserts it into <head> the first time this exact
+ * component is mounted.
+ */
+function injectComponentStyles(comp: { styles?: string; name?: string }): void {
+  if (!comp.styles) return;
+  if (typeof document === 'undefined') return; // non-browser environment
+  if (injectedComponentStyles.has(comp)) return;
+
+  const styleEl = document.createElement('style');
+  styleEl.setAttribute('data-teloce-component', comp.name || 'component');
+  styleEl.textContent = comp.styles;
+  document.head.appendChild(styleEl);
+
+  injectedComponentStyles.add(comp);
+}
+
 /**
  * Teloce application instance
  */
@@ -43,6 +70,11 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
   let state: Record<string, any> = {};
   let effects: unknown[] = [];
   let isMounted = false;
+  // Tracks the currently-mounted component + its ctx proxy so unmount() can
+  // invoke unmounted()/beforeUnmount() hooks with the same `this` binding
+  // created()/mounted() get - see the fix comment in mount() below.
+  let activeComponent: Record<string, any> | null = null;
+  let activeCtx: any = null;
 
   const app: TeloceApp = {
     config: fullConfig,
@@ -154,7 +186,13 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
           computed?: Record<string, () => any>;
           created?: (ctx: any) => void;
           mounted?: (ctx: any) => void;
+          unmounted?: (ctx: any) => void;
+          beforeUnmount?: (ctx: any) => void;
+          styles?: string;
+          name?: string;
         };
+
+        injectComponentStyles(comp);
 
         const initialData = typeof comp.data === 'function' ? comp.data() : {};
         state = this.reactive(initialData);
@@ -187,11 +225,28 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
           }
         );
 
-        comp.created?.(ctx);
+        // Lifecycle hooks are called with `this` bound to `ctx` (the same
+        // reactive proxy methods get), not to `comp` (the raw, un-reactive
+        // component definition object). Using `comp.created?.(ctx)` here
+        // previously called the hook as `comp.created(ctx)` - a plain
+        // property access + call, which binds `this` to `comp` rather than
+        // `ctx`. Since `comp` doesn't have the component's state/methods as
+        // its own properties (those live on `comp.data`/`comp.methods`,
+        // unevaluated/nested), any hook body that read or wrote `this.x` or
+        // called `this.someMethod()` silently broke ("this.x is not a
+        // function"/undefined). `.call(ctx, ctx)` fixes `this` while still
+        // passing ctx as the first argument for hooks that prefer an
+        // explicit parameter.
+        comp.created?.call(ctx, ctx);
         comp.template(el, ctx);
-        comp.mounted?.(ctx);
+        comp.mounted?.call(ctx, ctx);
+
+        activeComponent = comp;
+        activeCtx = ctx;
       } else {
         state = this.reactive((componentOrData as Record<string, any>) || {});
+        activeComponent = null;
+        activeCtx = null;
       }
 
       isMounted = true;
@@ -199,6 +254,13 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
     },
 
     unmount() {
+      // beforeUnmount/unmounted were previously never invoked at all - the
+      // compiled hooks existed but nothing in the runtime ever called them.
+      // Same `this`-binding fix as created/mounted above applies here.
+      if (activeComponent) {
+        (activeComponent as any).beforeUnmount?.call(activeCtx, activeCtx);
+      }
+
       isMounted = false;
       effects.forEach(effect => {
         if (effect && typeof (effect as any).stop === 'function') {
@@ -207,6 +269,12 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
       });
       effects = [];
       root = null;
+
+      if (activeComponent) {
+        (activeComponent as any).unmounted?.call(activeCtx, activeCtx);
+      }
+      activeComponent = null;
+      activeCtx = null;
     },
   };
 

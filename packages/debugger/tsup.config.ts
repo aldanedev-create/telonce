@@ -8,4 +8,5 @@ export default defineConfig({
   splitting: false,
   target: 'es2020',
   dts: true,
+  shims: true,
 });

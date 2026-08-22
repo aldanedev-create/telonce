@@ -7,7 +7,7 @@ import ora from 'ora';
 import { detectFramework } from '../detect';
 import { loadConfig } from '../config';
 import { logger } from '../logger';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

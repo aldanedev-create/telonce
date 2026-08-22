@@ -69,6 +69,13 @@ export interface StyleCompileOptions {
    * Component name for scope generation
    */
   componentName?: string;
+
+  /**
+   * Pre-computed scope to use instead of generating one from this style
+   * block's own content. Passed by the top-level SFC compiler so the
+   * template and style compilers agree on the exact same scope attribute.
+   */
+  scope?: CSSScope;
 }
 
 /**
@@ -82,7 +89,7 @@ function hashString(str: string): string {
   return (hash >>> 0).toString(36);
 }
 
-function generateScopeId(filename?: string, source?: string): string {
+export function generateScopeId(filename?: string, source?: string): string {
   // Normalize filename to its basename to ensure SSR hydration stability across different environments/paths
   const normalizedFilename = filename
     ? filename.replace(/\\/g, '/').split('/').pop() || 'component.vel'
@@ -90,6 +97,21 @@ function generateScopeId(filename?: string, source?: string): string {
   const input = `${normalizedFilename}:${source || ''}`;
   const hash = hashString(input);
   return `teloce-${hash}`;
+}
+
+/**
+ * Build the CSSScope object for a given scope id. Exposed so callers (like
+ * the top-level SFC compile() below) can compute the scope id once, before
+ * either the template or style is compiled, and hand the *same* scope to
+ * both - see the comment on SFCCompileOptions.scoped in ./compile for why
+ * this matters.
+ */
+export function scopeFromId(scopeId: string): CSSScope {
+  return {
+    id: scopeId,
+    className: `_${scopeId}`,
+    attribute: `data-${scopeId}`,
+  };
 }
 
 /**
@@ -109,12 +131,10 @@ export function compileStyle(
 
   // Generate scope ID and scope CSS if requested
   if (options.scoped) {
-    const scopeId = generateScopeId(options.filename, source);
-    scope = {
-      id: scopeId,
-      className: `_${scopeId}`,
-      attribute: `data-${scopeId}`,
-    };
+    // Use the caller-provided scope (shared with the template compiler, so
+    // the CSS selectors and the actual rendered elements agree on the same
+    // attribute) if given, rather than always deriving a fresh one here.
+    scope = options.scope ?? scopeFromId(generateScopeId(options.filename, source));
 
     try {
       css = scopeCSS(css, scope);

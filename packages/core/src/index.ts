@@ -12,6 +12,8 @@ import { defineComponent } from './component';
 import { createSignal, createEffect, createComputed, createMemo, batch, untracked, type Signal, type Effect, type Computed } from '@teloce/reactivity';
 import { createRenderer, reconcileList, For, If, Show, type Renderer, type ReconciliationResult } from '@teloce/runtime-dom';
 import { transition, animate, createFilter, createTransition, type Transition, type Animation, type Filter } from '@teloce/std';
+import { reactive, createComponentInstance, mountChildComponent, applyDirective, type AppContext, type CustomDirective } from './instance';
+import { createComponentPlugin, createStatePlugin, createDirectivePlugin, type Plugin } from './plugin';
 
 // Export everything for ESM/npm users
 export {
@@ -42,6 +44,22 @@ export {
   animate,
   createFilter,
   createTransition,
+
+  // Component instantiation - used by compiled code for component
+  // composition (<PascalCase> tags), see ./instance.ts
+  reactive,
+  createComponentInstance,
+  mountChildComponent,
+  applyDirective,
+
+  // Plugin factories - previously not exported from the public API at
+  // all, so `createStatePlugin` etc. from '@teloce/core' would fail with
+  // "createStatePlugin is not a function" for any consumer trying to
+  // import them the normal way, regardless of whether the plugins
+  // themselves worked correctly.
+  createComponentPlugin,
+  createStatePlugin,
+  createDirectivePlugin,
 };
 
 // Export types
@@ -54,6 +72,9 @@ export type {
   Transition,
   Animation,
   Filter,
+  AppContext,
+  CustomDirective,
+  Plugin,
 };
 
 // Attach to window for CDN users (IIFE build)

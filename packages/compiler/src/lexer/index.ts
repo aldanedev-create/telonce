@@ -270,8 +270,14 @@ function readAttribute(input: string, start: number): { name: string; value: str
   // zero-length result, and the caller's position never advanced -
   // an infinite loop (confirmed via an actual OOM crash on
   // `<input @keyup.enter="x" />`).
+  // Also includes '~' for custom directive syntax (~directiveName="expr",
+  // see the compiler's genAttribute) - previously missing entirely, which
+  // silently dropped the leading '~' and re-parsed the rest as an
+  // ordinary static attribute (confirmed: `~tooltip="message"` rendered
+  // as a literal tooltip="message" HTML attribute instead of resolving
+  // the directive).
   let name = '';
-  while (pos < input.length && /[a-zA-Z0-9_:@.-]/.test(input[pos])) {
+  while (pos < input.length && /[a-zA-Z0-9_:@.~-]/.test(input[pos])) {
     name += input[pos];
     pos++;
   }

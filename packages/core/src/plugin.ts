@@ -49,9 +49,18 @@ export function createStatePlugin(
   initialState: Record<string, any>
 ): Plugin {
   return createPlugin((app) => {
-    // Add state to app
-    const state = app.reactive(initialState);
-    (app as any)._globalState = state;
+    // Previously this built its own separate reactive() object and stashed
+    // it on `app._globalState` - a location nothing else in the codebase
+    // ever read from, so registered global state had no way to actually
+    // reach a template. `app.config.state` (see createConfig in
+    // ./config.ts) is already a reactive object created fresh per app and
+    // is exactly what AppContext.globalState (./instance.ts) exposes to
+    // every compiled render() function, so merging into it here - rather
+    // than replacing it with a disconnected object - is what actually
+    // wires this up end to end.
+    for (const key in initialState) {
+      app.config.state[key] = initialState[key];
+    }
   }, 'state-plugin');
 }
 

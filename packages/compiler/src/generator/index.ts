@@ -28,6 +28,7 @@ interface GenCtx {
   exprCounter: number;
   needsRuntimeDom: Set<string>;
   needsReactivity: Set<string>;
+  needsCore: Set<string>;
   needsFilters: boolean;
   scopeAttr?: string;
 }
@@ -184,6 +185,24 @@ function genNode(node: ASTNode, parentVar: string, out: string[], ctx: GenCtx): 
   switch (node.type) {
     case ASTNodeType.Element: {
       const el = node as ElementNode;
+
+      // A tag starting with an uppercase letter is treated as a
+      // reference to a registered component (matches the convention
+      // most component frameworks use - PascalCase for components,
+      // lowercase for plain HTML tags - and doesn't require a
+      // compile-time registry lookup, since components are only
+      // actually registered later, at runtime, via app.component()).
+      // Previously every tag unconditionally went through
+      // document.createElement(tag), so a <MyButton> in a template
+      // rendered as a literal, inert `<mybutton>` HTML element -
+      // app.component() successfully registered a name -> component
+      // mapping, but nothing ever consulted it. See genComponentTag
+      // below for the actual resolution + mounting codegen.
+      if (/^[A-Z]/.test(el.tag)) {
+        genComponentTag(el, parentVar, out, ctx);
+        return;
+      }
+
       const varName = nextVar(ctx);
       out.push(`const ${varName} = document.createElement(${JSON.stringify(el.tag)});`);
       if (ctx.scopeAttr) {
@@ -355,7 +374,63 @@ const KEY_MODIFIER_NAMES: Record<string, string> = {
  * HTML/XML attribute name, so `el.setAttribute('@click', ...)` throws
  * `InvalidCharacterError` in a real DOM (confirmed via jsdom).
  */
+function genComponentTag(el: ElementNode, parentVar: string, out: string[], ctx: GenCtx): void {
+  ctx.needsCore.add('mountChildComponent');
+
+  const propEntries: string[] = [];
+  const emitEntries: string[] = [];
+
+  for (const [attrName, attrValue] of Object.entries(el.attributes)) {
+    if (attrName.startsWith('@')) {
+      const eventName = attrName.slice(1);
+      const handlerBody = isBareIdentifier(attrValue) ? `${attrValue}(...__args)` : attrValue;
+      ctx.exprCounter += 1;
+      const fnVar = `__compHandler${ctx.exprCounter}`;
+      out.push(
+        `const ${fnVar} = new Function('ctx', '...__args', 'with (ctx) { ' + ${JSON.stringify(handlerBody)} + '; }');`
+      );
+      emitEntries.push(`${JSON.stringify(eventName)}: (...__args) => ${fnVar}(ctx, ...__args)`);
+    } else if (attrName.startsWith(':')) {
+      const propName = attrName.slice(1);
+      const { decl, varName: exprVar, callArgs } = emitExpressionEvaluator(ctx, attrValue);
+      out.push(decl);
+      propEntries.push(`${JSON.stringify(propName)}: () => ${exprVar}(${callArgs})`);
+    } else {
+      propEntries.push(`${JSON.stringify(attrName)}: () => ${JSON.stringify(attrValue)}`);
+    }
+  }
+
+  ctx.varCounter += 1;
+  const propsVar = `__props${ctx.varCounter}`;
+  const emitVar = `__emit${ctx.varCounter}`;
+  out.push(`const ${propsVar} = { ${propEntries.join(', ')} };`);
+  out.push(`const ${emitVar} = { ${emitEntries.join(', ')} };`);
+  out.push(
+    `mountChildComponent(${parentVar}, __app__ && __app__.components.get(${JSON.stringify(el.tag)}), ` +
+      `${JSON.stringify(el.tag)}, ${propsVar}, ${emitVar}, __app__);`
+  );
+}
+
 function genAttribute(varName: string, attrName: string, attrValue: string, out: string[], ctx: GenCtx): void {
+  if (attrName.startsWith('~')) {
+    // Custom directive: ~name="expr". Same "registered but never
+    // consulted" gap component composition had - config.directives (see
+    // @teloce/core/src/config.ts) already had a way to register into it
+    // (createDirectivePlugin, and now app.directive()), but nothing ever
+    // read it back. applyDirective (@teloce/core/src/instance.ts) is the
+    // runtime half: it looks the directive up from __app__.directives and
+    // wraps the mounted()/updated() hook calls in a createEffect so
+    // updated() re-runs whenever the bound expression's value changes.
+    const directiveName = attrName.slice(1);
+    ctx.needsCore.add('applyDirective');
+    const { decl, varName: exprVar, callArgs } = emitExpressionEvaluator(ctx, attrValue);
+    out.push(decl);
+    out.push(
+      `applyDirective(${varName}, ${JSON.stringify(directiveName)}, () => ${exprVar}(${callArgs}), __app__);`
+    );
+    return;
+  }
+
   if (attrName.startsWith('@')) {
     const [eventName, ...modifiers] = attrName.slice(1).split('.');
     const handlerBody = isBareIdentifier(attrValue) ? `${attrValue}(event)` : attrValue;
@@ -528,6 +603,7 @@ export function generate(ast: ASTNode[], _options: GenerateOptions = {}): Genera
     exprCounter: 0,
     needsRuntimeDom: new Set(),
     needsReactivity: new Set(),
+    needsCore: new Set(),
     needsFilters: false,
     scopeAttr: _options.scopeAttr,
   };
@@ -543,6 +619,9 @@ export function generate(ast: ASTNode[], _options: GenerateOptions = {}): Genera
   }
   if (ctx.needsReactivity.size > 0) {
     imports.push(`import { ${[...ctx.needsReactivity].sort().join(', ')} } from '@teloce/reactivity';`);
+  }
+  if (ctx.needsCore.size > 0) {
+    imports.push(`import { ${[...ctx.needsCore].sort().join(', ')} } from '@teloce/core';`);
   }
   if (ctx.needsFilters) {
     imports.push(`import { getFilter } from '@teloce/std';`);
@@ -575,8 +654,12 @@ export function generate(ast: ASTNode[], _options: GenerateOptions = {}): Genera
     '/**',
     ' * @param {HTMLElement} container - element to mount the compiled template into',
     ' * @param {object} ctx - reactive context (props/state) the template reads from',
+    ' * @param {object} [__app__] - AppContext (component registry, directives,',
+    ' *   global state) passed through by @teloce/core\'s mount(), used to resolve',
+    ' *   <PascalCase> component tags. Any nested for/if/component-tag render',
+    ' *   callback below closes over this parameter normally, via plain JS scoping.',
     ' */',
-    'export function render(container, ctx) {',
+    'export function render(container, ctx, __app__) {',
     indent(body.join('\n')),
     '}',
   ].join('\n');

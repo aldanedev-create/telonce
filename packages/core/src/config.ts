@@ -1,3 +1,5 @@
+import { reactive } from './instance';
+
 /**
  * Teloce configuration
  */
@@ -70,9 +72,21 @@ export const defaultConfig: TeloceConfig = {
  * Create a configuration
  */
 export function createConfig(options: Partial<TeloceConfig> = {}): TeloceConfig {
+  // `state` is deliberately given a fresh reactive() object per app
+  // instance (never copied by reference from the shared defaultConfig
+  // singleton, and always placed after the ...options spread below so a
+  // caller-supplied plain `options.state` object doesn't silently
+  // overwrite it with something non-reactive) - see createStatePlugin in
+  // ./plugin.ts, which now merges into this same object rather than
+  // building its own disconnected one, and AppContext.globalState in
+  // ./instance.ts, which reads directly from it. Sharing defaultConfig's
+  // own `state` by reference across every app would mean two independent
+  // Teloce apps on the same page leak global state into each other.
+  const mergedState = reactive({ ...defaultConfig.state, ...(options.state || {}) });
   return {
     ...defaultConfig,
     ...options,
+    state: mergedState,
   };
 }
 
@@ -89,6 +103,6 @@ export function mergeConfigs(
     components: new Map([...base.components, ...(override.components || [])]),
     plugins: new Map([...base.plugins, ...(override.plugins || [])]),
     directives: new Map([...base.directives, ...(override.directives || [])]),
-    state: { ...base.state, ...(override.state || {}) },
+    state: reactive({ ...base.state, ...(override.state || {}) }),
   };
 }

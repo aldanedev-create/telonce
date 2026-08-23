@@ -2,6 +2,7 @@ import { createSignal, createEffect, createComputed, batch } from '@teloce/react
 import { registerFilter, type Filter } from '@teloce/std';
 import { createConfig, type TeloceConfig } from './config';
 import { registerComponent, getComponent, type Component } from './component';
+import type { AppContext, CustomDirective } from './instance';
 
 // Module-level (not per-app) so the same compiled component - which is
 // what a .vel file's `<style>` block compiles to a `styles` string on -
@@ -48,6 +49,15 @@ export interface TeloceApp {
   computed: <T>(fn: () => T) => () => T;
   component: (name: string, component: Component) => void;
   /**
+   * Register a custom directive usable in templates via `~name="expr"`.
+   * Previously the only way to register directives was through
+   * createDirectivePlugin + app.use() (see ./plugin.ts) - this adds a
+   * direct method for parity with app.component() above, since both
+   * ultimately just write into the same kind of registry
+   * (config.directives / config.components).
+   */
+  directive: (name: string, directive: CustomDirective) => void;
+  /**
    * Register a filter usable in `{{ expr | name }}` / `{{ expr | name(args) }}`
    * template interpolations. Filters are looked up from the same global
    * registry @teloce/std's built-in filters (currency, truncate,
@@ -75,6 +85,19 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
   // created()/mounted() get - see the fix comment in mount() below.
   let activeComponent: Record<string, any> | null = null;
   let activeCtx: any = null;
+
+  // Shared registries a compiled render() function reaches into for
+  // component/directive resolution and global state - see the doc
+  // comment on AppContext in ./instance.ts for the full story on why
+  // this exists now when it didn't before. fullConfig.components and
+  // fullConfig.directives are the exact same Maps app.component() and
+  // the directives plugin already write into (see below and ./plugin.ts)
+  // - previously nothing ever read them back; this is what finally does.
+  const appContext: AppContext = {
+    components: fullConfig.components,
+    directives: fullConfig.directives,
+    globalState: fullConfig.state,
+  };
 
   const app: TeloceApp = {
     config: fullConfig,
@@ -111,6 +134,18 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
         },
 
         set(target, prop, value, receiver) {
+          // Reflect.set (updating the underlying raw target) must happen
+          // BEFORE sig.set (updating the signal) - sig.set() synchronously
+          // re-runs any dependent effect right then, and if one of those
+          // effects reads this same property again before Reflect.set has
+          // run, the target's raw value and the signal's new value
+          // disagree. That's not just stale data - the JS engine's Proxy
+          // invariant checking can outright throw a TypeError ("... is a
+          // read-only and non-configurable data property on the proxy
+          // target but the proxy did not return its actual value"),
+          // confirmed via a real reactive global-state update triggering
+          // exactly this crash during its own dependent effect's re-run.
+          Reflect.set(target, prop, value, receiver);
           let sig = signals.get(prop);
           if (!sig) {
             sig = createSignal(value);
@@ -118,7 +153,6 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
           } else {
             sig.set(value);
           }
-          Reflect.set(target, prop, value, receiver);
           return true;
         },
 
@@ -159,6 +193,10 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
       registerComponent(fullConfig.components, name, component);
     },
 
+    directive(name, directive) {
+      fullConfig.directives.set(name, directive);
+    },
+
     use(plugin) {
       if (typeof plugin === 'function') {
         plugin(app);
@@ -180,7 +218,7 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
 
       if (isComponent) {
         const comp = componentOrData as {
-          template: (container: Element, ctx: any) => void;
+          template: (container: Element, ctx: any, appContext?: AppContext) => void;
           data?: () => Record<string, any>;
           methods?: Record<string, (...args: any[]) => any>;
           computed?: Record<string, () => any>;
@@ -204,6 +242,7 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
           {},
           {
             get(_target, prop) {
+              if (prop === '$global') return appContext.globalState;
               if (typeof prop === 'string' && prop in methods) {
                 return (...args: any[]) => methods[prop].apply(ctx, args);
               }
@@ -218,6 +257,7 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
             },
             has(_target, prop) {
               return (
+                prop === '$global' ||
                 (typeof prop === 'string' && (prop in methods || prop in computedFns)) ||
                 prop in state
               );
@@ -238,7 +278,7 @@ export function createTeloce(config: Partial<TeloceConfig> = {}): TeloceApp {
         // passing ctx as the first argument for hooks that prefer an
         // explicit parameter.
         comp.created?.call(ctx, ctx);
-        comp.template(el, ctx);
+        comp.template(el, ctx, appContext);
         comp.mounted?.call(ctx, ctx);
 
         activeComponent = comp;

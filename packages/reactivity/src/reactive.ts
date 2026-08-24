@@ -20,6 +20,20 @@ export type Effect = {
 export type Computed<T> = {
   (): T;
   peek: () => T;
+  /**
+   * Stops the computed's internal effect from tracking/recomputing
+   * further. Previously there was no way to dispose a computed value at
+   * all - its internal effect (and the subscriptions it holds on
+   * whatever signals the computed function reads) lived forever, even if
+   * nothing was reading the computed anymore. A second, unused
+   * createComputed implementation in ./computed.ts already had a
+   * disposal mechanism internally (computationEffect.stop()) but never
+   * actually exposed it on the returned computed function either - and
+   * that implementation isn't the one wired up to this package's public
+   * exports in any case (see index.ts, which imports createComputed from
+   * this file, not ./computed.ts).
+   */
+  stop: () => void;
 };
 
 export type Memo<T> = {
@@ -189,6 +203,7 @@ export function createComputed<T>(fn: () => T): Computed<T> {
 
   const computed = get as Computed<T>;
   computed.peek = peek;
+  computed.stop = () => effect.stop();
 
   return computed;
 }
@@ -201,13 +216,30 @@ export function createMemo<T>(fn: () => T): Memo<T> {
 
 // --- Batch Updates ---
 
+// A simple boolean flag broke for nested/reentrant batch() calls: the
+// inner call's own `finally` block set isBatching back to false and
+// flushed pending effects immediately, even though the outer batch() call
+// was still in progress and had more updates queued after the inner
+// batch. That caused effects to run an extra time, observing an
+// incorrect intermediate state (confirmed via nested batch() calls
+// running dependent effects 3 times instead of 2, with a spurious
+// mid-batch run visible in between). A nesting counter, only actually
+// flushing when it returns to zero (the outermost batch() call
+// completing), fixes this while still behaving identically for the
+// common non-nested case.
+let batchDepth = 0;
+
 export function batch(fn: () => void): void {
+  batchDepth++;
   isBatching = true;
   try {
     fn();
   } finally {
-    isBatching = false;
-    flushPending();
+    batchDepth--;
+    if (batchDepth === 0) {
+      isBatching = false;
+      flushPending();
+    }
   }
 }
 

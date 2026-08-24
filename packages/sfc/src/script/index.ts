@@ -124,6 +124,115 @@ function findMatchingBrace(str: string, startIdx: number): number {
 }
 
 /**
+ * Finds a top-level key in an object-literal source string - `propName`
+ * followed by `:` - while correctly skipping over strings/comments (via
+ * the same technique as findMatchingBrace) AND, critically, skipping any
+ * occurrence that isn't actually at the top level of `objStr` itself.
+ *
+ * Without the depth check, extractObjectProperty/the lifecycle-hook scan
+ * below used a plain regex search that matched `propName:` *anywhere* in
+ * the export object's source text - including nested inside another
+ * property entirely. Confirmed via a real, plausible case: a component
+ * with `data() { return { config: { methods: {...} } }; }` had its
+ * genuine top-level `methods: { realMethod() {...} }` silently replaced
+ * by that unrelated nested `config.methods` value instead - the actual
+ * methods were dropped with zero error, and the bogus data masquerading
+ * as methods would then throw at runtime the moment anything tried to
+ * call `this.realMethod()`, or worse, treat non-function values like
+ * `this.get`/`this.post` as if they were callable methods.
+ *
+ * Also requires a `,`, `{`, or start-of-string immediately before the key
+ * (skipping whitespace) so this doesn't match `propName` appearing as
+ * part of a longer identifier, a string, or mid-expression - only an
+ * actual object key position.
+ */
+function findTopLevelKey(objStr: string, propName: string, allow: ':' | '(' | 'either' = ':'): number {
+  let depth = 0;
+  let inString: string | null = null;
+  let inCommentLine = false;
+  let inCommentBlock = false;
+  let escaped = false;
+  let atKeyPosition = true; // true right after `{`, `,`, or at string start
+
+  for (let i = 0; i < objStr.length; i++) {
+    const char = objStr[i];
+    const nextChar = objStr[i + 1];
+
+    if (inCommentLine) {
+      if (char === '\n') inCommentLine = false;
+      continue;
+    }
+    if (inCommentBlock) {
+      if (char === '*' && nextChar === '/') {
+        inCommentBlock = false;
+        i++;
+      }
+      continue;
+    }
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (char === '/' && nextChar === '/') {
+      inCommentLine = true;
+      i++;
+      continue;
+    }
+    if (char === '/' && nextChar === '*') {
+      inCommentBlock = true;
+      i++;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === '`') {
+      inString = char;
+      atKeyPosition = false;
+      continue;
+    }
+
+    if (char === '{' || char === '[' || char === '(') {
+      depth++;
+      atKeyPosition = true;
+      continue;
+    }
+    if (char === '}' || char === ']' || char === ')') {
+      depth--;
+      atKeyPosition = false;
+      continue;
+    }
+    if (char === ',' && depth === 0) {
+      atKeyPosition = true;
+      continue;
+    }
+    if (/\s/.test(char)) {
+      continue;
+    }
+
+    if (depth === 0 && atKeyPosition && objStr.startsWith(propName, i)) {
+      const afterKey = i + propName.length;
+      let j = afterKey;
+      while (j < objStr.length && /\s/.test(objStr[j])) j++;
+      const nextChar2 = objStr[j];
+      const matches =
+        allow === 'either' ? nextChar2 === ':' || nextChar2 === '(' : nextChar2 === allow;
+      if (matches) {
+        return i;
+      }
+    }
+
+    atKeyPosition = false;
+  }
+
+  return -1;
+}
+
+/**
  * Extract the main export default object content using stateful brace balancing
  */
 function extractExportObject(script: string): string | null {
@@ -145,11 +254,10 @@ function extractExportObject(script: string): string | null {
  * Extract a specific property block using stateful brace balancing
  */
 function extractObjectProperty(objStr: string, propName: string): string | null {
-  const regex = new RegExp(`${propName}\\s*:\\s*(?:function\\s*\\([^)]*\\)\\s*\\{|\\([^)]*\\)\\s*=>\\s*\\{|\\{)`, '');
-  const match = objStr.match(regex);
-  if (!match || match.index === undefined) return null;
+  const keyIdx = findTopLevelKey(objStr, propName);
+  if (keyIdx === -1) return null;
 
-  const startIdx = objStr.indexOf('{', match.index);
+  const startIdx = objStr.indexOf('{', keyIdx);
   if (startIdx === -1) return null;
 
   const endIdx = findMatchingBrace(objStr, startIdx);
@@ -263,19 +371,16 @@ export function compileScript(
     const exportObj = extractExportObject(source);
 
     if (exportObj) {
-      // 1. Extract data function
-      const dataMatch = exportObj.match(/data\s*\(\s*\)\s*\{/);
-      if (dataMatch && dataMatch.index !== undefined) {
-        const startIdx = exportObj.indexOf('{', dataMatch.index);
-        const endIdx = findMatchingBrace(exportObj, startIdx);
-        if (endIdx !== -1) {
-          const dataBody = exportObj.slice(startIdx + 1, endIdx).trim();
-          exports.data = `() => { ${dataBody} }`;
-        }
-      } else {
-        const simpleDataMatch = exportObj.match(/data\s*:\s*(?:function\s*\(\s*\)\s*\{|\(\s*\)\s*=>\s*\{)/);
-        if (simpleDataMatch && simpleDataMatch.index !== undefined) {
-          const startIdx = exportObj.indexOf('{', simpleDataMatch.index);
+      // 1. Extract data function - checks for either the shorthand-method
+      // form (`data() {...}`) or the key-value form (`data: function() {...}`
+      // / `data: () => {...}`), same as before, but now via findTopLevelKey
+      // so a method or nested value elsewhere named "data" (e.g. inside
+      // `methods: { data() {...} }` for an unrelated purpose) can't be
+      // mistaken for the component's actual top-level data().
+      const dataKeyIdx = findTopLevelKey(exportObj, 'data', 'either');
+      if (dataKeyIdx !== -1) {
+        const startIdx = exportObj.indexOf('{', dataKeyIdx);
+        if (startIdx !== -1) {
           const endIdx = findMatchingBrace(exportObj, startIdx);
           if (endIdx !== -1) {
             const dataBody = exportObj.slice(startIdx + 1, endIdx).trim();
@@ -301,9 +406,12 @@ export function compileScript(
       if (propsContent) {
         exports.props = `{ ${propsContent} }`;
       } else {
-        const propsArrayMatch = exportObj.match(/props\s*:\s*(\[[^\]]*\])/);
-        if (propsArrayMatch) {
-          exports.props = propsArrayMatch[1];
+        const propsKeyIdx = findTopLevelKey(exportObj, 'props', ':');
+        if (propsKeyIdx !== -1) {
+          const propsArrayMatch = exportObj.slice(propsKeyIdx).match(/^props\s*:\s*(\[[^\]]*\])/);
+          if (propsArrayMatch) {
+            exports.props = propsArrayMatch[1];
+          }
         }
       }
 
@@ -319,15 +427,16 @@ export function compileScript(
         'beforeUnmount',
       ];
       for (const hook of lifecycleHooks) {
-        const hookRegex = new RegExp(`${hook}\\s*\\([^)]*\\)\\s*\\{`, '');
-        const hookMatch = exportObj.match(hookRegex);
-        if (hookMatch && hookMatch.index !== undefined) {
-          const startIdx = exportObj.indexOf('{', hookMatch.index);
-          const endIdx = findMatchingBrace(exportObj, startIdx);
-          if (endIdx !== -1) {
-            const hookBody = exportObj.slice(startIdx + 1, endIdx).trim();
-            if (exports.lifecycle) {
-              exports.lifecycle[hook] = `function() { ${hookBody} }`;
+        const hookKeyIdx = findTopLevelKey(exportObj, hook, '(');
+        if (hookKeyIdx !== -1) {
+          const startIdx = exportObj.indexOf('{', hookKeyIdx);
+          if (startIdx !== -1) {
+            const endIdx = findMatchingBrace(exportObj, startIdx);
+            if (endIdx !== -1) {
+              const hookBody = exportObj.slice(startIdx + 1, endIdx).trim();
+              if (exports.lifecycle) {
+                exports.lifecycle[hook] = `function() { ${hookBody} }`;
+              }
             }
           }
         }

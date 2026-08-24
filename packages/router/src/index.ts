@@ -463,14 +463,54 @@ export function createRouter(routes: Route[]): Router {
       container.innerHTML = '';
 
       if (route && activeMatchedBranch.length > 0) {
-        const topMatch = activeMatchedBranch[0];
-        // `ctx` (extra context the caller passed to mount()) was previously
-        // accepted as a parameter and never used - only `route` reached
-        // the rendered component, silently dropping anything the caller
-        // wanted to pass down. `route`'s own fields win on conflict, since
-        // those come from actual route matching and shouldn't be
-        // shadowable by arbitrary caller data.
-        topMatch.route.component.template(container, { ...ctx, ...route });
+        // Render the FULL matched chain (parent -> ... -> deepest child),
+        // not just the top-level match. Previously this only ever
+        // rendered `activeMatchedBranch[0]`: a Route with `children` (a
+        // documented, first-class part of the Route interface -
+        // matchRouteTree already correctly computes the full multi-level
+        // branch for it) had its matched child route's content silently
+        // dropped entirely. Navigating to e.g. /users/7/nested/posts
+        // just re-showed the parent /users/:id template with no
+        // indication anything deeper had even matched - confirmed via an
+        // actual nested-route navigation test.
+        let mountPoint: Element = container;
+        for (let i = 0; i < activeMatchedBranch.length; i++) {
+          const match = activeMatchedBranch[i];
+          const isLast = i === activeMatchedBranch.length - 1;
+          // `ctx` (extra context the caller passed to mount()) was previously
+          // accepted as a parameter and never used - only `route` reached
+          // the rendered component, silently dropping anything the caller
+          // wanted to pass down. `route`'s own fields win on conflict, since
+          // those come from actual route matching and shouldn't be
+          // shadowable by arbitrary caller data.
+          match.route.component.template(mountPoint, { ...ctx, ...route });
+
+          if (!isLast) {
+            // The next level's content needs somewhere to render into.
+            // This always appends a plain wrapper <div> after the
+            // parent's own rendered content, rather than respecting an
+            // explicit <RouterView> placed within the parent's own
+            // template (which would let a parent control layout - e.g. a
+            // sidebar next to the child outlet). Precise placement needs
+            // the parent's template to know its own depth so a nested
+            // <RouterView> can resolve to the right child automatically,
+            // and that isn't wired up: createRouterView()/install() both
+            // default to depth 0 unconditionally, with no mechanism for
+            // a <RouterView> to discover "what depth am I actually at"
+            // from its position in the component tree (would need a
+            // provide/inject-style context, which doesn't exist yet -
+            // see the scope note on slots for component composition, a
+            // similarly-sized separate piece of work). This is a
+            // pragmatic default so nested route content is at least
+            // never silently dropped in the meantime; explicit manual
+            // depth still works for anyone calling createRouterView(router,
+            // N) themselves and registering it under their own name.
+            const nested = document.createElement('div');
+            nested.setAttribute('data-teloce-router-outlet', String(i + 1));
+            mountPoint.appendChild(nested);
+            mountPoint = nested;
+          }
+        }
       } else {
         container.innerHTML = '<h1>404 - Page Not Found</h1>';
       }

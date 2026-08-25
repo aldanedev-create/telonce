@@ -98,7 +98,7 @@ export function compile(
   source: string,
   options: SFCCompileOptions = {}
 ): SFCCompileResult {
-  const { filename = 'component.vel', scoped = false } = options;
+  const { filename = 'component.vel', scoped: scopedOption = false } = options;
   const diagnostics = {
     errors: [] as string[],
     warnings: [] as string[],
@@ -106,6 +106,19 @@ export function compile(
 
   // 1. Parse the SFC with matching options signature
   const sfc = parseSFC(source, { filename });
+
+  // Whether to scope this file's CSS. The <style> tag's own `scoped`
+  // attribute (see sfc.styleScoped, now actually read by parseSFC/
+  // parseBlock - previously parsed and silently discarded) is
+  // authoritative whenever a <style> block exists: writing `<style
+  // scoped>` vs plain `<style>` in a specific .vel file is meant to be a
+  // per-component choice, and letting a single external `scoped` compile
+  // option force the same behavior onto every component regardless of
+  // what its own <style> tag actually says defeats the entire point of
+  // that attribute existing. `options.scoped` is only consulted as a
+  // fallback for callers with no real <style> block to read an attribute
+  // from at all.
+  const scoped = sfc.style !== undefined ? sfc.styleScoped : scopedOption;
 
   // Compute the scoped-CSS attribute up front, from the raw filename +
   // style text, so it's available before compiling the template - both

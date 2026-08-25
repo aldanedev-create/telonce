@@ -29,6 +29,20 @@ export interface SFCResult {
   styleLang?: string;
 
   /**
+   * Whether the <style> tag had the `scoped` attribute (e.g.
+   * `<style scoped>`). Previously this was parsed and then silently
+   * discarded - parseBlock only ever checked for `lang="..."` on a
+   * block's opening tag, never `scoped`, so writing `<style scoped>` vs
+   * plain `<style>` had zero effect on whether that component's CSS
+   * actually got scoped: scoping was controlled entirely by an external,
+   * global compile option instead, with no way for an individual .vel
+   * file to opt in or out for itself - exactly the kind of per-component
+   * control that attribute syntax (borrowed from the same convention
+   * other component frameworks use) implies exists.
+   */
+  styleScoped: boolean;
+
+  /**
    * Script language (js, ts)
    */
   scriptLang?: string;
@@ -131,7 +145,7 @@ function findUnquoted(source: string, pattern: RegExp, from: number): RegExpExec
 /**
  * Helper to extract content and attributes of a SFC block
  */
-function parseBlock(source: string, tag: string): { content: string; lang?: string } | null {
+function parseBlock(source: string, tag: string): { content: string; lang?: string; scoped?: boolean } | null {
   // Check for self-closing tag (e.g. <style src="..." />)
   const selfCloseRegex = new RegExp(`<${tag}\\b([^>]*)\\/\\s*>`, 'i');
   const selfMatch = source.match(selfCloseRegex);
@@ -142,7 +156,8 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
     if (langMatch) {
       lang = langMatch[2];
     }
-    return { content: '', lang };
+    const scoped = /(^|\s)scoped(\s|=|$)/i.test(attrs);
+    return { content: '', lang, scoped };
   }
 
   // Find opening tag
@@ -156,6 +171,7 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
   if (langMatch) {
     lang = langMatch[2];
   }
+  const scoped = /(^|\s)scoped(\s|=|$)/i.test(attrs);
 
   const startIndex = openMatch.index + openMatch[0].length;
   const closeTag = `</${tag}>`;
@@ -206,7 +222,7 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
   }
 
   const content = source.slice(startIndex, endIndex).trim();
-  return { content, lang };
+  return { content, lang, scoped };
 }
 
 /**
@@ -383,6 +399,7 @@ export function parseSFC(source: string, options: SFCParserOptions = {}): SFCRes
   let script = '';
   let style: string | undefined;
   let styleLang: string | undefined;
+  let styleScoped = false;
   let scriptLang: string | undefined;
   let name: string | undefined;
 
@@ -409,6 +426,7 @@ export function parseSFC(source: string, options: SFCParserOptions = {}): SFCRes
   if (styleBlock) {
     style = styleBlock.content;
     styleLang = styleBlock.lang;
+    styleScoped = styleBlock.scoped ?? false;
   }
 
   return {
@@ -417,6 +435,7 @@ export function parseSFC(source: string, options: SFCParserOptions = {}): SFCRes
     script,
     style,
     styleLang,
+    styleScoped,
     scriptLang,
     diagnostics,
   };

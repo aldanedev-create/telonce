@@ -50,6 +50,85 @@ export interface SFCParserOptions {
 }
 
 /**
+ * Same string/comment-aware scanning technique already used elsewhere in
+ * this codebase (see findMatchingBrace in ../script/index.ts) - tracks
+ * whether the scanner is currently inside a string literal or comment so
+ * tag-like text there doesn't get mistaken for a real tag boundary.
+ * Returns the index of the first un-quoted/un-commented match for
+ * `pattern` at or after `from`, or -1.
+ *
+ * This matters specifically for `<script>` blocks: a plain regex/text
+ * scan for `</script>` (the previous approach) would match that literal
+ * text anywhere in the remaining source, including inside a JS string
+ * literal - e.g. `data() { return { note: 'closing tag: </script>' }; }`
+ * - causing the block to be truncated right there, silently dropping
+ * everything genuinely after it with no error reported at all (confirmed:
+ * an entire `methods: {...}` block vanished from compiled output with
+ * zero diagnostics). Regex literals are a known, accepted gap here (
+ * distinguishing a regex literal from division syntax needs real
+ * parsing, not just scanning) - narrower and much less likely to contain
+ * tag-like text than an ordinary string.
+ */
+function findUnquoted(source: string, pattern: RegExp, from: number): RegExpExecArray | null {
+  let inString: string | null = null;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let escaped = false;
+
+  pattern.lastIndex = from;
+
+  for (let i = from; i < source.length; i++) {
+    const ch = source[i];
+    const next = source[i + 1];
+
+    if (inLineComment) {
+      if (ch === '\n') inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      if (ch === '*' && next === '/') {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (ch === '/' && next === '/') {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      inString = ch;
+      continue;
+    }
+
+    pattern.lastIndex = i;
+    const m = pattern.exec(source);
+    if (m && m.index === i) {
+      return m;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Helper to extract content and attributes of a SFC block
  */
 function parseBlock(source: string, tag: string): { content: string; lang?: string } | null {
@@ -81,15 +160,29 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
   const startIndex = openMatch.index + openMatch[0].length;
   const closeTag = `</${tag}>`;
 
-  // Use a balanced tag scanning approach to avoid truncating at inner closing tags
+  // Use a balanced tag scanning approach to avoid truncating at inner
+  // closing tags - and, for the <script> block specifically, skip over
+  // string literals and comments while scanning (see findUnquoted above)
+  // so tag-like text inside actual JS source (a string, a comment) is
+  // never mistaken for a real tag boundary. <template>/<style> content
+  // isn't JS, so this scans them the same way as before - unaffected.
   const combinedRegex = new RegExp(`(<${tag}\\b[^>]*>)|(<\\/${tag}>)`, 'gi');
-  combinedRegex.lastIndex = startIndex;
+  const skipStringsAndComments = tag === 'script';
 
   let depth = 1;
   let endIndex = -1;
-  let match: RegExpExecArray | null;
+  let searchFrom = startIndex;
 
-  while ((match = combinedRegex.exec(source)) !== null) {
+  while (searchFrom <= source.length) {
+    const match = skipStringsAndComments
+      ? findUnquoted(source, combinedRegex, searchFrom)
+      : (() => {
+          combinedRegex.lastIndex = searchFrom;
+          return combinedRegex.exec(source);
+        })();
+
+    if (!match) break;
+
     if (match[1]) {
       const tagStr = match[1].trim();
       if (!tagStr.endsWith('/>')) {
@@ -102,6 +195,8 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
         break;
       }
     }
+
+    searchFrom = match.index + match[0].length;
   }
 
   if (endIndex === -1) {

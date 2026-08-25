@@ -210,6 +210,104 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
 }
 
 /**
+ * Same string/comment-aware, depth-aware top-level-key detection used in
+ * ../script/index.ts's findTopLevelKey (duplicated rather than imported,
+ * to keep this file's SFC-block-splitting concern independent from that
+ * file's property-extraction internals). Finds `name` as an actual
+ * top-level key of `objContent`, not matching if it happens to appear
+ * nested inside some other property's value.
+ */
+function findTopLevelNameValue(objContent: string): string | undefined {
+  let depth = 0;
+  let inString: string | null = null;
+  let inCommentLine = false;
+  let inCommentBlock = false;
+  let escaped = false;
+  let atKeyPosition = true;
+
+  for (let i = 0; i < objContent.length; i++) {
+    const char = objContent[i];
+    const nextChar = objContent[i + 1];
+
+    if (inCommentLine) {
+      if (char === '\n') inCommentLine = false;
+      continue;
+    }
+    if (inCommentBlock) {
+      if (char === '*' && nextChar === '/') {
+        inCommentBlock = false;
+        i++;
+      }
+      continue;
+    }
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (char === '/' && nextChar === '/') {
+      inCommentLine = true;
+      i++;
+      continue;
+    }
+    if (char === '/' && nextChar === '*') {
+      inCommentBlock = true;
+      i++;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === '`') {
+      inString = char;
+      atKeyPosition = false;
+      continue;
+    }
+
+    if (char === '{' || char === '[' || char === '(') {
+      depth++;
+      atKeyPosition = true;
+      continue;
+    }
+    if (char === '}' || char === ']' || char === ')') {
+      depth--;
+      atKeyPosition = false;
+      continue;
+    }
+    if (char === ',' && depth === 0) {
+      atKeyPosition = true;
+      continue;
+    }
+    if (/\s/.test(char)) {
+      continue;
+    }
+
+    if (depth === 0 && atKeyPosition && objContent.startsWith('name', i)) {
+      let j = i + 4;
+      while (j < objContent.length && /\s/.test(objContent[j])) j++;
+      if (objContent[j] === ':') {
+        j++;
+        while (j < objContent.length && /\s/.test(objContent[j])) j++;
+        const quote = objContent[j];
+        if (quote === '"' || quote === "'") {
+          const closeIdx = objContent.indexOf(quote, j + 1);
+          if (closeIdx !== -1) {
+            return objContent.slice(j + 1, closeIdx);
+          }
+        }
+      }
+    }
+
+    atKeyPosition = false;
+  }
+
+  return undefined;
+}
+
+/**
  * Extract component name safely from export default object using brace balancing
  */
 function extractComponentName(script: string): string | undefined {
@@ -240,10 +338,28 @@ function extractComponentName(script: string): string | undefined {
   }
 
   if (startIndex !== -1 && endIndex !== -1) {
+    // Previously this used a plain `objContent.match(/name\s*:\s*...)`
+    // search that matched *anywhere* in the export object text,
+    // including nested inside another property's value - confirmed via
+    // a real case: `data() { return { user: { name: 'Alice' } }; },
+    // name: 'RealComponentName'` (data() appearing before the real
+    // top-level name, as many style guides actually recommend ordering)
+    // extracted "Alice" as the component's name instead of
+    // "RealComponentName". Since this extracted name also becomes the
+    // exported const's actual variable name in generated code, a wrong
+    // value isn't just a wrong label - if it contained characters
+    // invalid in a JS identifier (spaces, punctuation - both totally
+    // plausible for arbitrary nested string data), it could produce
+    // outright broken, non-compiling generated code.
     const objContent = scriptFromExport.slice(startIndex, endIndex + 1);
-    const nameMatch = objContent.match(/name\s*:\s*(['"])([^'"]+)\1/);
-    if (nameMatch) {
-      return nameMatch[2];
+    // Strip the outer braces before scanning so findTopLevelNameValue's
+    // depth===0 check means the same thing it means in
+    // ../script/index.ts's findTopLevelKey: "a direct top-level property
+    // of the component options object", not "one level inside the outer
+    // braces this slice happens to include".
+    const found = findTopLevelNameValue(objContent.slice(1, -1));
+    if (found) {
+      return found;
     }
   }
 

@@ -215,34 +215,110 @@ function scopeCSS(css: string, scope: CSSScope): string {
         const trimmed = sel.trim();
         if (!trimmed) return '';
 
-        // Handle pseudo-classes / pseudo-elements safely by locating the root-level colon
-        let colonIdx = -1;
-        let depth = 0;
-        for (let i = 0; i < trimmed.length; i++) {
-          const char = trimmed[i];
-          if (char === '(') depth++;
-          else if (char === ')') depth--;
-          else if (char === ':' && depth === 0) {
-            colonIdx = i;
-            break;
-          }
-        }
+        // Only the LAST compound selector in a combinator chain (after
+        // the last top-level space/>/+/~) gets scoped - matches this
+        // scoper's own established convention for plain selectors with
+        // no pseudo-class at all (`.parent .child` correctly produces
+        // `.parent .child[attr]`, not `.parent[attr] .child[attr]`,
+        // since earlier segments may belong to an ancestor/child
+        // component this one doesn't own). Previously the pseudo-class
+        // handling below ran on the *entire* selector string as a single
+        // unit, finding the first root-level colon anywhere in it -  so
+        // a pseudo-class on an *earlier* segment
+        // (`.parent:hover > .child:focus`) caused the scope attribute to
+        // land on `.parent` (wrong - it should never be scoped at all in
+        // a combinator chain) while `.child`, the actual last/target
+        // segment, was left completely unscoped. Confirmed via an actual
+        // compile: the selector was emitted with a scope attribute in
+        // completely the wrong place and the last segment - the part
+        // that should have been scoped - not scoped at all.
+        const { prefix, lastSegment } = splitLastCombinatorSegment(trimmed);
 
-        if (colonIdx !== -1) {
-          const element = trimmed.slice(0, colonIdx).trim();
-          const pseudo = trimmed.slice(colonIdx); // includes leading colon(s)
-          
-          if (element === '') {
-            return `[${attribute}]${pseudo}`;
-          }
-          return `${element}[${attribute}]${pseudo}`;
-        }
-
-        // Handle ID selectors (#header -> #header[data-v-xxx]), classes, and combinators
-        return `${trimmed}[${attribute}]`;
+        const scopedLastSegment = scopeCompoundSelector(lastSegment);
+        if (!prefix) return scopedLastSegment;
+        // Preserve a single space between the combinator and the scoped
+        // segment (splitLastCombinatorSegment's prefix ends right at the
+        // combinator character itself, with no trailing space) - purely
+        // cosmetic, `.parent >.child` and `.parent > .child` are both
+        // equally valid CSS, but the extra space matches normal
+        // formatting conventions.
+        return /\s$/.test(prefix) ? `${prefix}${scopedLastSegment}` : `${prefix} ${scopedLastSegment}`;
       })
       .filter(Boolean)
       .join(', ');
+  }
+
+  /**
+   * Splits a full selector into everything before the last top-level
+   * combinator (kept as-is, including the combinator itself and its
+   * surrounding whitespace) and the final compound selector segment
+   * (the part that actually gets scoped). Combinators inside
+   * parentheses (`:not(.a > .b)`) are correctly skipped, matching the
+   * same depth-tracking approach used elsewhere in this file.
+   */
+  function splitLastCombinatorSegment(selector: string): { prefix: string; lastSegment: string } {
+    let depth = 0;
+    let lastCombinatorEnd = -1;
+
+    for (let i = 0; i < selector.length; i++) {
+      const char = selector[i];
+      if (char === '(') depth++;
+      else if (char === ')') depth--;
+      else if (depth === 0 && (char === '>' || char === '+' || char === '~')) {
+        lastCombinatorEnd = i + 1;
+      } else if (depth === 0 && /\s/.test(char)) {
+        // A plain space is only a descendant combinator if it's not
+        // immediately adjacent to a combinator character already
+        // recorded (avoids treating the spaces around `>`/`+`/`~`
+        // themselves as a second, separate combinator).
+        const prevNonSpace = selector.slice(0, i).trimEnd();
+        if (!/[>+~]$/.test(prevNonSpace)) {
+          lastCombinatorEnd = i + 1;
+        }
+      }
+    }
+
+    if (lastCombinatorEnd === -1) {
+      return { prefix: '', lastSegment: selector };
+    }
+
+    return {
+      prefix: selector.slice(0, lastCombinatorEnd),
+      lastSegment: selector.slice(lastCombinatorEnd).trim(),
+    };
+  }
+
+  /**
+   * Applies the scope attribute to a single compound selector (e.g.
+   * `.child:focus`, `#header`, `div`), correctly inserting it before any
+   * pseudo-class/pseudo-element suffix.
+   */
+  function scopeCompoundSelector(trimmed: string): string {
+    // Handle pseudo-classes / pseudo-elements safely by locating the root-level colon
+    let colonIdx = -1;
+    let depth = 0;
+    for (let i = 0; i < trimmed.length; i++) {
+      const char = trimmed[i];
+      if (char === '(') depth++;
+      else if (char === ')') depth--;
+      else if (char === ':' && depth === 0) {
+        colonIdx = i;
+        break;
+      }
+    }
+
+    if (colonIdx !== -1) {
+      const element = trimmed.slice(0, colonIdx).trim();
+      const pseudo = trimmed.slice(colonIdx); // includes leading colon(s)
+
+      if (element === '') {
+        return `[${attribute}]${pseudo}`;
+      }
+      return `${element}[${attribute}]${pseudo}`;
+    }
+
+    // Handle ID selectors (#header -> #header[data-v-xxx]), classes, and combinators
+    return `${trimmed}[${attribute}]`;
   }
 
   // Robust CSS parser that handles strings, comments, nested at-rules, and @keyframes

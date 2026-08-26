@@ -98,7 +98,7 @@ export function compile(
   source: string,
   options: SFCCompileOptions = {}
 ): SFCCompileResult {
-  const { filename = 'component.vel', scoped: scopedOption = false } = options;
+  const { filename = 'component.vel' } = options;
   const diagnostics = {
     errors: [] as string[],
     warnings: [] as string[],
@@ -107,28 +107,36 @@ export function compile(
   // 1. Parse the SFC with matching options signature
   const sfc = parseSFC(source, { filename });
 
-  // Whether to scope this file's CSS. The <style> tag's own `scoped`
-  // attribute (see sfc.styleScoped, now actually read by parseSFC/
-  // parseBlock - previously parsed and silently discarded) is
-  // authoritative whenever a <style> block exists: writing `<style
-  // scoped>` vs plain `<style>` in a specific .vel file is meant to be a
-  // per-component choice, and letting a single external `scoped` compile
-  // option force the same behavior onto every component regardless of
-  // what its own <style> tag actually says defeats the entire point of
-  // that attribute existing. `options.scoped` is only consulted as a
-  // fallback for callers with no real <style> block to read an attribute
-  // from at all.
-  const scoped = sfc.style !== undefined ? sfc.styleScoped : scopedOption;
+  // Whether ANY style block in this file needs scoping, used to decide
+  // whether to compute a shared scope id at all. Individual blocks still
+  // respect their own `scoped` attribute below - a global block among
+  // several stays unscoped even if a sibling scoped block exists.
+  // `scopedOption` (the external compile() option) no longer has any
+  // effect here: every real <style> block's own `scoped` attribute is
+  // read directly via sfc.styleBlocks (see parser/index.ts), so there's
+  // nothing left for a single external flag to meaningfully override
+  // once actual per-file attributes are always available - it only ever
+  // mattered as a fallback for a hypothetical caller with no <style>
+  // block to read from, which by definition has nothing to scope
+  // anyway.
+  const anyBlockScoped = sfc.styleBlocks.some((b) => b.scoped);
 
-  // Compute the scoped-CSS attribute up front, from the raw filename +
-  // style text, so it's available before compiling the template - both
-  // the template compiler (which stamps this attribute onto every element
-  // it creates) and the style compiler (which appends it to every CSS
-  // selector) need to agree on the exact same value, or scoped styles
-  // compile to valid CSS that never matches anything in the actual
-  // rendered DOM. Previously each independently generated its own scope
-  // id and the two were never connected at all.
-  const scope = scoped && sfc.style ? scopeFromId(generateScopeId(filename, sfc.style)) : undefined;
+  // Compute ONE scope id shared by every scoped block in this file (and
+  // used to stamp every element the template creates), from the
+  // filename plus the combined text of all style blocks. This has to be
+  // a single shared value, not one computed independently per block:
+  // the template compiler stamps each element with exactly one scope
+  // attribute, so if two scoped <style> blocks in the same file
+  // computed different ids (e.g. from just their own, different, CSS
+  // text), only one of them would ever actually match a rendered
+  // element - the other's selectors would compile to valid CSS that
+  // matches nothing, the same class of bug the very first scoped-CSS
+  // fix (in an earlier commit) addressed for the single-block case.
+  const combinedStyleText = sfc.styleBlocks.map((b) => b.content).join('\n');
+  const scope =
+    anyBlockScoped && sfc.styleBlocks.length > 0
+      ? scopeFromId(generateScopeId(filename, combinedStyleText))
+      : undefined;
 
   // 2. Compile the template
   const template = compileTemplate(sfc.template, {
@@ -149,17 +157,34 @@ export function compile(
     target: options.target,
   });
 
-  // 4. Compile the style (if any)
+  // 4. Compile the style block(s), each respecting its own `scoped`
+  // attribute, and concatenate the results. Previously this only ever
+  // looked at sfc.style (the first block) - any additional <style>
+  // blocks in the file were silently dropped with no warning, and a
+  // single component couldn't mix a scoped block with a global one at
+  // all.
   let style: StyleCompileResult | undefined;
-  if (sfc.style) {
-    style = compileStyle(sfc.style, {
-      filename,
-      sourceMap: options.sourceMap,
-      minify: options.minify,
-      scoped,
-      componentName: sfc.name || DEFAULT_COMPONENT_NAME,
-      scope,
-    });
+  if (sfc.styleBlocks.length > 0) {
+    const compiledBlocks = sfc.styleBlocks.map((block) =>
+      compileStyle(block.content, {
+        filename,
+        sourceMap: options.sourceMap,
+        minify: options.minify,
+        scoped: block.scoped,
+        componentName: sfc.name || DEFAULT_COMPONENT_NAME,
+        scope: block.scoped ? scope : undefined,
+      })
+    );
+
+    style = {
+      css: compiledBlocks.map((b) => b.css).join('\n'),
+      scope: compiledBlocks.find((b) => b.scope)?.scope,
+      diagnostics: {
+        errors: compiledBlocks.flatMap((b) => b.diagnostics.errors),
+        warnings: compiledBlocks.flatMap((b) => b.diagnostics.warnings),
+      },
+      map: compiledBlocks[0]?.map,
+    };
   }
 
   // 5. Combine diagnostics

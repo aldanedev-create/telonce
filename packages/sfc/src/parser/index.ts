@@ -43,6 +43,15 @@ export interface SFCResult {
   styleScoped: boolean;
 
   /**
+   * All <style> blocks found in the file, in source order. A single
+   * .vel file can legitimately contain more than one (e.g. one scoped +
+   * one global) - `style`/`styleLang`/`styleScoped` above only reflect
+   * the first one, kept for existing code that reads those singular
+   * fields; this is the complete list.
+   */
+  styleBlocks: Array<{ content: string; lang?: string; scoped: boolean }>;
+
+  /**
    * Script language (js, ts)
    */
   scriptLang?: string;
@@ -143,13 +152,33 @@ function findUnquoted(source: string, pattern: RegExp, from: number): RegExpExec
 }
 
 /**
- * Helper to extract content and attributes of a SFC block
+ * Helper to extract content and attributes of a SFC block. `fromIndex`
+ * lets callers search starting partway through `source`, so repeated
+ * calls (see findAllBlocks below) can locate more than one block of the
+ * same tag - needed because a single .vel file can legitimately have
+ * more than one <style> block (e.g. one scoped + one global, a real,
+ * common SFC pattern), which parseSFC previously had no way to see past
+ * the first of at all.
  */
-function parseBlock(source: string, tag: string): { content: string; lang?: string; scoped?: boolean } | null {
+function parseBlock(
+  source: string,
+  tag: string,
+  fromIndex = 0
+): { content: string; lang?: string; scoped?: boolean; matchEnd: number } | null {
   // Check for self-closing tag (e.g. <style src="..." />)
   const selfCloseRegex = new RegExp(`<${tag}\\b([^>]*)\\/\\s*>`, 'i');
-  const selfMatch = source.match(selfCloseRegex);
-  if (selfMatch) {
+  selfCloseRegex.lastIndex = fromIndex;
+  const selfMatch = selfCloseRegex.exec(source.slice(fromIndex));
+  const openRegexProbe = new RegExp(`<${tag}\\b([^>]*)>`, 'i');
+  const openMatchProbe = openRegexProbe.exec(source.slice(fromIndex));
+
+  // Prefer whichever form (self-closing vs normal open tag) appears
+  // first in the remaining source, so a self-closing block doesn't
+  // wrongly take priority over an earlier normal block (or vice versa).
+  if (
+    selfMatch &&
+    (!openMatchProbe || selfMatch.index <= openMatchProbe.index)
+  ) {
     const attrs = selfMatch[1];
     let lang: string | undefined;
     const langMatch = attrs.match(/lang\s*=\s*(["'])([^"']+)\1/i);
@@ -157,15 +186,19 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
       lang = langMatch[2];
     }
     const scoped = /(^|\s)scoped(\s|=|$)/i.test(attrs);
-    return { content: '', lang, scoped };
+    return { content: '', lang, scoped, matchEnd: fromIndex + selfMatch.index + selfMatch[0].length };
   }
 
   // Find opening tag
   const openRegex = new RegExp(`<${tag}\\b([^>]*)>`, 'i');
-  const openMatch = source.match(openRegex);
-  if (!openMatch || openMatch.index === undefined) return null;
+  openRegex.lastIndex = fromIndex;
+  const openMatchRel = openRegex.exec(source.slice(fromIndex));
+  if (!openMatchRel) return null;
+  const openMatchIndex = fromIndex + openMatchRel.index;
+  const openMatchFull = openMatchRel[0];
+  const openMatchAttrs = openMatchRel[1];
 
-  const attrs = openMatch[1];
+  const attrs = openMatchAttrs;
   let lang: string | undefined;
   const langMatch = attrs.match(/lang\s*=\s*(["'])([^"']+)\1/i);
   if (langMatch) {
@@ -173,7 +206,7 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
   }
   const scoped = /(^|\s)scoped(\s|=|$)/i.test(attrs);
 
-  const startIndex = openMatch.index + openMatch[0].length;
+  const startIndex = openMatchIndex + openMatchFull.length;
   const closeTag = `</${tag}>`;
 
   // Use a balanced tag scanning approach to avoid truncating at inner
@@ -222,7 +255,32 @@ function parseBlock(source: string, tag: string): { content: string; lang?: stri
   }
 
   const content = source.slice(startIndex, endIndex).trim();
-  return { content, lang, scoped };
+  return { content, lang, scoped, matchEnd: endIndex + closeTag.length };
+}
+
+/**
+ * Finds every occurrence of `tag`'s block in `source`, not just the
+ * first. Needed for <style>, where more than one block in a single file
+ * is a real, common pattern (e.g. one scoped + one global) - previously
+ * parseSFC only ever looked at the first <style> block found and any
+ * additional ones were silently dropped with no warning at all.
+ */
+function findAllBlocks(
+  source: string,
+  tag: string
+): Array<{ content: string; lang?: string; scoped?: boolean }> {
+  const results: Array<{ content: string; lang?: string; scoped?: boolean }> = [];
+  let searchFrom = 0;
+
+  while (searchFrom < source.length) {
+    const block = parseBlock(source, tag, searchFrom);
+    if (!block) break;
+    results.push({ content: block.content, lang: block.lang, scoped: block.scoped });
+    if (block.matchEnd <= searchFrom) break; // safety net against a zero-progress match
+    searchFrom = block.matchEnd;
+  }
+
+  return results;
 }
 
 /**
@@ -421,8 +479,18 @@ export function parseSFC(source: string, options: SFCParserOptions = {}): SFCRes
     diagnostics.warnings.push(`${errorPrefix}No <script> section found`);
   }
 
-  // Parse Style Section
-  const styleBlock = parseBlock(source, 'style');
+  // Parse Style Section - a .vel file can legitimately have more than one
+  // <style> block (e.g. one scoped + one global), so this finds all of
+  // them, not just the first. `style`/`styleLang`/`styleScoped` below
+  // still reflect just the first block, for any existing code reading
+  // those singular fields; `styleBlocks` carries the complete list.
+  const styleBlocksFound = findAllBlocks(source, 'style');
+  const styleBlocks = styleBlocksFound.map((b) => ({
+    content: b.content,
+    lang: b.lang,
+    scoped: b.scoped ?? false,
+  }));
+  const styleBlock = styleBlocksFound[0];
   if (styleBlock) {
     style = styleBlock.content;
     styleLang = styleBlock.lang;
@@ -436,6 +504,7 @@ export function parseSFC(source: string, options: SFCParserOptions = {}): SFCRes
     style,
     styleLang,
     styleScoped,
+    styleBlocks,
     scriptLang,
     diagnostics,
   };

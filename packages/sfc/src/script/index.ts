@@ -257,9 +257,29 @@ function extractObjectProperty(objStr: string, propName: string): string | null 
   const keyIdx = findTopLevelKey(objStr, propName);
   if (keyIdx === -1) return null;
 
-  const startIdx = objStr.indexOf('{', keyIdx);
-  if (startIdx === -1) return null;
+  // Verify the value immediately following `propName:` is actually an
+  // object literal (starts with `{`) before searching for it. Previously
+  // this jumped straight to `objStr.indexOf('{', keyIdx)` - the position
+  // of the *nearest* `{` anywhere after the key, with no check that the
+  // key's own value was an object at all. For an array-style props
+  // declaration (`props: ['label', 'count']`, a real, documented,
+  // otherwise-valid way to declare props with no object literal
+  // anywhere in it), that search skipped straight past the array and
+  // matched a completely unrelated later property's opening brace -
+  // confirmed via an actual compile: `props: ['label', 'count'],
+  // data() { return {}; }` extracted `data()`'s own function body as if
+  // it were the props definition, silently corrupting one property with
+  // another's content instead of correctly recognizing this isn't an
+  // object-form props declaration at all (that's the array-form
+  // fallback's job, see the `props` handling in compileScript below).
+  let j = keyIdx + propName.length;
+  while (j < objStr.length && /\s/.test(objStr[j])) j++;
+  if (objStr[j] !== ':') return null;
+  j++;
+  while (j < objStr.length && /\s/.test(objStr[j])) j++;
+  if (objStr[j] !== '{') return null;
 
+  const startIdx = j;
   const endIdx = findMatchingBrace(objStr, startIdx);
   if (endIdx !== -1) {
     return objStr.slice(startIdx + 1, endIdx).trim();

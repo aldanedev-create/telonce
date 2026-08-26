@@ -293,9 +293,14 @@ function generateCode(
     code += `  styles,\n`;
   }
   if (sfc.script) {
-    // Extract exports from script
+    // Extract exports from script. `props` was previously extracted
+    // correctly by compileScript but never actually emitted here at
+    // all - a component author writing `props: ['label', 'count']` (or
+    // the object form) had it silently discarded, with the compiled
+    // component definition never carrying any props field whatsoever.
     const exports = script.exports || {};
     if (exports.data) code += `  data: ${exports.data},\n`;
+    if (exports.props) code += `  props: ${exports.props},\n`;
     if (exports.methods) code += `  methods: ${exports.methods},\n`;
     if (exports.computed) code += `  computed: ${exports.computed},\n`;
     if (exports.lifecycle) {

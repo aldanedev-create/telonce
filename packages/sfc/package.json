@@ -30,7 +30,8 @@
   },
   "dependencies": {
     "@teloce/compiler": "workspace:^",
-    "@teloce/shared": "workspace:^"
+    "@teloce/shared": "workspace:^",
+    "esbuild": "^0.21.0"
   },
   "peerDependencies": {},
   "devDependencies": {

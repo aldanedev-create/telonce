@@ -155,6 +155,7 @@ export function compile(
     minify: options.minify,
     dev: options.dev,
     target: options.target,
+    lang: sfc.scriptLang,
   });
 
   // 4. Compile the style block(s), each respecting its own `scoped`

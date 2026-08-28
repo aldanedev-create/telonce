@@ -2,6 +2,8 @@
  * Script compiler - compiles the <script> section with stateful brace balancing and safe minification
  */
 
+import { transformSync } from 'esbuild';
+
 export interface ScriptCompileResult {
   /**
    * Compiled JavaScript code
@@ -58,6 +60,34 @@ export interface ScriptCompileOptions {
    * Target platform
    */
   target?: 'browser' | 'node' | 'esm';
+
+  /**
+   * The <script> block's `lang` attribute (e.g. "ts"). When this is a
+   * TypeScript variant, the source is run through esbuild's transformSync
+   * first to strip all TS-only syntax (type annotations, interfaces,
+   * generics, `as`/`satisfies`, non-null assertions, etc.) down to plain
+   * JS before any of the regex/brace-based extraction below runs.
+   *
+   * Without this, `lang="ts"` was accepted and exposed on SFCResult but
+   * never actually acted on anywhere - the exact same brace/regex
+   * extraction ran on raw TypeScript source as if it were plain JS. That
+   * doesn't just produce cosmetically-off output: confirmed via an
+   * actual compile that `data(): { x: number } { return { x: 1 }; }` (a
+   * return type annotation shaped like an object, extremely normal
+   * TypeScript) caused the "find the next `{`" extraction logic to grab
+   * the *type annotation's own* braces instead of the real function
+   * body, producing `data: () => { x: number }` - which isn't even
+   * valid JavaScript (`{ x: number }` as an arrow body parses as a
+   * labeled statement referencing an undefined variable, throwing at
+   * runtime). Method-level return type annotations were worse: e.g.
+   * `bump(): void { this.x++; }` was passed through completely
+   * unmodified into the compiled output, which is a syntax error that
+   * fails to even parse - `: void` isn't valid JS method shorthand
+   * syntax at all. Any component actually using TypeScript syntax
+   * (which `lang="ts"` explicitly invites) was producing broken,
+   * non-executable compiled output with zero indication why.
+   */
+  lang?: string;
 }
 
 /**
@@ -387,8 +417,48 @@ export function compileScript(
     lifecycle: {},
   };
 
+  // Strip TypeScript syntax down to plain JS before any of the
+  // regex/brace-based extraction below runs, so it never has to deal
+  // with type annotations, generics, interfaces, etc. at all - see the
+  // full explanation on ScriptCompileOptions.lang above.
+  let sourceForExtraction = source;
+  const isTypeScript = options.lang === 'ts' || options.lang === 'tsx';
+  if (isTypeScript) {
+    try {
+      const transformed = transformSync(source, {
+        loader: options.lang === 'tsx' ? 'tsx' : 'ts',
+        // Only strip types; don't downlevel syntax (target modern JS) -
+        // this compiler's own regex extraction expects the same JS
+        // surface syntax (arrow functions, shorthand methods, etc.) as
+        // if the user had written it directly, not esbuild's own
+        // lowered/transpiled equivalents. Deliberately NOT passing
+        // `format: 'esm'` here: esbuild's ESM output normalizes
+        // `export default {...}` into `var stdin_default = {...}; export
+        // { stdin_default as default };`, which extractExportObject's
+        // `export\s+default` search doesn't recognize at all - confirmed
+        // that with format:'esm' specified, every field (data, methods,
+        // everything) silently extracted as nothing, despite the
+        // TypeScript stripping itself working correctly. Omitting
+        // `format` leaves a plain `export default {...}` object literal
+        // completely untouched other than having its types stripped,
+        // which is exactly the shape the rest of this file expects.
+        target: 'esnext',
+        sourcemap: false,
+      });
+      sourceForExtraction = transformed.code;
+      code = sourceForExtraction;
+    } catch (error) {
+      diagnostics.errors.push(
+        `Failed to strip TypeScript syntax: ${error instanceof Error ? error.message : String(error)}`
+      );
+      // Fall through and attempt extraction on the raw TS source anyway -
+      // better to try and possibly partially succeed than to abort the
+      // whole component.
+    }
+  }
+
   try {
-    const exportObj = extractExportObject(source);
+    const exportObj = extractExportObject(sourceForExtraction);
 
     if (exportObj) {
       // 1. Extract data function - checks for either the shorthand-method

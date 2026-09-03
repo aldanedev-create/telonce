@@ -103,13 +103,26 @@ export function throttle<T extends (...args: any[]) => void>(fn: T, limit: numbe
     }
   };
 }
-
 export function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return str.replace(/[&<>]/g, (tag) => {
+    const chars: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;'
+    };
+    return chars[tag] || tag;
+  });
 }
 
 export function unescapeHtml(str: string): string {
-  return str.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  return str.replace(/&(amp|lt|gt);/g, (match, entity) => {
+    const entities: Record<string, string> = {
+      amp: '&',
+      lt: '<',
+      gt: '>'
+    };
+    return entities[entity] || match;
+  });
 }
 
 export function trimLines(str: string): string {
